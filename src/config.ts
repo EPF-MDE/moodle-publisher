@@ -3,15 +3,20 @@
 // this program: a stray run must never be able to edit a real course by
 // falling back to something plausible.
 //
-// A `.env` file beside this package is read as a *lower* layer than the real
+// The run happens in a course repository: the directory the command line is
+// started in. The documents are read from there, and the course's run state —
+// the manifest, the Probe Sheets, the run captures and the `.env` — is kept
+// there, never beside this package, which once installed is inside
+// node_modules and goes with the next install.
+//
+// A `.env` file at the repository root is read as a *lower* layer than the real
 // environment: it is a convenience for not retyping the course id, never an
 // authority. Whatever is exported in the shell wins, so a one-off run against
 // a scratch course cannot be silently overridden by a file someone forgot was
 // there.
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
 export class UnreadableEnvFile extends Error {
   readonly path: string;
@@ -90,7 +95,17 @@ export interface Config {
   readonly now: Date | undefined;
 }
 
-const PUBLISHER_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+/**
+ * The course repository a run is in: the directory it was started in, unless
+ * `PUBLISHER_REPO_ROOT` names another.
+ *
+ * Read only from the real environment, like `PUBLISHER_ENV_FILE`: the env file
+ * is found at this root, so a root named inside it would move the file that
+ * named it.
+ */
+function repositoryRoot(env: NodeJS.ProcessEnv): string {
+  return resolve(env["PUBLISHER_REPO_ROOT"] ?? process.cwd());
+}
 
 /** `KEY=value`, with an optional `export`. */
 const ENV_LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/;
@@ -168,7 +183,7 @@ export function resolveEnv(
   env: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
   const named = env["PUBLISHER_ENV_FILE"];
-  const path = resolve(named ?? join(PUBLISHER_DIR, ".env"));
+  const path = resolve(named ?? join(repositoryRoot(env), ".env"));
   return { ...readEnvFile(path, named === undefined), ...env };
 }
 
@@ -195,9 +210,7 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     "MOODLE_COURSE_ID",
     "Set it to the id of the course to publish into. There is no default course."
   );
-  const repoRoot = resolve(
-    env["PUBLISHER_REPO_ROOT"] ?? dirname(PUBLISHER_DIR)
-  );
+  const repoRoot = repositoryRoot(rawEnv);
   const driver: DriverName =
     env["PUBLISHER_DRIVER"] === "fake" ? "fake" : "browser";
 
@@ -215,7 +228,7 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     repoRoot,
     driver,
     manifestPath: resolve(
-      env["PUBLISHER_MANIFEST"] ?? join(PUBLISHER_DIR, "moodle-manifest.json")
+      env["PUBLISHER_MANIFEST"] ?? join(repoRoot, "moodle-manifest.json")
     ),
     // Outside git, treated as a secret: it is a session cookie, revocable by
     // logging out of Office 365.
@@ -224,9 +237,9 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
         join(homedir(), ".config", "epf-moodle-publisher", "session.json")
     ),
     probeSheetPath: resolve(
-      env["PUBLISHER_PROBE_SHEETS"] ?? join(PUBLISHER_DIR, "probe-sheets.csv")
+      env["PUBLISHER_PROBE_SHEETS"] ?? join(repoRoot, "probe-sheets.csv")
     ),
-    runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(PUBLISHER_DIR, "runs")),
+    runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,
     // The publishable table is code, and a real run always uses the code. The
     // override is honoured only for the fake driver, so it is a test seam that

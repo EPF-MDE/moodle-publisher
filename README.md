@@ -15,11 +15,9 @@ npm install --save-dev github:epf-mde/moodle-publisher#<tag>
 npx moodle-publisher publish      # the binary takes the commands below
 ```
 
-**Not yet usable from a course repository as it stands.** A run's repository root and its run state — the manifest, `.env`, `runs/` and the Probe Sheets — still default to paths beside the publisher's own source, which once installed is inside `node_modules`, where the next install would delete the manifest. Until those defaults follow the working directory ([#104]), an installed publisher must be run with `PUBLISHER_REPO_ROOT`, `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE`, `PUBLISHER_PROBE_SHEETS` and `MOODLE_RUN_DIR` all set.
+**Run it from the course repository's root.** The directory the command is started in is the repository root: the documents are read from there, and the course's run state is kept there — `moodle-manifest.json` (committed), `.env`, `runs/` and `probe-sheets.csv` (all three git-ignored in the course repository: a session's captures and every Student's sheet). Nothing is kept beside the publisher, which once installed is inside `node_modules`, where the next install would delete it. `PUBLISHER_REPO_ROOT` names another root, and `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE`, `PUBLISHER_PROBE_SHEETS` and `MOODLE_RUN_DIR` each still move one file. The Moodle session stays outside git, in `~/.config/epf-moodle-publisher/`.
 
-[#104]: https://github.com/xavxyz/epf-coding-agents-management/issues/104
-
-Playwright's browser binary is installed once per machine, as below. Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source.
+Playwright's browser binary is installed once per machine, as below. Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source; this checkout holds no course, so point `PUBLISHER_REPO_ROOT` at one, and the run state follows it there.
 
 ## Running it
 

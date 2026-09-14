@@ -44,11 +44,11 @@ test("the shell wins over the env file", async () => {
 test("an env file may be absent, and then the shell alone configures the run", async () => {
   const workspace = makeWorkspace();
 
-  const result = await workspace.publisher(["publish"], {
-    PUBLISHER_ENV_FILE: undefined,
-    // Reaching for the publisher's own .env is what the default does; the
-    // repository has none, and the run must simply proceed on the shell.
-  });
+  workspace.remove(".env");
+
+  // Reaching for the .env at the repository root is what the default does;
+  // the repository has none, and the run must simply proceed on the shell.
+  const result = await workspace.publisher(["publish"]);
 
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stdout, /Course 4242 /);

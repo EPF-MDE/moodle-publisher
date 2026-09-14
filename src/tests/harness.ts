@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
   existsSync,
 } from "node:fs";
@@ -55,6 +56,7 @@ export interface Workspace {
   /** Where `probes` writes the generated Probe Sheets. */
   readonly probeSheetsPath: string;
   write(relative: string, contents: string): void;
+  remove(relative: string): void;
   writeCatalog(catalog: unknown): void;
   writeCourse(course: unknown): void;
   writeEnv(contents: string): void;
@@ -147,9 +149,9 @@ export function makeWorkspace(): Workspace {
   const manifestPath = join(root, "moodle-manifest.json");
   const coursePath = join(root, ".course.json");
   const catalogPath = join(root, ".catalog.json");
-  // Every run is pointed at this file, empty unless a test writes it: the
-  // suite must never read — or be changed by — the .env the developer keeps
-  // beside the publisher for their own course.
+  // The .env at the root every run starts in, empty unless a test writes it:
+  // the suite must never read — or be changed by — the .env the developer
+  // keeps in their own course repository.
   const envPath = join(root, ".env");
   const probeSheetsPath = join(root, "probe-sheets.csv");
 
@@ -165,6 +167,10 @@ export function makeWorkspace(): Workspace {
       const path = join(root, relative);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, contents, "utf8");
+    },
+
+    remove(relative) {
+      rmSync(join(root, relative), { force: true });
     },
 
     writeCatalog(catalog) {
@@ -191,24 +197,30 @@ export function makeWorkspace(): Workspace {
     },
 
     async publisher(args, env = {}) {
-      const environment: NodeJS.ProcessEnv = {
-        ...process.env,
+      const overrides: Record<string, string | undefined> = {
         MOODLE_BASE_URL: "https://moodle.example.test",
         MOODLE_COURSE_ID: COURSE_ID,
         PUBLISHER_DRIVER: "fake",
         PUBLISHER_FAKE_COURSE: coursePath,
-        PUBLISHER_REPO_ROOT: root,
-        PUBLISHER_MANIFEST: manifestPath,
         PUBLISHER_CATALOG: catalogPath,
-        PUBLISHER_ENV_FILE: envPath,
-        PUBLISHER_PROBE_SHEETS: probeSheetsPath,
+        // The run's state follows the directory it is started in, so none of
+        // its paths is set — and none a developer's shell exports leaks in.
+        PUBLISHER_REPO_ROOT: undefined,
+        PUBLISHER_MANIFEST: undefined,
+        PUBLISHER_ENV_FILE: undefined,
+        PUBLISHER_PROBE_SHEETS: undefined,
+        MOODLE_RUN_DIR: undefined,
         ...env,
       };
-      for (const [key, value] of Object.entries(env)) {
+      const environment: NodeJS.ProcessEnv = { ...process.env, ...overrides };
+      for (const [key, value] of Object.entries(overrides)) {
         if (value === undefined) delete environment[key];
       }
       try {
+        // Started from the workspace, as an instructor starts it from the
+        // course repository.
         const { stdout, stderr } = await run(process.execPath, [packagedCli(), ...args], {
+          cwd: root,
           env: environment,
         });
         return { code: 0, stdout, stderr };
