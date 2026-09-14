@@ -17,3 +17,17 @@ Tests live centrally in `src/tests/` and run on fixtures alone; none reads a rea
 ## Never unattended
 
 The browser driver refuses to run when `CI` is set, and no workflow here touches Moodle. Do not add one.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for EPF-MDE/moodle-publisher, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
