@@ -1,0 +1,91 @@
+<!--
+  The "Choose a file" control of /grade/import/csv/index.php, cut from the page
+  a real run captured on 2026-09-09 against course 14707 (Moodle 4.x, Boost,
+  site language French). The session key in the original <noscript> is replaced
+  by REDACTED; nothing else is edited.
+
+  Kept because this is core Moodle's `filepicker` *form element*, whose choose
+  control is an <input type="button"> carrying `fp-btn-choose` itself — not
+  Atto's <div class="fp-btn-choose"><a>. A selector written for one does not
+  match the other, and reading that off a live page costs an attended session.
+-->
+<fieldset id="id_userfile_fieldset">
+  <legend class="sr-only">Fichier</legend>
+  <div
+    class="filemanager-loading mdl-align"
+    id="filepicker-loading-6aa173efad586"
+    style="display: none"
+  >
+    <i
+      class="icon fa fa-spinner fa-spin fa-sm fa-fw"
+      title="Chargement…"
+      role="img"
+      aria-label="Chargement…"
+    ></i>
+  </div>
+  <div id="filepicker-wrapper-6aa173efad586" class="mdl-left w-100" style="">
+    <div>
+      <input
+        type="button"
+        class="btn btn-secondary fp-btn-choose"
+        id="filepicker-button-6aa173efad586"
+        value="Choisir un fichier…"
+        name="userfilechoose"
+        style=""
+      />
+      <span> Taille maximale des nouveaux fichiers&nbsp;: 100&nbsp;Mo </span>
+    </div>
+    <div
+      id="file_info_6aa173efad586"
+      class="mdl-left filepicker-filelist"
+      style="position: relative"
+    >
+      <div class="filepicker-filename">
+        <div class="filepicker-container">
+          <div class="dndupload-message">
+            Vous pouvez glisser des fichiers ici pour les ajouter. <br />
+            <div class="dndupload-arrow d-flex">
+              <i class="fa fa-arrow-circle-o-down fa-3x m-auto"></i>
+            </div>
+          </div>
+        </div>
+        <div class="dndupload-progressbars"></div>
+      </div>
+      <div>
+        <div class="dndupload-target">
+          Lâcher les fichiers ici pour les envoyer<br />
+          <div class="dndupload-arrow d-flex">
+            <i class="fa fa-arrow-circle-o-down fa-3x m-auto"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input
+    type="hidden"
+    name="userfile"
+    id="id_userfile"
+    value="660597084"
+    class="filepickerhidden"
+    style=""
+  />
+  <noscript
+    ><div>
+      <object
+        type="text/html"
+        data="https://moodle.epf.fr/repository/draftfiles_manager.php?env=filepicker&amp;action=browse&amp;itemid=660597084&amp;subdirs=0&amp;maxbytes=104857600&amp;maxfiles=1&amp;ctx_id=1184894&amp;course=14707&amp;sesskey=REDACTED"
+        height="160"
+        width="600"
+        style="border: 1px solid #000"
+      ></object></div
+  ></noscript>
+  <p>Types de fichier acceptés&nbsp;:</p>
+  <div class="form-filetypes-descriptions w-100">
+    <ul class="list-unstyled unstyled">
+      <li>Fichier texte <small class="text-dark">.txt</small></li>
+      <li>
+        Valeurs séparées par des virgules <small class="text-dark">.csv</small>
+      </li>
+    </ul>
+  </div>
+</fieldset>

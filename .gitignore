@@ -1,0 +1,12 @@
+node_modules
+
+# A live Moodle session, and the screenshots of each run.
+.env
+runs/
+session.json
+
+# The generated Probe Sheets: every line of it belongs to a Student.
+probe-sheets.csv
+
+# What `npm pack` leaves when run by hand.
+*.tgz

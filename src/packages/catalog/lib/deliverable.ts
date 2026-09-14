@@ -1,0 +1,332 @@
+// Implementation: private to the catalog package.
+//
+// A Deliverable is something required from a Student by a stated instant, and
+// it is defined once — in the front matter of the document whose prose states
+// the same instant two lines below. The reading is here; the table of which
+// documents may define one is in `table.ts`, like every other membership
+// question in this package.
+//
+// A Deliverable does not say where it goes. There is one section Devoirs land
+// in — `DELIVERABLE_SECTION` — and its membership is derived from this table
+// rather than named by an entry, so there is exactly one way for anything to
+// arrive there.
+//
+// Every failure in this file is an abort that names the Deliverable it is
+// about. There is no default id, no default title and, above all, no default
+// Freeze: a Deliverable this program had to guess at is a Devoir a student
+// meets at a deadline that nobody wrote down.
+import { frontMatter } from "../../documents/index.ts";
+
+import { formatFreeze, formatInstant, readFreeze } from "./freeze.ts";
+
+import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
+import type { Freeze } from "./freeze.ts";
+
+/**
+ * The three independently graded capabilities. A Deliverable serves one or
+ * more of them, and a Deliverable serving a fourth is a typo — the course has
+ * no such thing to grade it on.
+ */
+export const COMPETENCIES = ["C1", "C2", "C3"] as const;
+
+export type Competency = (typeof COMPETENCIES)[number];
+
+/** One Deliverable, as everything downstream of the catalog sees it. */
+export interface Deliverable {
+  /**
+   * Authored, never computed from position. Inserting a Deliverable above
+   * another one must not rename it, because the manifest keys the Devoir
+   * already published by this.
+   */
+  readonly id: string;
+  /** What Students read on the course page — never the id. */
+  readonly title: string;
+  readonly competencies: readonly Competency[];
+  /**
+   * The instant it stops accepting work. Written `due` in the front matter,
+   * which is the word Moodle's own form uses; a Freeze everywhere else,
+   * because what it is here is the enforced instant and not a stated date.
+   */
+  readonly freeze: Freeze;
+  /** Whether the Devoir is visible when it is created. Defaults to true. */
+  readonly visible: boolean;
+  /** The document whose front matter defines it, for messages about it. */
+  readonly source: string;
+}
+
+/** How a Deliverable is named in a message before its id is known to be sound. */
+function named(source: string, id: string | undefined): string {
+  return id === undefined
+    ? `a Deliverable in "${source}"`
+    : `Deliverable "${id}"`;
+}
+
+/**
+ * A document the table says defines Deliverables defines none.
+ *
+ * Not "no Deliverables, then". The table naming a document is a statement that
+ * the Deliverables are in it, and a run that quietly published no Devoir would
+ * leave students with nowhere to hand in and an instructor with a plan that
+ * looked fine.
+ */
+export class NoDeliverables extends Error {
+  constructor(source: string) {
+    super(
+      `Refusing to start: "${source}" is the document that defines the Deliverables, and its ` +
+        `front matter defines none. Deliverables are written in a "deliverables:" block at the ` +
+        `top of the file. Restore it, or take the document out of the Deliverable table.`
+    );
+    this.name = "NoDeliverables";
+  }
+}
+
+/**
+ * Two Deliverables share an id.
+ *
+ * Both are named — by title and by the document that defines them, because a
+ * copy-paste produces two entries with the same title as readily as the same
+ * id, and "one of these two" is not a message anyone can act on. The fix is
+ * deciding which of the two entries is wrong, and there is no way to tell that
+ * from one of them.
+ *
+ * The manifest keys a Devoir by this id: two Deliverables carrying one id are
+ * two Devoirs competing for one record, and whichever ran second would
+ * overwrite the first.
+ */
+export class DuplicateDeliverableId extends Error {
+  constructor(id: string, first: Deliverable, second: Deliverable) {
+    super(
+      `Refusing to start: two Deliverables are defined with the id "${id}" — ` +
+        `"${first.title}" in "${first.source}" and "${second.title}" in "${second.source}". ` +
+        `An id is what the published Devoir is recorded under, so two of them ` +
+        `would compete for one record. Give one of them a different id.`
+    );
+    this.name = "DuplicateDeliverableId";
+  }
+}
+
+/** A Deliverable is missing a field that has no sound default. */
+export class MissingDeliverableField extends Error {
+  constructor(source: string, id: string | undefined, field: string) {
+    super(
+      `Refusing to start: ${named(source, id)} has no "${field}". Every Deliverable states its ` +
+        `id, title, competencies and due in the front matter of "${source}"; none of them is ` +
+        `defaulted.`
+    );
+    this.name = "MissingDeliverableField";
+  }
+}
+
+/**
+ * A `due` that is not an instant this program can read.
+ *
+ * Fatal, and deliberately so: the alternative to stopping is publishing a
+ * Devoir with whatever date a lenient parser made of it, which is discovered
+ * by a student at a deadline.
+ */
+export class UnreadableFreeze extends Error {
+  constructor(source: string, id: string, written: string) {
+    super(
+      `Refusing to start: Deliverable "${id}" in "${source}" has due "${written}", which is not ` +
+        `an instant this program can read. Write it as a date, a time and an explicit ` +
+        `Europe/Paris offset, e.g. 2026-09-10T20:00:00+02:00. Nothing is defaulted: a Freeze ` +
+        `this program guessed at is one a student meets at a deadline.`
+    );
+    this.name = "UnreadableFreeze";
+  }
+}
+
+/**
+ * A `due` whose offset is not the one `Europe/Paris` was on that day.
+ *
+ * The quiet failure this catches: `+01:00` on 10 September parses, and means
+ * 21:00 Paris time. So does `Z`, and so does anything written without an
+ * offset at all — which would be read against whichever zone the machine
+ * running the publisher happens to be in.
+ */
+export class FreezeNotInParis extends Error {
+  constructor(
+    source: string,
+    id: string,
+    written: string,
+    offset: string,
+    paris: string
+  ) {
+    super(
+      `Refusing to start: Deliverable "${id}" in "${source}" has due "${written}", whose offset ` +
+        `is ${offset}, but Europe/Paris is ${paris} at that instant. The Freeze is written as ` +
+        `the timetable states it, in Paris time, with the offset that makes it one instant: ` +
+        `write it as ${paris}, or correct the time.`
+    );
+    this.name = "FreezeNotInParis";
+  }
+}
+
+/**
+ * A `visible` that is written down and is not `true` or `false`.
+ *
+ * The one field with a default, so it is the one field a typo can pass
+ * through: anything that is not `false` would otherwise read as visible, and
+ * the Deliverable that says `visible: false` is the C3 one, hidden until the
+ * autonomy slot begins.
+ */
+export class UnreadableVisibility extends Error {
+  constructor(source: string, id: string, written: string) {
+    super(
+      `Refusing to start: Deliverable "${id}" in "${source}" has visible "${written}", which is ` +
+        `neither true nor false. Leave it out for a Devoir students see as soon as it is ` +
+        `published, or write "visible: false" for one that ships hidden.`
+    );
+    this.name = "UnreadableVisibility";
+  }
+}
+
+/** A Deliverable serving a Competency the course does not have. */
+export class UnknownCompetency extends Error {
+  constructor(source: string, id: string, competency: string) {
+    super(
+      `Refusing to start: Deliverable "${id}" in "${source}" serves competency "${competency}", ` +
+        `which this course does not have. The competencies are ${COMPETENCIES.join(", ")}. ` +
+        `A Devoir published against a competency nobody is graded on is work handed in for ` +
+        `nothing.`
+    );
+    this.name = "UnknownCompetency";
+  }
+}
+
+/**
+ * Every Deliverable the documents in `sources` define, checked.
+ *
+ * Read in table order, and every one of them read before anything else
+ * happens: these are startup guards, and the point of them is that they fire
+ * before the course is opened.
+ */
+export function readDeliverables(
+  repoRoot: string,
+  sources: readonly string[]
+): readonly Deliverable[] {
+  const deliverables: Deliverable[] = [];
+  const byId = new Map<string, Deliverable>();
+  for (const source of sources) {
+    const defined = deliverablesIn(repoRoot, source);
+    if (defined.length === 0) throw new NoDeliverables(source);
+    for (const deliverable of defined) {
+      const first = byId.get(deliverable.id);
+      if (first !== undefined) {
+        throw new DuplicateDeliverableId(deliverable.id, first, deliverable);
+      }
+      byId.set(deliverable.id, deliverable);
+      deliverables.push(deliverable);
+    }
+  }
+  return deliverables;
+}
+
+function deliverablesIn(
+  repoRoot: string,
+  source: string
+): readonly Deliverable[] {
+  const written = frontMatter(repoRoot, source)?.["deliverables"];
+  if (written === undefined) return [];
+  if (!Array.isArray(written)) {
+    throw new NoDeliverables(source);
+  }
+  return written.map((entry) => readDeliverable(source, entry));
+}
+
+function readDeliverable(source: string, entry: FrontMatterValue): Deliverable {
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    throw new MissingDeliverableField(source, undefined, "id");
+  }
+  const fields = entry as FrontMatter;
+  const id = nonEmptyString(fields["id"]);
+  if (id === undefined)
+    throw new MissingDeliverableField(source, undefined, "id");
+
+  const title = nonEmptyString(fields["title"]);
+  if (title === undefined)
+    throw new MissingDeliverableField(source, id, "title");
+
+  return {
+    id,
+    title,
+    competencies: readCompetencies(source, id, fields["competencies"]),
+    freeze: readDue(source, id, fields["due"]),
+    visible: readVisible(source, id, fields["visible"]),
+    source,
+  };
+}
+
+/**
+ * Whether the Devoir is created visible. Absent means visible, and that is the
+ * one default in a Deliverable: the safe direction, because a Devoir that
+ * shipped visible and should not have is a hide the instructor makes in
+ * Moodle, whereas nothing recovers a Freeze that was wrong.
+ *
+ * Written and not a boolean is not that default, though — it is a typo, and
+ * `visible: fasle` reading as "visible" is precisely how the C3 Devoir would
+ * appear on the course page a week before the exercise.
+ */
+function readVisible(
+  source: string,
+  id: string,
+  written: FrontMatterValue | undefined
+): boolean {
+  if (written === undefined) return true;
+  if (typeof written !== "boolean") {
+    throw new UnreadableVisibility(source, id, String(written));
+  }
+  return written;
+}
+
+function readCompetencies(
+  source: string,
+  id: string,
+  written: FrontMatterValue | undefined
+): readonly Competency[] {
+  const listed =
+    written === undefined ? [] : Array.isArray(written) ? written : [written];
+  const competencies = listed.flatMap((entry) => {
+    const name = nonEmptyString(entry);
+    if (name === undefined || !COMPETENCIES.includes(name as Competency)) {
+      throw new UnknownCompetency(source, id, String(name ?? entry));
+    }
+    return [name as Competency];
+  });
+  if (competencies.length === 0) {
+    throw new MissingDeliverableField(source, id, "competencies");
+  }
+  return competencies;
+}
+
+function readDue(
+  source: string,
+  id: string,
+  written: FrontMatterValue | undefined
+): Freeze {
+  const due = nonEmptyString(written);
+  if (due === undefined) throw new MissingDeliverableField(source, id, "due");
+  const reading = readFreeze(due);
+  if (reading.ok) return reading.freeze;
+  if (reading.problem.kind === "not-paris") {
+    throw new FreezeNotInParis(
+      source,
+      id,
+      due,
+      reading.problem.written,
+      reading.problem.paris
+    );
+  }
+  throw new UnreadableFreeze(source, id, due);
+}
+
+/** A field's value when it was written as a non-empty string, else undefined. */
+function nonEmptyString(
+  value: FrontMatterValue | undefined
+): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value.trim() === "" ? undefined : value.trim();
+}
+
+export { formatFreeze, formatInstant };
+export type { Freeze };

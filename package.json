@@ -1,0 +1,44 @@
+{
+  "name": "@epf-mde/moodle-publisher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Publishes an EPF course from its repository into Moodle, one way and repeatably.",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "moodle-publisher": "bin/moodle-publisher.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "!src/tests/",
+    "docs/",
+    ".env.example"
+  ],
+  "scripts": {
+    "setup": "node src/cli.ts setup",
+    "plan": "node src/cli.ts publish",
+    "apply": "node src/cli.ts publish --apply",
+    "probes": "node src/cli.ts probes",
+    "import": "node src/cli.ts import --apply",
+    "audit": "node src/cli.ts audit",
+    "check:upload": "node scripts/check-image-upload.ts",
+    "check:selectors": "node scripts/check-grade-import-selectors.ts",
+    "wipe": "node src/cli.ts wipe",
+    "typecheck": "tsc --noEmit",
+    "lint:boundaries": "depcruise src",
+    "test": "node --test --test-global-setup=src/tests/packaged.ts",
+    "check": "npm run typecheck && npm run lint:boundaries && npm run test && npm run check:selectors"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "dependency-cruiser": "^18.2.0",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "marked": "^18.0.11",
+    "playwright": "^1.62.1"
+  }
+}
