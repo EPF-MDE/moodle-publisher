@@ -32,6 +32,7 @@ test("the sections appear in their fixed order, whatever order the table is in",
   assert.deepEqual(names(workspace), [
     "General",
     "Assessment",
+    "Deliverables",
     "Lectures",
     "Labs",
   ]);
@@ -62,11 +63,12 @@ test("a section the instructor made by hand keeps the place it already had", asy
     "General",
     "Labs",
     "Assessment",
+    "Deliverables",
     "Lectures",
   ]);
 });
 
-test("publishing into a course with no sections creates the one it needs", async () => {
+test("publishing into a course with no sections creates the ones it needs", async () => {
   const workspace = makeWorkspace();
   workspace.writeCourse({
     courseId: "4242",
@@ -79,7 +81,7 @@ test("publishing into a course with no sections creates the one it needs", async
 
   assert.equal(result.code, 0, result.stderr);
   const course = workspace.readCourse();
-  assert.deepEqual(names(workspace), ["General", "Assessment"]);
+  assert.deepEqual(names(workspace), ["General", "Assessment", "Deliverables"]);
   assert.equal(course.items[0]?.section, "Assessment");
 });
 
@@ -96,7 +98,14 @@ test("an existing section is used, not duplicated", async () => {
 
   assert.equal(result.code, 0, result.stderr);
   const course = workspace.readCourse();
-  assert.deepEqual(names(workspace), ["General", "Assessment", "Labs"]);
+  // Deliverables is the one the course lacked, so it is the one added — at the
+  // end, like any section added to a course that already has others.
+  assert.deepEqual(names(workspace), [
+    "General",
+    "Assessment",
+    "Labs",
+    "Deliverables",
+  ]);
   assert.equal(course.items[0]?.section, "Assessment");
 });
 

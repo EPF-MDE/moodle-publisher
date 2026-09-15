@@ -5,10 +5,12 @@ import assert from "node:assert/strict";
 import {
   ANCHORS_MARKDOWN,
   ANCHORS_SOURCE,
+  GRID_FRONT_MATTER,
   INSTRUCTOR_ENTRIES,
   itemNamed,
   makeWorkspace,
   writeDayOneSet,
+  writeGrid,
   writeInstructorSet,
 } from "./harness.ts";
 
@@ -289,8 +291,9 @@ test("a sentence the grid publishes on purpose is not a leak of the anchors that
   writeInstructorSet(workspace);
   const question =
     "Walk me through how you framed this work. Show me one unit you would hand to a fresh agent session.";
-  workspace.write(
-    "assessment-grid.md",
+  writeGrid(
+    workspace,
+    GRID_FRONT_MATTER,
     `# Assessment Grid\n\nThree competencies, each graded independently on a five band scale.\n\n${question}\n`
   );
   workspace.write(

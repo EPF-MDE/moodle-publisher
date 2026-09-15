@@ -4,11 +4,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
   makeWorkspace,
   writeDayOneSet,
+  writeGrid,
   DAY_ONE_ENTRIES,
   LECTURE_MARKDOWN,
+  GRID_FRONT_MATTER,
   GRID_MARKDOWN,
   LAB_MARKDOWN,
 } from "./harness.ts";
@@ -22,7 +25,8 @@ test("a second consecutive run reports zero changes", async () => {
 
   assert.equal(second.code, 0, second.stderr);
   assert.match(second.stdout, /0 to create, 0 to update, 3 to skip/);
-  assert.equal(workspace.readCourse().items.length, 3);
+  // Three documents and two Devoirs, none of them made twice.
+  assert.equal(workspace.readCourse().items.length, 5);
 });
 
 test("a changed document is planned as an update before anything is applied", async () => {
@@ -77,7 +81,8 @@ test("editing one document updates exactly that activity, keeping its module id"
     untouched,
     before.filter((item) => !item.name.startsWith("Lecture 1"))
   );
-  assert.equal(untouched.length, 2);
+  // The grid, the lab and the two Devoirs.
+  assert.equal(untouched.length, 4);
 });
 
 test("an update refreshes the hash and keeps the first publication date", async () => {
@@ -105,8 +110,9 @@ test("an interrupted run of updates leaves an accurate manifest, and re-running 
   const published = workspace.readManifest().documents;
 
   // All three documents change, and the driver raises on the second update.
-  workspace.write(
-    "assessment-grid.md",
+  writeGrid(
+    workspace,
+    GRID_FRONT_MATTER,
     `${GRID_MARKDOWN}\n| Strong | Rare. |\n`
   );
   workspace.write("lectures/lecture-1.md", `${LECTURE_MARKDOWN}\n- More.\n`);
@@ -137,7 +143,11 @@ test("an interrupted run of updates leaves an accurate manifest, and re-running 
 
   assert.equal(resumed.code, 0, resumed.stderr);
   assert.match(resumed.stdout, /0 to create, 2 to update, 1 to skip/);
-  const after = workspace.readCourse().items;
+  // The three documents, each carrying its edit. The Devoirs beside them were
+  // never part of the change.
+  const after = workspace
+    .readCourse()
+    .items.filter((item) => item.section !== DELIVERABLE_SECTION);
   assert.equal(after.length, 3);
   for (const item of after) assert.match(item.body, /More\.|Strong/);
 });

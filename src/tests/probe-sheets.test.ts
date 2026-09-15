@@ -71,8 +71,6 @@ function repository(probes: string = PROBES): Workspace {
         section: "Assessment",
       },
     ],
-    deliverableSources: ["assessment-grid.md"],
-    probeSources: ["assessment-grid.md"],
   });
   return workspace;
 }

@@ -5,8 +5,7 @@
 // accident. Who a document is *for* is the one thing not written in the table
 // — the `--instructor` suffix on its filename says it, and nothing else does.
 import {
-  DELIVERABLE_SOURCES,
-  PROBE_SOURCES,
+  GRID,
   INSTRUCTOR_TITLE_PREFIX,
   PUBLISHED,
   isInstructorMaterial,
@@ -21,6 +20,7 @@ export {
   ReservedSection,
   UnknownSection,
 } from "./lib/guard.ts";
+export { NoGrid } from "./lib/override.ts";
 export { isRevealed } from "./lib/reveal.ts";
 
 import type { SectionName } from "../course/index.ts";
@@ -28,19 +28,13 @@ import type { SectionName } from "../course/index.ts";
 import type { PublishedEntry } from "./lib/table.ts";
 
 export interface Catalog {
+  /**
+   * The repository-relative path of the assessment grid, whose front matter
+   * defines the Deliverables and the Oral's probes. Read by `loadDeliverables`
+   * and `loadProbes` in this package's other entry points.
+   */
+  readonly grid: string;
   readonly published: readonly PublishedEntry[];
-  /**
-   * The documents whose front matter defines Deliverables — the assessment
-   * grid, and nothing else. Read by `loadDeliverables` in this package's other
-   * entry point.
-   */
-  readonly deliverableSources: readonly string[];
-  /**
-   * The documents whose front matter defines the Oral's probes — the assessment
-   * grid, whose band criteria they are drawn from. Read by `loadProbes` in this
-   * package's third entry point.
-   */
-  readonly probeSources: readonly string[];
 }
 
 /**
@@ -113,11 +107,7 @@ export interface PublishedDocument {
 export function loadCatalog(overridePath?: string | undefined): Catalog {
   const catalog: Catalog =
     overridePath === undefined
-      ? {
-          published: PUBLISHED,
-          deliverableSources: DELIVERABLE_SOURCES,
-          probeSources: PROBE_SOURCES,
-        }
+      ? { grid: GRID, published: PUBLISHED }
       : readCatalogFile(overridePath);
   validate(catalog.published);
   return catalog;

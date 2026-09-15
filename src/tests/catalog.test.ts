@@ -42,6 +42,20 @@ test("a document bound for a section the course page does not have stops the run
   assert.deepEqual(workspace.readCourse().items, []);
 });
 
+test("a catalog file naming no grid stops the run", async () => {
+  // No default: the Deliverables and the probes are read from the grid, and a
+  // catalog that forgot to name it must not have one guessed for it.
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.writeCatalog({ grid: undefined, published: [] });
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /names no grid/);
+  assert.deepEqual(workspace.readCourse().items, []);
+});
+
 test("no two documents share a title, once the prefix is derived", async () => {
   // A title is how `AlreadyInCourse` recognises a document the manifest has
   // lost, so two documents sharing one would have a run refuse to publish the
@@ -96,13 +110,11 @@ test("renaming a document is the whole of the change", async () => {
   };
   const [visible] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples.md" }],
-    deliverableSources: [],
-    probeSources: [],
+    grid: "assessment-grid.md",
   });
   const [hidden] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples--instructor.md" }],
-    deliverableSources: [],
-    probeSources: [],
+    grid: "assessment-grid.md",
   });
 
   assert.equal(visible?.visibleOnCreate, true);

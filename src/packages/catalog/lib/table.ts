@@ -248,28 +248,16 @@ export const PUBLISHED: readonly PublishedEntry[] = [
 ];
 
 /**
- * The documents whose front matter defines Deliverables. One, and it is the
- * assessment grid.
+ * The assessment grid: the one document whose front matter defines both the
+ * Deliverables and the Oral's probes.
  *
- * A table rather than a rule, like the publishing question itself: nothing is
+ * Named rather than a rule, like the publishing question itself: nothing is
  * discovered by walking a directory or by noticing that a document happens to
  * carry front matter. The grid is the one document that already states every
- * Freeze in one place, so the definition and the prose that has to agree with
- * it are read in one diff.
+ * Freeze and every band criterion in one place, so the definitions and the
+ * prose that has to agree with them are read in one diff.
  *
- * A document named here and defining nothing is an abort, not an empty list:
- * the entry is a statement that the Deliverables are in that file.
+ * A grid defining no Deliverables is an abort, not an empty list: naming it is
+ * a statement that the Deliverables are in that file.
  */
-export const DELIVERABLE_SOURCES: readonly string[] = ["assessment-grid.md"];
-
-/**
- * The documents whose front matter defines the Oral's probes.
- *
- * The same document, and separately said: "this file defines what students hand
- * in" and "this file defines what they are asked about it" are two statements,
- * and one list serving both would make deleting a Deliverable definition
- * silently delete the probes with it. Named here rather than discovered by
- * noticing that a document happens to carry a `probes:` block, like every other
- * membership question in this package.
- */
-export const PROBE_SOURCES: readonly string[] = ["assessment-grid.md"];
+export const GRID = "assessment-grid.md";

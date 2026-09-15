@@ -34,6 +34,7 @@ test("instructor material is created hidden, beside the documents it pairs with"
   assert.deepEqual(sectionsOf(workspace), [
     ["General", true],
     ["Assessment", true],
+    ["Deliverables", true],
     ["Lectures", true],
     ["Labs", true],
   ]);
@@ -196,7 +197,7 @@ test("wipe reports and deletes the instructor activities with everything else", 
 
   const planned = await workspace.publisher(["wipe", "--course", "4242"]);
   assert.match(planned.stdout, new RegExp(`delete activity\\s+${SCRIPT}`));
-  assert.match(planned.stdout, /delete section\s+3\. Labs/);
+  assert.match(planned.stdout, /delete section\s+4\. Labs/);
 
   const result = await workspace.publisher([
     "wipe",

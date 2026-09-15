@@ -29,14 +29,14 @@ export class UnknownSection extends Error {
  * {@link UnknownSection} cannot catch this one: `Deliverables` *is* a section
  * of the course page, so the name passes every check that asks whether a
  * section exists. What it fails is who may name it — membership there is
- * derived from the Deliverable table, and a document arriving by a `section`
+ * derived from the grid's Deliverables, and a document arriving by a `section`
  * entry is the second way in that the design does not have.
  */
 export class ReservedSection extends Error {
   constructor(source: string) {
     super(
       `Refusing to start: "${source}" is published to section "${DELIVERABLE_SECTION}", which ` +
-        `holds the Devoirs and nothing else. What is in it is decided by the Deliverable table, ` +
+        `holds the Devoirs and nothing else. What is in it is decided by the Deliverables the grid defines, ` +
         `not by an entry naming it. Publish the document to another section.`
     );
     this.name = "ReservedSection";

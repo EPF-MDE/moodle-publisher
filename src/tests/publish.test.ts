@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import { makeWorkspace, GRID_MARKDOWN } from "./harness.ts";
 
 test("a run reports its plan and applies nothing", async () => {
@@ -42,7 +43,11 @@ test("applying creates the grid in the Assessment section, tables and all", asyn
 
   assert.equal(result.code, 0, result.stderr);
   const [item, ...rest] = workspace.readCourse().items;
-  assert.deepEqual(rest, []);
+  // Beside it, only the Devoirs its front matter defines.
+  assert.deepEqual(
+    rest.map((other) => other.section),
+    [DELIVERABLE_SECTION, DELIVERABLE_SECTION]
+  );
   assert.equal(item?.name, "Assessment Grid — how you are graded");
   assert.equal(item?.section, "Assessment");
   assert.equal(item?.visible, true);
@@ -73,7 +78,8 @@ test("a document already in the manifest is skipped, not created twice", async (
 
   assert.match(second.stdout, /skip/);
   assert.match(second.stdout, /0 to create, 0 to update, 1 to skip/);
-  assert.equal(workspace.readCourse().items.length, 1);
+  // The grid and its two Devoirs, each made once.
+  assert.equal(workspace.readCourse().items.length, 3);
 });
 
 test("the manifest gains its entry as each item succeeds, not at the end", async () => {
@@ -116,9 +122,11 @@ test("the manifest gains its entry as each item succeeds, not at the end", async
   assert.equal(resumed.code, 0, resumed.stderr);
   assert.deepEqual(Object.keys(workspace.readManifest().documents).sort(), [
     "assessment-grid.md",
+    "deliverable:c1-1",
+    "deliverable:c3-1",
     "lecture-1.md",
   ]);
-  assert.equal(workspace.readCourse().items.length, 2);
+  assert.equal(workspace.readCourse().items.length, 4);
 });
 
 test("missing course id aborts, naming the variable, with no default course", async () => {

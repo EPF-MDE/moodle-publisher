@@ -67,8 +67,8 @@ test("the deleted activity is created again, and the manifest follows it", async
     workspace.readManifest().documents["lectures/lecture-1.md"]?.moduleId,
     restored.moduleId
   );
-  // Nothing else was disturbed on the way past.
-  assert.equal(workspace.readCourse().items.length, 3);
+  // Nothing else was disturbed on the way past: three documents, two Devoirs.
+  assert.equal(workspace.readCourse().items.length, 5);
 });
 
 test("the recreated activity sends its pictures again, holding none of its own", async () => {
@@ -160,6 +160,7 @@ test("an examiner-only activity put back by hand is not published a second time"
     plan.stderr,
     /already holds an activity called "Instructor — Oral interview script"/
   );
-  // Nothing was written on the strength of a guess about which copy is real.
-  assert.equal(workspace.readCourse().items.length, 5);
+  // Nothing was written on the strength of a guess about which copy is real:
+  // five documents and two Devoirs, as the first run left them.
+  assert.equal(workspace.readCourse().items.length, 7);
 });

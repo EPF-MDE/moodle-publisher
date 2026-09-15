@@ -126,7 +126,7 @@ Moving a document from one section to another is not something the publisher doe
 
 ## Sections
 
-The course page's sections are a fixed list, in the order students read them: **Assessment, Deliverables, Lectures, Labs, Autonomy, Resources**. `Deliverables` is second so that the grid stating the Freeze and the section enforcing it are adjacent; it is also the one section no document may name, because what is in it is decided by the Deliverable table. A student looking for how they are graded should not have to scroll past every lab brief to find it, so the order is the publisher's, not the order the table happens to be written in.
+The course page's sections are a fixed list, in the order students read them: **Assessment, Deliverables, Lectures, Labs, Autonomy, Resources**. `Deliverables` is second so that the grid stating the Freeze and the section enforcing it are adjacent; it is also the one section no document may name, because what is in it is decided by the Deliverables the grid defines. A student looking for how they are graded should not have to scroll past every lab brief to find it, so the order is the publisher's, not the order the table happens to be written in.
 
 **Every section the publisher creates is created visible**, including the ones holding an answer key. Hiding is a property of the page, not of the room it stands in — see [Instructor material](#instructor-material).
 
@@ -251,11 +251,11 @@ deliverables:
 ---
 ```
 
-**No entry says where it goes.** There is one `Deliverables` section, it holds Devoirs and nothing else, and its membership is derived from this table ([ADR-0005](https://github.com/xavxyz/epf-coding-agents-management/blob/master/docs/adr/0005-devoirs-live-in-a-section-of-their-own.md)): a section whose contents are decided by what a thing _is_ does not take a field saying where it goes, and a field would invite a fixture to name another one. A published document that names `Deliverables` **aborts the run** — `Deliverables` is a real section, so the check that asks whether a section exists would pass it straight through, and this is the guard beside it that does not.
+**No entry says where it goes.** There is one `Deliverables` section, it holds Devoirs and nothing else, and its membership is derived from this front matter ([ADR-0005](https://github.com/xavxyz/epf-coding-agents-management/blob/master/docs/adr/0005-devoirs-live-in-a-section-of-their-own.md)): a section whose contents are decided by what a thing _is_ does not take a field saying where it goes, and a field would invite a fixture to name another one. A published document that names `Deliverables` **aborts the run** — `Deliverables` is a real section, so the check that asks whether a section exists would pass it straight through, and this is the guard beside it that does not.
 
 `id` is **authored, never computed from position**: it is what the published Devoir will be recorded under, so inserting a Deliverable above another one must not rename it. `visible` defaults to true and is the only defaulted field. There is no `link_kind`: both Deliverables are repository URLs, and nothing distinguishes them by link kind.
 
-Which documents may define Deliverables is `DELIVERABLE_SOURCES`, a second table beside the one above — the same doctrine, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a document the table names that defines none aborts rather than quietly publishing no Devoir.
+Which document defines the Deliverables is the catalog's `grid`: one assessment grid, from whose front matter the Oral's probes are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
 
 `publish` reports both Deliverables and states each **Freeze in full** — the weekday, the date, the time, the zone and the instant — so a wrong date is caught by reading the plan rather than by a student at a deadline. The section is stated once, in the heading over them, rather than repeated down a column: it is the same constant for every Devoir, and what is worth checking against the timetable on that page is the Freeze.
 

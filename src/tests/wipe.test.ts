@@ -7,6 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
   devoirNamed,
   gridDefining,
@@ -206,7 +207,11 @@ test("wipe clears the manifest, so the next publish rebuilds the course", async 
   assert.equal(again.code, 0, again.stderr);
   assert.match(again.stdout, /created/);
   const [item, ...rest] = workspace.readCourse().items;
-  assert.deepEqual(rest, []);
+  // The grid, then the Devoirs its front matter defines, and nothing else.
+  assert.deepEqual(
+    rest.map((other) => other.section),
+    [DELIVERABLE_SECTION, DELIVERABLE_SECTION]
+  );
   assert.equal(item?.name, "Assessment Grid — how you are graded");
   assert.equal(item?.body.includes("Solid"), true, GRID_MARKDOWN);
 });

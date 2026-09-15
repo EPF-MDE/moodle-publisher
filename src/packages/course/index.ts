@@ -35,9 +35,9 @@ export type SectionName = (typeof SECTION_ORDER)[number];
  *
  * There is no `section` field on a Deliverable: there is exactly one section a
  * Devoir can go to, and a field would invite a fixture — or a later edit — to
- * name another one. Membership is derived from the Deliverable table instead,
- * so a document claiming this section is refused rather than let in beside the
- * Devoirs.
+ * name another one. Membership is derived from the Deliverables the grid
+ * defines instead, so a document claiming this section is refused rather than
+ * let in beside the Devoirs.
  *
  * It is second in {@link SECTION_ORDER}, after `Assessment`, so the grid that
  * states the Freeze and the section that enforces it are adjacent on a course
@@ -283,7 +283,7 @@ export const DEVOIR_SUBMISSION = {
  * for a page.
  *
  * There is no `section`: every Devoir goes to {@link DELIVERABLE_SECTION} and
- * membership there is derived from the Deliverable table, so a field naming a
+ * membership there is derived from the grid's Deliverables, so a field naming a
  * section would be the second way in that ADR-0005 says this design does not
  * have.
  *

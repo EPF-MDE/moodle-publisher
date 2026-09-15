@@ -115,6 +115,8 @@ test("the manifest records the grade items keyed by Competency, beside the pages
     "C2",
     "C3",
     "assessment-grid.md",
+    "deliverable:c1-1",
+    "deliverable:c3-1",
   ]);
   const entry = documents["C1"];
   assert.ok(entry, "expected a manifest entry for C1");

@@ -43,8 +43,6 @@ test("the Probe Sheets are written under the course repository root", async () =
     published: [
       { source: "assessment-grid.md", title: GRID_TITLE, section: "Assessment" },
     ],
-    deliverableSources: ["assessment-grid.md"],
-    probeSources: ["assessment-grid.md"],
   });
   const published = await workspace.publisher(["publish", "--apply"]);
   assert.equal(published.code, 0, published.stderr);

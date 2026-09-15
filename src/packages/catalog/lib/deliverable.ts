@@ -2,14 +2,14 @@
 //
 // A Deliverable is something required from a Student by a stated instant, and
 // it is defined once — in the front matter of the document whose prose states
-// the same instant two lines below. The reading is here; the table of which
-// documents may define one is in `table.ts`, like every other membership
-// question in this package.
+// the same instant two lines below. The reading is here; which document that
+// is — the grid — the catalog names, like every other membership question in
+// this package.
 //
 // A Deliverable does not say where it goes. There is one section Devoirs land
-// in — `DELIVERABLE_SECTION` — and its membership is derived from this table
-// rather than named by an entry, so there is exactly one way for anything to
-// arrive there.
+// in — `DELIVERABLE_SECTION` — and its membership is derived from the
+// Deliverables the grid defines rather than named by an entry, so there is
+// exactly one way for anything to arrive there.
 //
 // Every failure in this file is an abort that names the Deliverable it is
 // about. There is no default id, no default title and, above all, no default
@@ -62,19 +62,20 @@ function named(source: string, id: string | undefined): string {
 }
 
 /**
- * A document the table says defines Deliverables defines none.
+ * The grid the catalog names defines no Deliverables.
  *
- * Not "no Deliverables, then". The table naming a document is a statement that
- * the Deliverables are in it, and a run that quietly published no Devoir would
- * leave students with nowhere to hand in and an instructor with a plan that
- * looked fine.
+ * Not "no Deliverables, then". Naming a grid is a statement that the
+ * Deliverables are in it, and a run that quietly published no Devoir — because
+ * the grid lost its front matter, or because the catalog names the wrong
+ * document — would leave students with nowhere to hand in and an instructor
+ * with a plan that looked fine.
  */
 export class NoDeliverables extends Error {
-  constructor(source: string) {
+  constructor(grid: string) {
     super(
-      `Refusing to start: "${source}" is the document that defines the Deliverables, and its ` +
+      `Refusing to start: "${grid}" is the grid that defines the Deliverables, and its ` +
         `front matter defines none. Deliverables are written in a "deliverables:" block at the ` +
-        `top of the file. Restore it, or take the document out of the Deliverable table.`
+        `top of the file. Restore it, or point the catalog's grid at the document that defines them.`
     );
     this.name = "NoDeliverables";
   }
@@ -195,31 +196,26 @@ export class UnknownCompetency extends Error {
 }
 
 /**
- * Every Deliverable the documents in `sources` define, checked.
+ * Every Deliverable the grid defines, checked.
  *
- * Read in table order, and every one of them read before anything else
- * happens: these are startup guards, and the point of them is that they fire
- * before the course is opened.
+ * Every one of them read before anything else happens: these are startup
+ * guards, and the point of them is that they fire before the course is opened.
  */
 export function readDeliverables(
   repoRoot: string,
-  sources: readonly string[]
+  grid: string
 ): readonly Deliverable[] {
-  const deliverables: Deliverable[] = [];
+  const defined = deliverablesIn(repoRoot, grid);
+  if (defined.length === 0) throw new NoDeliverables(grid);
   const byId = new Map<string, Deliverable>();
-  for (const source of sources) {
-    const defined = deliverablesIn(repoRoot, source);
-    if (defined.length === 0) throw new NoDeliverables(source);
-    for (const deliverable of defined) {
-      const first = byId.get(deliverable.id);
-      if (first !== undefined) {
-        throw new DuplicateDeliverableId(deliverable.id, first, deliverable);
-      }
-      byId.set(deliverable.id, deliverable);
-      deliverables.push(deliverable);
+  for (const deliverable of defined) {
+    const first = byId.get(deliverable.id);
+    if (first !== undefined) {
+      throw new DuplicateDeliverableId(deliverable.id, first, deliverable);
     }
+    byId.set(deliverable.id, deliverable);
   }
-  return deliverables;
+  return defined;
 }
 
 function deliverablesIn(

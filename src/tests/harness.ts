@@ -174,7 +174,10 @@ export function makeWorkspace(): Workspace {
     },
 
     writeCatalog(catalog) {
-      writeFileSync(catalogPath, JSON.stringify(catalog, null, 2), "utf8");
+      // The grid is the fixture's own unless a test names another: every
+      // repository has one, and a catalog is about what it publishes.
+      const withGrid = { grid: GRID_SOURCE, ...(catalog as object) };
+      writeFileSync(catalogPath, JSON.stringify(withGrid, null, 2), "utf8");
     },
 
     writeCourse(course) {
@@ -242,13 +245,16 @@ export function makeWorkspace(): Workspace {
   // The document under test, plus the instructor material it must not be
   // confused with. Both exist in every fixture repository, as they do in the
   // real one; only the first is in the catalog until a test says otherwise.
+  //
+  // The grid defines the Deliverables and the probes, as the real one does: it
+  // is where every run reads them from, and a grid defining none aborts.
   workspace.writeEnv("");
-  workspace.write("assessment-grid.md", GRID_MARKDOWN);
+  writeGrid(workspace);
   workspace.write(ORAL_SCRIPT_SOURCE, INTERVIEW_MARKDOWN);
   workspace.writeCatalog({
     published: [
       {
-        source: "assessment-grid.md",
+        source: GRID_SOURCE,
         title: "Assessment Grid — how you are graded",
         section: "Assessment",
       },
@@ -257,6 +263,18 @@ export function makeWorkspace(): Workspace {
 
   return workspace;
 }
+
+/** Where the fixture repository keeps its assessment grid. */
+export const GRID_SOURCE = "assessment-grid.md";
+
+/** One probe per Competency, the least a grid can define and still be read. */
+export const ALL_PROBES = `probes:
+  C1:
+    - Three or more units of work?
+  C2:
+    - An instruction document?
+  C3:
+    - One command that goes red?`;
 
 /** The two Deliverables of this course, as the real grid's front matter defines them. */
 export const BOTH_DELIVERABLES = `deliverables:
@@ -270,43 +288,49 @@ export const BOTH_DELIVERABLES = `deliverables:
     due: 2026-09-11T09:30:00+02:00
     visible: false`;
 
+/** The front matter of the fixture grid: both Deliverables, and the probes. */
+export const GRID_FRONT_MATTER = `${BOTH_DELIVERABLES}\n${ALL_PROBES}`;
+
 /** The title the fixture catalog publishes the grid under. */
 export const GRID_TITLE = "Assessment Grid — how you are graded";
 
 /**
- * Rewrites the grid with `frontMatter`, leaving the catalog alone.
+ * Rewrites the grid with `frontMatter` above `markdown`, leaving the catalog
+ * alone.
  *
  * What editing a Deliverable is: the definitions live in the front matter of a
  * document that is already published, so a test that changes a title or a
  * Freeze changes this file and runs the publisher again — which is what the
- * instructor does.
+ * instructor does. A test about the grid's prose keeps the front matter, as an
+ * instructor editing the prose does.
  */
-export function writeGrid(workspace: Workspace, frontMatter: string): void {
-  workspace.write(
-    "assessment-grid.md",
-    `---\n${frontMatter}\n---\n\n${GRID_MARKDOWN}`
-  );
+export function writeGrid(
+  workspace: Workspace,
+  frontMatter: string = GRID_FRONT_MATTER,
+  markdown: string = GRID_MARKDOWN
+): void {
+  workspace.write(GRID_SOURCE, `---\n${frontMatter}\n---\n\n${markdown}`);
 }
 
 /**
  * A fixture repository whose grid carries `frontMatter`, and a catalog that
- * says the grid is where the Deliverables are defined.
+ * names it as the grid and publishes it.
  *
- * The catalog entry is what makes them read at all: nothing is discovered by
+ * The catalog's `grid` is what makes it read at all: nothing is discovered by
  * noticing that a document happens to carry front matter.
  */
 export function gridDefining(frontMatter: string): Workspace {
   const workspace = makeWorkspace();
   writeGrid(workspace, frontMatter);
   workspace.writeCatalog({
+    grid: GRID_SOURCE,
     published: [
       {
-        source: "assessment-grid.md",
+        source: GRID_SOURCE,
         title: GRID_TITLE,
         section: "Assessment",
       },
     ],
-    deliverableSources: ["assessment-grid.md"],
   });
   return workspace;
 }

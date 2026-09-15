@@ -20,7 +20,6 @@ import {
   devoirNamed,
   gridDefining,
   itemNamed,
-  makeWorkspace,
   sectionsOf,
 } from "./harness.ts";
 
@@ -131,22 +130,6 @@ test("the Devoirs land in a Deliverables section the run creates, and it is visi
   }
 });
 
-test("a run with no Devoir to create does not create an empty Deliverables section", async () => {
-  // No Deliverable is defined at all here, so nothing would ever go in it. An
-  // empty section on the course page is a place students look for a hand-in
-  // box that is not there.
-  const workspace = makeWorkspace();
-
-  const result = await workspace.publisher(["publish", "--apply"]);
-
-  assert.equal(result.code, 0, result.stderr);
-  assert.equal(
-    sectionsOf(workspace).some(([name]) => name === DELIVERABLE_SECTION),
-    false,
-    `the run made a "${DELIVERABLE_SECTION}" section with nothing to put in it`
-  );
-});
-
 test("the hidden C3 Devoir sits inside a visible Deliverables section", async () => {
   // Two locks would be one too many, and the wrong one: hiding the section
   // would take the C1 Devoir off the course page with it, and students would
@@ -246,8 +229,7 @@ test("a Deliverable defined in a document this run does not publish aborts", asy
   // read, and it would be found out by a student at a deadline.
   const workspace = gridDefining(BOTH);
   workspace.writeCatalog({
-    publishable: [],
-    deliverableSources: ["assessment-grid.md"],
+    published: [],
   });
 
   const result = await workspace.publisher(["publish", "--apply"]);

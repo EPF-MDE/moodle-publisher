@@ -13,11 +13,13 @@ import assert from "node:assert/strict";
 import {
   ANCHORS_MARKDOWN,
   DAY_ONE_ENTRIES,
+  GRID_FRONT_MATTER,
   GRID_MARKDOWN,
   INTERVIEW_MARKDOWN,
   ORAL_SCRIPT_SOURCE,
   itemNamed,
   makeWorkspace,
+  writeGrid,
 } from "./harness.ts";
 
 import type { Workspace } from "./harness.ts";
@@ -201,8 +203,9 @@ test("a link resolved on the second pass is relabelled like any other", async ()
   // The grid points back at the lab, which does not exist in the course when
   // the grid is written, so this link can only be answered after both pages
   // are made.
-  workspace.write(
-    "assessment-grid.md",
+  writeGrid(
+    workspace,
+    GRID_FRONT_MATTER,
     `${GRID_MARKDOWN}\nThe brief is [\`labs/lab-1.md\`](labs/lab-1.md).\n`
   );
   writeLinkingLab(workspace, labLinking("../assessment-grid.md"));
@@ -443,8 +446,9 @@ test("a link to a page made in the same run is rewritten before the run ends", a
   // The grid links back at the lab, and the lab at the grid: neither can be
   // made after the other, so at least one of them is written before its target
   // has a module id at all.
-  workspace.write(
-    "assessment-grid.md",
+  writeGrid(
+    workspace,
+    GRID_FRONT_MATTER,
     `${GRID_MARKDOWN}\nThe brief is [here](labs/lab-1.md).\n`
   );
   writeLinkingLab(workspace, labLinking("../assessment-grid.md"));

@@ -24,19 +24,20 @@ import type { Competency } from "./deliverable.ts";
 export type Probes = Readonly<Record<Competency, readonly string[]>>;
 
 /**
- * A document the table says defines the probes defines none.
+ * The grid the catalog names defines no probes.
  *
  * Not "no probes, then", for the reason {@link NoDeliverables} is not "no
- * Deliverables, then": the table naming a document is a statement that the
- * probes are in it, and a run that generated sheets with nothing on them would
- * leave the Instructor exactly where they started.
+ * Deliverables, then": naming a grid is a statement that the probes are in it,
+ * and a run that generated sheets with nothing on them would leave the
+ * Instructor exactly where they started.
  */
 export class NoProbes extends Error {
-  constructor(source: string) {
+  constructor(grid: string) {
     super(
-      `Refusing to start: "${source}" is the document that defines the Oral's probes, and its ` +
+      `Refusing to start: "${grid}" is the grid that defines the Oral's probes, and its ` +
         `front matter defines none. Probes are written in a "probes:" block at the top of the ` +
-        `file, one list per competency. Restore it, or take the document out of the probe table.`
+        `file, one list per competency. Restore it, or point the catalog's grid at the ` +
+        `document that defines them.`
     );
     this.name = "NoProbes";
   }
@@ -103,25 +104,16 @@ export class ProbeNamesABand extends Error {
 }
 
 /**
- * The probes every Competency's Probe Sheet carries, read from `sources`.
+ * The probes every Competency's Probe Sheet carries, read from the grid.
  *
  * Read before the course is opened, like the Deliverables and for the same
  * reason: every refusal in this file is about the repository, and none of them
  * is worth finding out with a browser sitting in the course.
  */
-export function readProbes(
-  repoRoot: string,
-  sources: readonly string[]
-): Probes {
-  const found = new Map<Competency, readonly string[]>();
-  for (const source of sources) {
-    for (const [competency, probes] of probesIn(repoRoot, source)) {
-      found.set(competency, probes);
-    }
-  }
-  const [source = ""] = sources;
+export function readProbes(repoRoot: string, grid: string): Probes {
+  const found = new Map<Competency, readonly string[]>(probesIn(repoRoot, grid));
   for (const competency of COMPETENCIES) {
-    if (!found.has(competency)) throw new MissingProbes(source, competency);
+    if (!found.has(competency)) throw new MissingProbes(grid, competency);
   }
   return Object.fromEntries(found) as Probes;
 }

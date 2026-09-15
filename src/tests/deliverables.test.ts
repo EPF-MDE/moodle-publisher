@@ -18,6 +18,7 @@ import {
 } from "../packages/course/index.ts";
 import {
   BOTH_DELIVERABLES as BOTH,
+  GRID_MARKDOWN,
   GRID_TITLE,
   gridDefining,
   itemNamed,
@@ -174,9 +175,14 @@ test("a visible that is neither true nor false aborts rather than reading as vis
   assert.deepEqual(workspace.readCourse().items, []);
 });
 
-test("a document named as defining Deliverables and defining none aborts", async () => {
+test("a grid defining no Deliverables aborts, naming the grid", async () => {
+  // The catalog points at a document that carries no front matter at all —
+  // the wrong file, or the right one after its block was deleted. Either way
+  // the grid is named as where the Deliverables are, and they are not there.
   const workspace = makeWorkspace();
+  workspace.write("labs/lab-1.md", GRID_MARKDOWN);
   workspace.writeCatalog({
+    grid: "labs/lab-1.md",
     published: [
       {
         source: "assessment-grid.md",
@@ -184,15 +190,12 @@ test("a document named as defining Deliverables and defining none aborts", async
         section: "Assessment",
       },
     ],
-    // The fixture grid carries no front matter at all: the table says the
-    // Deliverables are in it, and they are not.
-    deliverableSources: ["assessment-grid.md"],
   });
 
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /assessment-grid\.md/);
+  assert.match(result.stderr, /labs\/lab-1\.md/);
   assert.match(result.stderr, /defines none/);
   assert.deepEqual(workspace.readCourse().items, []);
 });
@@ -226,7 +229,7 @@ test("a document published to the Deliverables section aborts, naming it", async
   // Not an unknown section: `Deliverables` is a real section of the course
   // page, so every check that asks whether a section exists passes it. What
   // this refuses is the second way in — membership there is decided by the
-  // Deliverable table, and nothing else may put anything beside the Devoirs.
+  // grid's Deliverables, and nothing else may put anything beside the Devoirs.
   const workspace = gridDefining(BOTH);
   workspace.writeCatalog({
     published: [
@@ -241,7 +244,6 @@ test("a document published to the Deliverables section aborts, naming it", async
         section: DELIVERABLE_SECTION,
       },
     ],
-    deliverableSources: ["assessment-grid.md"],
   });
 
   const result = await workspace.publisher(["publish", "--apply"]);
