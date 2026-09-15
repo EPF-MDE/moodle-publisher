@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// The command line. Six commands:
+// The command line. Seven commands:
 //
+//   check               check the course repository without Moodle; writes nothing
 //   setup [--apply]     configure the course's gradebook for the Oral, once
 //   publish [--apply]   report the plan; apply only when explicitly asked
 //   probes              write the Probe Sheets to a CSV; changes nothing
@@ -56,7 +57,12 @@ import {
   formatSetupPlan,
   isConfigured,
 } from "./packages/publishing/setup.ts";
-import { MissingConfiguration, readConfig } from "./config.ts";
+import { checkRepository, formatCheck } from "./packages/publishing/check.ts";
+import {
+  MissingConfiguration,
+  readConfig,
+  repositoryRoot,
+} from "./config.ts";
 
 import type { CourseDriver, DevoirSettings } from "./packages/course/index.ts";
 import type { Deliverable } from "./packages/catalog/deliverables.ts";
@@ -64,6 +70,9 @@ import type { Manifest } from "./packages/manifest/index.ts";
 import type { Config } from "./config.ts";
 
 const USAGE = `Usage:
+  publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
+                                           document rendered, every link and picture resolved. Needs no site, no course
+                                           id and no session, opens no browser and writes nothing.
   publisher setup [--apply]                Configure the course's gradebook for the Oral. Changes nothing unless --apply is given.
   publisher publish [--apply]              Report the plan for every document publisher.json names. Applies nothing unless --apply is given.
   publisher probes                         Write one Probe Sheet per enrolled Student per Competency to a CSV,
@@ -129,6 +138,19 @@ async function withDriver(
   } finally {
     await driver.close();
   }
+}
+
+/**
+ * Checks the course repository, and touches nothing else.
+ *
+ * No configuration is read, because none is needed: a pre-commit hook runs
+ * this on any machine, with no `.env` and no session, and a check that asked
+ * for a course id would be asking for the one thing it must never use. A
+ * refusal is thrown, and printed and exited on like a run's.
+ */
+function check(): number {
+  process.stdout.write(`${formatCheck(checkRepository(repositoryRoot()))}\n`);
+  return 0;
 }
 
 /**
@@ -564,6 +586,14 @@ async function main(argv: readonly string[]): Promise<number> {
       }
       return publish(rest.includes("--apply"));
     }
+    case "check":
+      if (rest.length > 0) {
+        process.stderr.write(
+          `Aborting: check takes no arguments. It was given: ${rest.join(" ")}.\n\n${USAGE}`
+        );
+        return 2;
+      }
+      return check();
     case "setup":
       return setup(rest.includes("--apply"));
     case "probes":
