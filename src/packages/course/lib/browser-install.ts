@@ -11,20 +11,21 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 /** What a course repository runs to install the browser the publisher launches. */
-export const INSTALL_BROWSER_COMMAND = "npx moodle-publisher install-browser";
+const INSTALL_BROWSER_COMMAND = "npx moodle-publisher install-browser";
 
 /**
- * Said instead of Playwright's own box when Chromium is not where this
- * Playwright expects it.
+ * The abort to say instead of Playwright's own box, when a launch failed
+ * because the browser is not installed; undefined for any other failure. The
+ * path Playwright looked at is kept: it names the revision it wanted.
  */
-export const BROWSER_MISSING =
-  "Aborting: the browser this publisher launches is not installed on this machine. " +
-  `Install it with \`${INSTALL_BROWSER_COMMAND}\` (\`npm run browser\` if the course repository names it so), then run again.`;
-
-/** Whether a failed launch failed because the browser executable is missing. */
-export function isBrowserMissing(error: unknown): boolean {
-  return (
-    error instanceof Error && error.message.includes("Executable doesn't exist")
+export function browserMissing(error: unknown): Error | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const missing = /Executable doesn't exist at (\S+)/.exec(error.message);
+  if (missing === null) return undefined;
+  return new Error(
+    "Aborting: the browser this publisher launches is not installed on this machine " +
+      `(Playwright looked for ${missing[1]}). ` +
+      `Install it with \`${INSTALL_BROWSER_COMMAND}\` (\`npm run browser\` if the course repository names it so), then run again.`
   );
 }
 

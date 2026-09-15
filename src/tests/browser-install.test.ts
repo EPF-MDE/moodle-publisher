@@ -54,15 +54,22 @@ test("install-browser takes --dry-run and nothing else", async () => {
 test("a missing browser names the publisher's command, not Playwright's", async () => {
   const workspace = makeWorkspace();
 
+  // The one test that lets the real browser driver past its CI refusal. It is
+  // safe only because Playwright is pointed at an empty browsers directory:
+  // launch is the driver's first step after that refusal, and it fails there,
+  // before any window or any Moodle page.
+  const browsers = mkdtempSync(join(tmpdir(), "no-browsers-"));
   const result = await workspace.publisher(["setup"], {
     PUBLISHER_DRIVER: undefined,
     CI: undefined,
-    PLAYWRIGHT_BROWSERS_PATH: mkdtempSync(join(tmpdir(), "no-browsers-")),
+    PLAYWRIGHT_BROWSERS_PATH: browsers,
     MOODLE_SESSION_STATE: join(workspace.root, "session.json"),
     MOODLE_RUN_DIR: join(workspace.root, "runs"),
   });
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /moodle-publisher install-browser/);
+  // Where Playwright looked, which names the revision it wanted.
+  assert.ok(result.stderr.includes(browsers), result.stderr);
   assert.doesNotMatch(result.stderr, /npx playwright install/);
 });

@@ -76,7 +76,7 @@ const USAGE = `Usage:
   publisher install-browser [--dry-run]    Install the Chromium this publisher's Playwright launches, and no other browser.
                                            Once per machine, and again after a new publisher tag moves Playwright.
                                            --dry-run prints what would be downloaded, and where, and downloads nothing.
-  publisher check                         Check this course repository without Moodle: publisher.json, the grid, every
+  publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
   publisher setup [--apply]                Configure the course's gradebook for the Oral. Changes nothing unless --apply is given.
@@ -599,14 +599,21 @@ async function wipe(argv: readonly string[]): Promise<number> {
  */
 const PUBLISH_FLAGS: readonly string[] = ["--apply"];
 
+/** The flags `install-browser` takes, and the whole of them. */
+const INSTALL_BROWSER_FLAGS: readonly string[] = ["--dry-run"];
+
 async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
     case "install-browser": {
-      const unrecognised = rest.filter((argument) => argument !== "--dry-run");
+      const unrecognised = rest.filter(
+        (argument) => !INSTALL_BROWSER_FLAGS.includes(argument)
+      );
       if (unrecognised.length > 0) {
+        // A browser name is the likeliest thing typed here, and this command
+        // installs Chromium and nothing else: said, rather than ignored.
         process.stderr.write(
-          `Aborting: install-browser takes --dry-run and nothing else. ` +
+          `Aborting: install-browser takes ${INSTALL_BROWSER_FLAGS.join(" ")} and nothing else. ` +
             `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
         );
         return 2;
