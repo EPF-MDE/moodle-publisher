@@ -6,11 +6,16 @@
 // it publishes, and the refusals that keep a mistaken edit out of the course.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 import { documentsToPublish } from "../packages/catalog/index.ts";
 import { SECTION_ORDER } from "../packages/course/index.ts";
-import { makeWorkspace, writeDayOneSet } from "./harness.ts";
+import {
+  DAY_ONE_ENTRIES,
+  makeWorkspace,
+  writeDayOneSet,
+} from "./harness.ts";
 
 import type { Workspace } from "./harness.ts";
 
@@ -92,65 +97,128 @@ for (const [driver, run] of [
   });
 }
 
-test("a course repository with no publisher.json stops the run, saying what is missing", async () => {
-  // No fallback: a run that found nothing to read must not publish nothing
-  // and call it done, nor publish something it was never told to.
-  const workspace = makeWorkspace();
-  workspace.remove("publisher.json");
-
-  const result = await workspace.publisher(["publish", "--apply"]);
-
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /publisher\.json/);
-  assert.deepEqual(workspace.readCourse().items, []);
-});
-
-test("a publisher.json that is not JSON stops the run, naming the file", async () => {
-  const workspace = makeWorkspace();
-  workspace.write("publisher.json", "{ grid: assessment-grid.md");
-
-  const result = await workspace.publisher(["publish", "--apply"]);
-
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /publisher\.json/);
-  assert.deepEqual(workspace.readCourse().items, []);
-});
-
-for (const [what, entry, named] of [
-  ["that is not an object", null, /entry 1/],
-  ["with no source", { title: "Lab 1", section: "Labs" }, /entry 1.*"source"/],
-  ["with no title", { source: "labs/lab-1.md", section: "Labs" }, /labs\/lab-1\.md.*"title"/],
-] as const) {
-  test(`an entry ${what} stops the run, saying what is missing`, async () => {
+/**
+ * A `publisher.json` somebody got wrong, and what the refusal must name. Each
+ * spoils a course that has already been published once, so that "nothing is
+ * written" is checked against a course, a Manifest and a Probe Sheets file that
+ * exist rather than against their absence.
+ */
+const MALFORMED: readonly (readonly [
+  what: string,
+  spoil: (workspace: Workspace) => void,
+  named: RegExp,
+])[] = [
+  [
+    // No fallback: a run that found nothing to read must not publish nothing
+    // and call it done, nor publish something it was never told to.
+    "no publisher.json",
+    (workspace) => workspace.remove("publisher.json"),
+    /there is no .*publisher\.json/,
+  ],
+  [
+    "a publisher.json that is not JSON",
+    (workspace) => workspace.write("publisher.json", "{ grid: assessment-grid.md"),
+    /It is not JSON/,
+  ],
+  [
+    "a publisher.json that is a list",
+    (workspace) => workspace.write("publisher.json", "[]"),
+    /not a JSON object/,
+  ],
+  [
+    // No default: the Deliverables and the probes are read from the grid, and
+    // a catalog that forgot to name it must not have one guessed for it.
+    "no grid",
+    (workspace) => workspace.writeCatalog({ grid: undefined, published: [] }),
+    /names no grid/,
+  ],
+  [
+    "a grid that is not a string",
+    (workspace) => workspace.writeCatalog({ grid: ["assessment-grid.md"], published: [] }),
+    /"grid" that is object, not a path/,
+  ],
+  [
+    "no published",
+    (workspace) => workspace.writeCatalog({ published: undefined }),
+    /has no "published"/,
+  ],
+  [
+    "a published that is not a list",
+    (workspace) => workspace.writeCatalog({ published: { source: "labs/lab-1.md" } }),
+    /"published" is not a list/,
+  ],
+  [
     // Read from a course repository, an entry is whatever somebody typed: one
-    // missing its source or title must be refused by name rather than crash
+    // missing what every entry carries is refused by name rather than crash
     // the run or publish a document nobody can find.
+    "an entry that is not an object",
+    (workspace) => workspace.writeCatalog({ published: [null] }),
+    /"published" entry 1 is not an object/,
+  ],
+  [
+    "an entry with no source",
+    (workspace) =>
+      workspace.writeCatalog({
+        published: [...DAY_ONE_ENTRIES, { title: "Lab 2", section: "Labs" }],
+      }),
+    /"published" entry 4 has no "source"/,
+  ],
+  [
+    "an entry with no title",
+    (workspace) =>
+      workspace.writeCatalog({
+        published: [{ source: "labs/lab-1.md", section: "Labs" }],
+      }),
+    /"labs\/lab-1\.md" has no "title"/,
+  ],
+  [
+    "an entry with no section",
+    (workspace) =>
+      workspace.writeCatalog({
+        published: [{ source: "labs/lab-1.md", title: "Lab 1" }],
+      }),
+    /"labs\/lab-1\.md" has no "section"/,
+  ],
+];
+
+for (const [what, spoil, named] of MALFORMED) {
+  test(`${what} stops publish, probes and audit, naming the file and what is wrong, writing nothing`, async () => {
+    // Every command that reads the catalog reads it before anything opens, so
+    // each refuses with the same message and leaves everything as it was.
     const workspace = makeWorkspace();
     writeDayOneSet(workspace);
-    workspace.writeCatalog({ published: [entry] });
+    const published = await workspace.publisher(["publish", "--apply"]);
+    assert.equal(published.code, 0, published.stderr);
+    workspace.write("probe-sheets.csv", "email,name\namina@epf.fr,Amina Diallo\n");
+    const before = writtenState(workspace);
 
-    const result = await workspace.publisher(["publish", "--apply"]);
+    spoil(workspace);
 
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /Refusing to start/);
-    assert.match(result.stderr, named);
-    assert.deepEqual(workspace.readCourse().items, []);
+    for (const args of [["publish", "--apply"], ["probes"], ["audit"]]) {
+      const result = await workspace.publisher(args);
+
+      assert.equal(result.code, 1, `${args.join(" ")}: ${result.stdout}`);
+      assert.match(result.stderr, /Refusing to start/);
+      // The directory by its own name: the temporary root may print behind a
+      // symlink the workspace was not created through.
+      assert.match(
+        result.stderr,
+        new RegExp(`${basename(workspace.root)}/publisher\\.json`)
+      );
+      assert.match(result.stderr, named);
+      assert.deepEqual(writtenState(workspace), before);
+    }
   });
 }
 
-test("a publisher.json naming no grid stops the run", async () => {
-  // No default: the Deliverables and the probes are read from the grid, and a
-  // catalog that forgot to name it must not have one guessed for it.
-  const workspace = makeWorkspace();
-  writeDayOneSet(workspace);
-  workspace.writeCatalog({ grid: undefined, published: [] });
-
-  const result = await workspace.publisher(["publish", "--apply"]);
-
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /names no grid/);
-  assert.deepEqual(workspace.readCourse().items, []);
-});
+/** What a refused run must leave byte for byte: the course, the Manifest, the Probe Sheets. */
+function writtenState(workspace: Workspace): readonly (string | undefined)[] {
+  return [
+    workspace.coursePath,
+    workspace.manifestPath,
+    workspace.probeSheetsPath,
+  ].map((path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined));
+}
 
 test("two documents sharing a title, once the prefix is derived, stop the run", async () => {
   // A title is how `AlreadyInCourse` recognises a document the manifest has

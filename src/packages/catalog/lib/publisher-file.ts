@@ -21,8 +21,8 @@ export const PUBLISHER_FILE = "publisher.json";
 export class MissingPublisherFile extends Error {
   constructor(path: string) {
     super(
-      `Refusing to start: there is no ${PUBLISHER_FILE} at ${path}. A course repository says what ` +
-        `it publishes in it: { "grid": "assessment-grid.md", "published": [ … ] }.`
+      `Refusing to start: there is no ${path}. A course repository says what it ` +
+        `publishes in it: { "grid": "assessment-grid.md", "published": [ … ] }.`
     );
     this.name = "MissingPublisherFile";
   }
@@ -44,9 +44,13 @@ export class UnreadablePublisherFile extends Error {
  * file a default happened to point at.
  */
 export class NoGrid extends Error {
-  constructor(path: string) {
+  constructor(path: string, grid: unknown) {
+    const what =
+      typeof grid === "string" || grid === undefined || grid === null
+        ? `names no grid`
+        : `has a "grid" that is ${typeof grid}, not a path`;
     super(
-      `Refusing to start: ${path} names no grid. Set "grid" to the ` +
+      `Refusing to start: ${path} ${what}. Set "grid" to the ` +
         `repository-relative path of the assessment grid, e.g. "assessment-grid.md".`
     );
     this.name = "NoGrid";
@@ -85,16 +89,20 @@ export function readPublisherFile(repoRoot: string): {
       `It is not JSON: ${(error as Error).message}`
     );
   }
-  if (typeof parsed !== "object" || parsed === null) {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new UnreadablePublisherFile(path, `It is not a JSON object.`);
   }
   if (typeof parsed.grid !== "string" || parsed.grid.trim() === "") {
-    throw new NoGrid(path);
+    throw new NoGrid(path, parsed.grid);
   }
   if (!Array.isArray(parsed.published)) {
+    const what =
+      parsed.published === undefined
+        ? `It has no "published"`
+        : `"published" is not a list`;
     throw new UnreadablePublisherFile(
       path,
-      `"published" must list the documents the course publishes, even when it lists none.`
+      `${what}: it must list the documents the course publishes, even when it lists none.`
     );
   }
   parsed.published.forEach((entry: unknown, index) =>
