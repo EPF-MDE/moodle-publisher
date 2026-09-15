@@ -10,3 +10,6 @@ probe-sheets.csv
 
 # What `npm pack` leaves when run by hand.
 *.tgz
+
+# Agent worktrees, each a repository of its own.
+.claude/worktrees/
