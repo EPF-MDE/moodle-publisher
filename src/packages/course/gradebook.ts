@@ -7,8 +7,10 @@
 // apart means a publish never has to open a gradebook page, and a reader of
 // either file sees one job rather than two.
 //
-// The values here are the assessment, spelled as `CONTEXT.md` spells them. They
-// are constants and not configuration on purpose: a CSV of Bands is later
+// The Bands here are EPF's, spelled as `CONTEXT.md` spells them, and the same
+// for every course. The Competencies are not: each course declares its own in
+// its grid. The Bands are constants and not configuration on purpose: a CSV of
+// Bands is later
 // matched against these strings character for character, and a Band that could
 // be spelled two ways is an import that silently lands nothing.
 
@@ -68,24 +70,18 @@ export function bandNamedIn(text: string): Band | undefined {
  */
 export const BAND_SCALE_NAME = "Bands";
 
-/** The three independently graded Competencies, in the order they are taught. */
-export const COMPETENCIES = ["C1", "C2", "C3"] as const;
-
-export type Competency = (typeof COMPETENCIES)[number];
-
 /**
- * What each Competency is, in the glossary's words.
+ * One independently graded Competency, as the course's grid declares it.
  *
- * Not exported: what the rest of the program needs is the name of a Grade
- * Item, which {@link gradeItemName} builds. A second place free to compose
- * that name differently is a second place a later run stops recognising the
- * Grade Item it made.
+ * Declared by the course rather than written here, so a course graded on two or
+ * five is as publishable as one graded on three. The id is written down rather
+ * than counted from position, because the manifest records a Grade Item under
+ * it: inserting a Competency above another must not rename that one.
  */
-const COMPETENCY_TITLES: Readonly<Record<Competency, string>> = {
-  C1: "Framing and decomposing work",
-  C2: "Extending and constraining an agent",
-  C3: "Recovering from failure",
-};
+export interface Competency {
+  readonly id: string;
+  readonly title: string;
+}
 
 /**
  * The Grade Item for one Competency, by name.
@@ -94,7 +90,7 @@ const COMPETENCY_TITLES: Readonly<Record<Competency, string>> = {
  * is derived here and never typed by hand anywhere else.
  */
 export function gradeItemName(competency: Competency): string {
-  return `${competency} — ${COMPETENCY_TITLES[competency]}`;
+  return `${competency.id} — ${competency.title}`;
 }
 
 /** A scale as the course holds it. */
@@ -253,11 +249,11 @@ export interface GradebookDriver {
    * Puts one file through Moodle's own gradebook import, mapping its columns
    * as {@link SheetImport} says.
    *
-   * Moodle's import tool and not its grading grid: thirty Students times three
-   * fields is one form rather than ninety AJAX interactions, and one file
-   * covers C1, C2 and C3 in a single pass — including C3, the Competency
-   * graded live, so that even its field is waiting rather than being made
-   * mid-slot.
+   * Moodle's import tool and not its grading grid: thirty Students times a
+   * field per Competency is one form rather than a page of AJAX interactions
+   * each, and one file covers every Competency in a single pass — including
+   * the one graded live, so that even its field is waiting rather than being
+   * made mid-slot.
    *
    * It reports nothing, and that is deliberate. What a driver could report is
    * a number read off a page in whatever language the site is set to, and a

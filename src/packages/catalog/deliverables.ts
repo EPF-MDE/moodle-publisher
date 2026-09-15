@@ -5,12 +5,12 @@
 // who it is for is one question, and what a Student must hand in by when is
 // another. They meet only in the catalog, which says which document carries the
 // definitions.
+import { readCompetencies } from "./lib/competency.ts";
 import { readDeliverables } from "./lib/deliverable.ts";
 
 import type { Catalog } from "./index.ts";
 import type { Deliverable } from "./lib/deliverable.ts";
 
-export { COMPETENCIES } from "./lib/deliverable.ts";
 export {
   DuplicateDeliverableId,
   FreezeNotInParis,
@@ -22,7 +22,7 @@ export {
   formatFreeze,
   formatInstant,
 } from "./lib/deliverable.ts";
-export type { Competency, Deliverable, Freeze } from "./lib/deliverable.ts";
+export type { Deliverable, Freeze } from "./lib/deliverable.ts";
 
 /**
  * Every Deliverable the course requires, checked, in the order the grid
@@ -30,8 +30,9 @@ export type { Competency, Deliverable, Freeze } from "./lib/deliverable.ts";
  *
  * Throws — naming the Deliverable, and never falling back to a default — when
  * two share an id, when a Freeze is missing, unreadable or not written in
- * `Europe/Paris`, when a Competency is one this course does not have, or when
- * the grid defines none at all.
+ * `Europe/Paris`, when a Competency is one the grid does not declare, or when
+ * the grid defines none at all. The Competencies are read first, so a grid
+ * declaring none, or one twice, stops here too.
  *
  * Called before the course is opened, like {@link loadCatalog}: every one of
  * these is a mistake in the repository, and none of them is worth finding out
@@ -41,5 +42,9 @@ export function loadDeliverables(
   repoRoot: string,
   catalog: Catalog
 ): readonly Deliverable[] {
-  return readDeliverables(repoRoot, catalog.grid);
+  return readDeliverables(
+    repoRoot,
+    catalog.grid,
+    readCompetencies(repoRoot, catalog.grid)
+  );
 }

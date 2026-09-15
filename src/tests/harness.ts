@@ -268,6 +268,15 @@ export function makeWorkspace(): Workspace {
 /** Where the fixture repository keeps its assessment grid. */
 export const GRID_SOURCE = "assessment-grid.md";
 
+/** The Competencies of this course, as the real grid's front matter declares them. */
+export const THREE_COMPETENCIES = `competencies:
+  - id: C1
+    title: Framing and decomposing work
+  - id: C2
+    title: Extending and constraining an agent
+  - id: C3
+    title: Recovering from failure`;
+
 /** One probe per Competency, the least a grid can define and still be read. */
 export const ALL_PROBES = `probes:
   C1:
@@ -304,13 +313,21 @@ export const GRID_TITLE = "Assessment Grid — how you are graded";
  * Freeze changes this file and runs the publisher again — which is what the
  * instructor does. A test about the grid's prose keeps the front matter, as an
  * instructor editing the prose does.
+ *
+ * The course's {@link THREE_COMPETENCIES} are declared above whatever
+ * `frontMatter` defines, unless it declares a `competencies:` block of its own:
+ * every grid needs one, and most tests are about something else. A test about a
+ * grid declaring none writes the file itself.
  */
 export function writeGrid(
   workspace: Workspace,
   frontMatter: string = GRID_FRONT_MATTER,
   markdown: string = GRID_MARKDOWN
 ): void {
-  workspace.write(GRID_SOURCE, `---\n${frontMatter}\n---\n\n${markdown}`);
+  const declared = /^competencies:/m.test(frontMatter)
+    ? frontMatter
+    : `${THREE_COMPETENCIES}\n${frontMatter}`;
+  workspace.write(GRID_SOURCE, `---\n${declared}\n---\n\n${markdown}`);
 }
 
 /**

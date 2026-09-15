@@ -16,7 +16,7 @@
 //
 //   - a visible one is a Student reading a provisional Band the night before
 //     the Oral they were meant to defend it at;
-//   - one that counts is Moodle aggregating three Bands into the /20 the
+//   - one that counts is Moodle aggregating Bands into the /20 the
 //     assessment grid refuses, with `Resit` averaged in as though it were a
 //     low mark rather than an absence.
 //
@@ -25,7 +25,6 @@
 import {
   BANDS,
   BAND_SCALE_NAME,
-  COMPETENCIES,
   gradeItemName,
 } from "../course/gradebook.ts";
 import {
@@ -171,7 +170,7 @@ function soleNamed(
     throw new CourseNotConfigurable(
       `the course has ${named.length} grade items named "${name}" (items ` +
         `${named.map((item) => item.id).join(", ")}), so the Bands entered for ` +
-        `${competency} would go into whichever one Moodle happened to order first. ` +
+        `${competency.id} would go into whichever one Moodle happened to order first. ` +
         `Delete the duplicates in the gradebook (Grades → Setup) and run setup again. ` +
         `Nothing has been changed.`
     );
@@ -190,7 +189,8 @@ function existingItem(
   // finds nothing. A Grade Item this program made and somebody has since
   // renamed in the gradebook is still that Competency's Grade Item, and
   // looked for by name alone it is invisible: the run would make a second one
-  // beside it, which is the fourth Grade Item this command exists not to make.
+  // beside it, which is the second Grade Item for one Competency this command
+  // exists not to make.
   // Recording the id is what buys that, so it is what is asked.
   const byId =
     recorded === undefined
@@ -251,7 +251,8 @@ function existingItem(
  * What this course still needs, read from its gradebook.
  *
  * Everything already there is left exactly as it is — that is what makes a
- * second run produce no second scale and no fourth Grade Item. The plan is built
+ * second run produce no second scale and no second Grade Item for a Competency.
+ * The plan is built
  * before anything is written, so the aborts above happen with the gradebook
  * untouched.
  *
@@ -259,14 +260,18 @@ function existingItem(
  * that remembers which Grade Item belongs to which Competency. Without it,
  * recognising one means matching the name it was created under, and a name is
  * something a human can change in the gradebook in a second.
+ *
+ * One Grade Item per Competency the grid declares, in the order it declares
+ * them.
  */
 export function buildSetupPlan(
   courseId: string,
+  competencies: readonly Competency[],
   gradebook: Gradebook,
   manifest: Manifest
 ): SetupPlan {
   const scale = existingScale(gradebook);
-  const items = COMPETENCIES.map((competency): ItemStep => {
+  const items = competencies.map((competency): ItemStep => {
     const found = existingItem(
       gradebook,
       competency,
@@ -430,5 +435,5 @@ function record(
     scaleId: scale.id,
     createdAt: new Date().toISOString(),
   });
-  options.report(`recorded       ${competency} → grade item ${item.id}`);
+  options.report(`recorded       ${competency.id} → grade item ${item.id}`);
 }

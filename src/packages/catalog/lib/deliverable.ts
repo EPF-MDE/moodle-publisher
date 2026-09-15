@@ -17,19 +17,12 @@
 // meets at a deadline that nobody wrote down.
 import { frontMatter } from "../../documents/index.ts";
 
+import { idsOf } from "./competency.ts";
 import { formatFreeze, formatInstant, readFreeze } from "./freeze.ts";
 
+import type { Competency } from "../../course/gradebook.ts";
 import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
 import type { Freeze } from "./freeze.ts";
-
-/**
- * The three independently graded capabilities. A Deliverable serves one or
- * more of them, and a Deliverable serving a fourth is a typo — the course has
- * no such thing to grade it on.
- */
-export const COMPETENCIES = ["C1", "C2", "C3"] as const;
-
-export type Competency = (typeof COMPETENCIES)[number];
 
 /** One Deliverable, as everything downstream of the catalog sees it. */
 export interface Deliverable {
@@ -41,7 +34,12 @@ export interface Deliverable {
   readonly id: string;
   /** What Students read on the course page — never the id. */
   readonly title: string;
-  readonly competencies: readonly Competency[];
+  /**
+   * The ids of the Competencies it serves, each one the grid declares. A
+   * Deliverable serving one the grid does not declare is a typo — the course
+   * has no such thing to grade it on.
+   */
+  readonly competencies: readonly string[];
   /**
    * The instant it stops accepting work. Written `due` in the front matter,
    * which is the word Moodle's own form uses; a Freeze everywhere else,
@@ -182,12 +180,17 @@ export class UnreadableVisibility extends Error {
   }
 }
 
-/** A Deliverable serving a Competency the course does not have. */
+/** A Deliverable serving a Competency the grid does not declare. */
 export class UnknownCompetency extends Error {
-  constructor(source: string, id: string, competency: string) {
+  constructor(
+    source: string,
+    id: string,
+    competency: string,
+    declared: readonly Competency[]
+  ) {
     super(
       `Refusing to start: Deliverable "${id}" in "${source}" serves competency "${competency}", ` +
-        `which this course does not have. The competencies are ${COMPETENCIES.join(", ")}. ` +
+        `which "${source}" does not declare. The competencies are ${idsOf(declared)}. ` +
         `A Devoir published against a competency nobody is graded on is work handed in for ` +
         `nothing.`
     );
@@ -196,16 +199,18 @@ export class UnknownCompetency extends Error {
 }
 
 /**
- * Every Deliverable the grid defines, checked.
+ * Every Deliverable the grid defines, checked against the Competencies it
+ * declares.
  *
  * Every one of them read before anything else happens: these are startup
  * guards, and the point of them is that they fire before the course is opened.
  */
 export function readDeliverables(
   repoRoot: string,
-  grid: string
+  grid: string,
+  competencies: readonly Competency[]
 ): readonly Deliverable[] {
-  const defined = deliverablesIn(repoRoot, grid);
+  const defined = deliverablesIn(repoRoot, grid, competencies);
   if (defined.length === 0) throw new NoDeliverables(grid);
   const byId = new Map<string, Deliverable>();
   for (const deliverable of defined) {
@@ -220,17 +225,22 @@ export function readDeliverables(
 
 function deliverablesIn(
   repoRoot: string,
-  source: string
+  source: string,
+  competencies: readonly Competency[]
 ): readonly Deliverable[] {
   const written = frontMatter(repoRoot, source)?.["deliverables"];
   if (written === undefined) return [];
   if (!Array.isArray(written)) {
     throw new NoDeliverables(source);
   }
-  return written.map((entry) => readDeliverable(source, entry));
+  return written.map((entry) => readDeliverable(source, entry, competencies));
 }
 
-function readDeliverable(source: string, entry: FrontMatterValue): Deliverable {
+function readDeliverable(
+  source: string,
+  entry: FrontMatterValue,
+  competencies: readonly Competency[]
+): Deliverable {
   if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
     throw new MissingDeliverableField(source, undefined, "id");
   }
@@ -246,7 +256,7 @@ function readDeliverable(source: string, entry: FrontMatterValue): Deliverable {
   return {
     id,
     title,
-    competencies: readCompetencies(source, id, fields["competencies"]),
+    competencies: readServed(source, id, fields["competencies"], competencies),
     freeze: readDue(source, id, fields["due"]),
     visible: readVisible(source, id, fields["visible"]),
     source,
@@ -275,24 +285,29 @@ function readVisible(
   return written;
 }
 
-function readCompetencies(
+/** The ids of the Competencies a Deliverable serves, each one declared. */
+function readServed(
   source: string,
   id: string,
-  written: FrontMatterValue | undefined
-): readonly Competency[] {
+  written: FrontMatterValue | undefined,
+  declared: readonly Competency[]
+): readonly string[] {
   const listed =
     written === undefined ? [] : Array.isArray(written) ? written : [written];
-  const competencies = listed.flatMap((entry) => {
+  const served = listed.map((entry) => {
     const name = nonEmptyString(entry);
-    if (name === undefined || !COMPETENCIES.includes(name as Competency)) {
-      throw new UnknownCompetency(source, id, String(name ?? entry));
+    if (
+      name === undefined ||
+      !declared.some((competency) => competency.id === name)
+    ) {
+      throw new UnknownCompetency(source, id, String(name ?? entry), declared);
     }
-    return [name as Competency];
+    return name;
   });
-  if (competencies.length === 0) {
+  if (served.length === 0) {
     throw new MissingDeliverableField(source, id, "competencies");
   }
-  return competencies;
+  return served;
 }
 
 function readDue(

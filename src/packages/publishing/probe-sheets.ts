@@ -23,11 +23,7 @@
 // `idnumber` is empty on every sampled user — and it is treated as opaque
 // throughout. Two domains are in use, `@epf.fr` and `@epfedu.fr`, and nothing
 // here reads one.
-import {
-  COMPETENCIES,
-  bandNamedIn,
-  gradeItemName,
-} from "../course/gradebook.ts";
+import { bandNamedIn, gradeItemName } from "../course/gradebook.ts";
 import { devoirEntryFor } from "../manifest/index.ts";
 
 import { toCsv } from "./lib/csv.ts";
@@ -97,10 +93,10 @@ export class CompetencyNotDeliverable extends Error {
   constructor(competency: Competency, serving: readonly Deliverable[]) {
     super(
       serving.length === 0
-        ? `Aborting: no Deliverable serves ${competency}, so a Probe Sheet for it would carry ` +
+        ? `Aborting: no Deliverable serves ${competency.id}, so a Probe Sheet for it would carry ` +
             `no URL and the Oral would open on a repository nobody can find. Give one of the ` +
-            `Deliverables "${competency}" in its competencies. Nothing has been written.`
-        : `Aborting: ${serving.length} Deliverables serve ${competency} — ` +
+            `Deliverables "${competency.id}" in its competencies. Nothing has been written.`
+        : `Aborting: ${serving.length} Deliverables serve ${competency.id} — ` +
             `${serving.map((one) => `"${one.title}"`).join(" and ")} — so a Probe Sheet for ` +
             `it would have to carry two URLs and this program will not pick one. Nothing has ` +
             `been written.`
@@ -135,7 +131,7 @@ export class DevoirNotPublished extends Error {
 export class SheetMissing extends Error {
   constructor(student: Enrolment, competency: Competency) {
     super(
-      `Aborting: no Probe Sheet was prepared for ${student.email} at ${competency}, so ` +
+      `Aborting: no Probe Sheet was prepared for ${student.email} at ${competency.id}, so ` +
         `their row would carry an empty sheet where the questions go. That is a fault in ` +
         `this program rather than in the course. Nothing has been written.`
     );
@@ -181,6 +177,8 @@ export interface ProbeSheet {
 /** Every sheet a run prepared, and who they are for. */
 export interface ProbeSheets {
   readonly students: readonly Enrolment[];
+  /** What the sheets are for, in the order the grid declares them. */
+  readonly competencies: readonly Competency[];
   /** Student-major, then in Competency order: the order the CSV's rows go in. */
   readonly sheets: readonly ProbeSheet[];
 }
@@ -204,7 +202,7 @@ export function deliverableFor(
   competency: Competency
 ): Deliverable {
   const serving = deliverables.filter((one) =>
-    one.competencies.includes(competency)
+    one.competencies.includes(competency.id)
   );
   const [only, second] = serving;
   if (only === undefined || second !== undefined) {
@@ -225,6 +223,7 @@ export function deliverableFor(
 export async function readCourse(
   driver: CourseDriver,
   deliverables: readonly Deliverable[],
+  competencies: readonly Competency[],
   manifest: Manifest
 ): Promise<{
   readonly enrolments: readonly Enrolment[];
@@ -233,7 +232,7 @@ export async function readCourse(
   // Every Competency has to have its Deliverable before the course is read, so
   // that a grid nobody finished editing is not found out halfway through
   // opening grading pages.
-  const serving = COMPETENCIES.map((competency) =>
+  const serving = competencies.map((competency) =>
     deliverableFor(deliverables, competency)
   );
   const wanted = serving.filter(
@@ -291,8 +290,9 @@ export function buildProbeSheets(input: {
   // Which Deliverable each Competency's URL comes from is settled once, before
   // any sheet is made, rather than re-solved inside every Student's row: it is
   // a fact about the grid and not about the Student.
-  const deliverableServing = COMPETENCIES.map((competency) => ({
+  const deliverableServing = input.probes.map(({ competency, probes }) => ({
     competency,
+    probes,
     deliverable: deliverableFor(
       input.handedIn.map((one) => one.deliverable),
       competency
@@ -300,14 +300,20 @@ export function buildProbeSheets(input: {
   }));
 
   const sheets = input.enrolments.flatMap((student) =>
-    deliverableServing.map(({ competency, deliverable }): ProbeSheet => ({
-      student,
-      competency,
-      probes: input.probes[competency],
-      submitted: byDeliverable.get(deliverable.id)?.get(student.email),
-    }))
+    deliverableServing.map(
+      ({ competency, probes, deliverable }): ProbeSheet => ({
+        student,
+        competency,
+        probes,
+        submitted: byDeliverable.get(deliverable.id)?.get(student.email),
+      })
+    )
   );
-  return { students: input.enrolments, sheets };
+  return {
+    students: input.enrolments,
+    competencies: input.probes.map((one) => one.competency),
+    sheets,
+  };
 }
 
 /** The header of the feedback column carrying one Competency's sheets. */
@@ -339,8 +345,8 @@ export function formatSheet(sheet: ProbeSheet): string {
  * through Moodle's own gradebook import, which reads a row as a user and a
  * column as a grade item. One Probe Sheet is therefore one Student's row at one
  * Competency's pair of columns: the grade cell, empty, and the feedback cell
- * carrying the sheet. One file, one import, all three Competencies — including
- * C3, so that even the Competency read last has its field waiting rather than
+ * carrying the sheet. One file, one import, every Competency the grid declares
+ * — including the one read last, so that even its field is waiting rather than
  * being made mid-slot.
  *
  * The name column is for the human reading the file and is mapped to "ignore"
@@ -348,15 +354,16 @@ export function formatSheet(sheet: ProbeSheet): string {
  * only identity this Moodle populates.
  */
 export function formatProbeSheetsCsv(sheets: ProbeSheets): string {
-  const byStudent = new Map<string, Map<Competency, ProbeSheet>>();
+  // By email, then by Competency id.
+  const byStudent = new Map<string, Map<string, ProbeSheet>>();
   for (const sheet of sheets.sheets) {
     const forStudent =
-      byStudent.get(sheet.student.email) ?? new Map<Competency, ProbeSheet>();
-    forStudent.set(sheet.competency, sheet);
+      byStudent.get(sheet.student.email) ?? new Map<string, ProbeSheet>();
+    forStudent.set(sheet.competency.id, sheet);
     byStudent.set(sheet.student.email, forStudent);
   }
 
-  const columns = probeSheetsColumns();
+  const columns = probeSheetsColumns(sheets.competencies);
   const header = columns.map((column) => column.heading);
   const rows = sheets.students.map((student) =>
     columns.map((column) => cellFor(column, student, byStudent))
@@ -391,11 +398,13 @@ export type SheetColumn =
  * Moodle's gradebook shows them in — the verdict, and the sheet it was reached
  * from, side by side on one screen at the Oral.
  */
-export function probeSheetsColumns(): readonly SheetColumn[] {
+export function probeSheetsColumns(
+  competencies: readonly Competency[]
+): readonly SheetColumn[] {
   return [
     { heading: "name", role: "name" },
     { heading: "email", role: "identity" },
-    ...COMPETENCIES.flatMap((competency): readonly SheetColumn[] => [
+    ...competencies.flatMap((competency): readonly SheetColumn[] => [
       { heading: gradeItemName(competency), role: "band", competency },
       { heading: feedbackColumn(competency), role: "sheet", competency },
     ]),
@@ -418,7 +427,7 @@ function bandCellsOf(columns: readonly SheetColumn[]): readonly number[] {
 function cellFor(
   column: SheetColumn,
   student: Enrolment,
-  byStudent: ReadonlyMap<string, ReadonlyMap<Competency, ProbeSheet>>
+  byStudent: ReadonlyMap<string, ReadonlyMap<string, ProbeSheet>>
 ): string {
   switch (column.role) {
     case "name":
@@ -429,7 +438,7 @@ function cellFor(
     case "band":
       return "";
     case "sheet": {
-      const sheet = byStudent.get(student.email)?.get(column.competency);
+      const sheet = byStudent.get(student.email)?.get(column.competency.id);
       if (sheet === undefined)
         throw new SheetMissing(student, column.competency);
       return formatSheet(sheet);
@@ -469,7 +478,7 @@ function assertNothingSuggestsABand(
     if (band !== undefined) {
       throw new SheetNamesABand(
         band,
-        `${sheet.student.email}'s ${sheet.competency} sheet`
+        `${sheet.student.email}'s ${sheet.competency.id} sheet`
       );
     }
   }
@@ -497,15 +506,15 @@ export function formatProbeSheets(sheets: ProbeSheets, path: string): string {
     `Probe Sheets for ${sheets.students.length} enrolled ${
       sheets.students.length === 1 ? "Student" : "Students"
     }:`,
-    ...COMPETENCIES.map((competency) => {
+    ...sheets.competencies.map((competency) => {
       const sheetsFor = sheets.sheets.filter(
-        (sheet) => sheet.competency === competency
+        (sheet) => sheet.competency.id === competency.id
       );
       const carryingUrl = sheetsFor.filter(
         (sheet) => sheet.submitted !== undefined
       ).length;
       return (
-        `  ${competency}  ${sheetsFor.length} sheets, ${carryingUrl} carrying a submitted ` +
+        `  ${competency.id}  ${sheetsFor.length} sheets, ${carryingUrl} carrying a submitted ` +
         `URL, ${sheetsFor[0]?.probes.length ?? 0} probes each`
       );
     }),

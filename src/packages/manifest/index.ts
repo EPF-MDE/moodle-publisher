@@ -19,7 +19,7 @@ import type { PublishedAsset, SectionName } from "../course/index.ts";
  * What the publisher has put in the course, one entry per key.
  *
  * The key is a repository-relative source path for everything that comes from
- * a file, a `deliverable:` id for a Devoir, and a {@link Competency} for a
+ * a file, a `deliverable:` id for a Devoir, and a {@link Competency}'s id for a
  * Grade Item, which comes from no file at all. `kind` is what keeps them
  * apart: a Devoir carries a module id with different settings behind it, a
  * Grade Item has no module id at all, and an entry that had to be asked "are
@@ -210,10 +210,10 @@ export function clearManifest(path: string): Manifest {
 }
 
 /**
- * Records one Grade Item, keyed by the Competency it grades.
+ * Records one Grade Item, keyed by the id of the Competency it grades.
  *
  * Keyed by Competency and not by a path because a Grade Item comes from no file:
- * the Competency is the only name it has that outlives the run. It goes in the
+ * the Competency's id is the only name it has that outlives the run. It goes in the
  * one manifest file, beside the pages, for the reason this file's own comment
  * gives — gradebook state kept in a second file is a wiped course the next
  * publish declines to fill.
@@ -223,7 +223,7 @@ export function recordGradeItem(
   competency: Competency,
   entry: GradeItemEntry
 ): Manifest {
-  const entries = { ...load(path), [competency]: entry };
+  const entries = { ...load(path), [competency.id]: entry };
   save(path, entries);
   return { entries };
 }
@@ -233,7 +233,7 @@ export function gradeItemFor(
   manifest: Manifest,
   competency: Competency
 ): GradeItemEntry | undefined {
-  const entry = manifest.entries[competency];
+  const entry = manifest.entries[competency.id];
   return entry?.kind === "grade-item" ? entry : undefined;
 }
 
