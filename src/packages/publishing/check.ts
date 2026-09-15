@@ -23,7 +23,11 @@ export interface CheckReport {
   readonly documents: number;
   readonly deliverables: number;
   readonly competencies: number;
-  /** The warnings a plan would print, decided from the catalog's intent alone. */
+  /**
+   * Links to a document that ships hidden, decided from the catalog's intent
+   * alone: a plan over a course where somebody has since revealed the target
+   * says nothing about it, and this still does.
+   */
   readonly hiddenLinks: readonly HiddenLink[];
 }
 

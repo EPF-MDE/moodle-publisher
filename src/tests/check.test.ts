@@ -102,20 +102,31 @@ test("check takes no flags", async () => {
  * A repository broken in one way, and asserted to be refused by `check` with
  * exactly what `publish` says about it: fixing a commit is fixing a run.
  */
-const REFUSALS: readonly (readonly [string, () => Workspace, RegExp, string?])[] = [
-  [
-    "a broken cross-reference",
-    () => {
+interface Refusal {
+  /** The mistake, as the test names it. */
+  readonly what: string;
+  /** A fresh repository holding that mistake and no other. */
+  readonly broken: () => Workspace;
+  /** What the refusal has to say. */
+  readonly message: RegExp;
+  /** The command that reads what is broken. `publish`, unless said otherwise. */
+  readonly command?: string;
+}
+
+const REFUSALS: readonly Refusal[] = [
+  {
+    what: "a broken cross-reference",
+    broken: () => {
       const workspace = makeWorkspace();
       writeDayOneSet(workspace);
       workspace.write("labs/lab-1.md", `${LAB_MARKDOWN}\nRead [the notes](../notes/scratch.md).\n`);
       return workspace;
     },
-    /the table does not name/,
-  ],
-  [
-    "a missing picture",
-    () => {
+    message: /the table does not name/,
+  },
+  {
+    what: "a missing picture",
+    broken: () => {
       const workspace = makeWorkspace();
       writeDayOneSet(workspace);
       workspace.write(
@@ -124,39 +135,39 @@ const REFUSALS: readonly (readonly [string, () => Workspace, RegExp, string?])[]
       );
       return workspace;
     },
-    /workflow\.png/,
-  ],
-  [
-    "a Student-facing link to Instructor Material",
-    () => {
+    message: /workflow\.png/,
+  },
+  {
+    what: "a Student-facing link to Instructor Material",
+    broken: () => {
       const workspace = makeWorkspace();
       writeInstructorSet(workspace);
       workspace.write("labs/lab-1.md", `${LAB_MARKDOWN}\nSee [the script](./lab-3-oral--instructor.md).\n`);
       return workspace;
     },
-    /examiner-only/,
-  ],
-  [
-    "a publisher.json that is not JSON",
-    () => {
+    message: /examiner-only/,
+  },
+  {
+    what: "a publisher.json that is not JSON",
+    broken: () => {
       const workspace = makeWorkspace();
       workspace.write("publisher.json", "{ grid: assessment-grid.md");
       return workspace;
     },
-    /publisher\.json/,
-  ],
-  [
-    "a missing publisher.json",
-    () => {
+    message: /publisher\.json/,
+  },
+  {
+    what: "a missing publisher.json",
+    broken: () => {
       const workspace = makeWorkspace();
       workspace.remove("publisher.json");
       return workspace;
     },
-    /publisher\.json/,
-  ],
-  [
-    "a publisher.json naming a Section the course page does not have",
-    () => {
+    message: /publisher\.json/,
+  },
+  {
+    what: "a publisher.json naming a Section the course page does not have",
+    broken: () => {
       const workspace = makeWorkspace();
       writeDayOneSet(workspace);
       workspace.writeCatalog({
@@ -164,11 +175,11 @@ const REFUSALS: readonly (readonly [string, () => Workspace, RegExp, string?])[]
       });
       return workspace;
     },
-    /"Labss"/,
-  ],
-  [
-    "a grid with two Deliverables sharing an id",
-    () =>
+    message: /"Labss"/,
+  },
+  {
+    what: "a grid with two Deliverables sharing an id",
+    broken: () =>
       gridDefining(`deliverables:
   - id: c1-1
     title: Your repository — C1 and C2
@@ -178,11 +189,11 @@ const REFUSALS: readonly (readonly [string, () => Workspace, RegExp, string?])[]
     title: Your C3 branch — recovering from failure
     competencies: [C3]
     due: 2026-09-11T09:30:00+02:00`),
-    /"c1-1"/,
-  ],
-  [
-    "a grid whose probes name a Band",
-    () =>
+    message: /"c1-1"/,
+  },
+  {
+    what: "a grid whose probes name a Band",
+    broken: () =>
       gridDefining(`deliverables:
   - id: c1-1
     title: Your repository — C1 and C2
@@ -195,14 +206,14 @@ probes:
     - An instruction document?
   C3:
     - One command that goes red?`),
-    /Solid/,
+    message: /Solid/,
     // The probes are read by the command that writes the Probe Sheets, and by
     // no publish.
-    "probes",
-  ],
+    command: "probes",
+  },
 ];
 
-for (const [what, broken, message, command = "publish"] of REFUSALS) {
+for (const { what, broken, message, command = "publish" } of REFUSALS) {
   test(`check refuses ${what}, saying what a run would say`, async () => {
     const workspace = broken();
 
