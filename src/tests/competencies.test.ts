@@ -195,6 +195,28 @@ probes:
   assert.deepEqual(workspace.readCourse().gradeItems ?? [], []);
 });
 
+test("a Competency titled with a Band aborts, before any grade item is made", async () => {
+  // Its title heads a Probe Sheet column, which `probes` refuses to write with
+  // a Band in it — so it is refused here, before `setup` makes a Grade Item that
+  // only a rename by hand could fix.
+  const workspace = gridDefining(
+    `competencies:
+  - id: K1
+    title: Solid design
+${deliverableServing("K1")}
+probes:
+  K1:
+    - Can they name the seam before the file?`
+  );
+
+  const result = await workspace.publisher(["setup", "--apply"]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /"K1"/);
+  assert.match(result.stderr, /names the band "Solid"/);
+  assert.deepEqual(workspace.readCourse().gradeItems ?? [], []);
+});
+
 test("a grid with no competencies block aborts every command, naming the block", async () => {
   const workspace = makeWorkspace();
   // Written out by hand rather than through the harness, which declares the

@@ -12,6 +12,7 @@ import type { Competency } from "../course/gradebook.ts";
 import type { Catalog } from "./index.ts";
 
 export {
+  CompetencyNamesABand,
   DuplicateCompetencyId,
   MissingCompetencyField,
   NoCompetencies,
@@ -21,8 +22,8 @@ export {
  * Every Competency the grid declares, checked, in the order it declares them.
  *
  * Throws — naming the grid, and never falling back to a default — when the grid
- * has no `competencies:` block, when a Competency has no id or no title, or when
- * two share an id.
+ * has no `competencies:` block, when a Competency has no id or no title, when a
+ * title names a Band, or when two share an id.
  */
 export function loadCompetencies(
   repoRoot: string,

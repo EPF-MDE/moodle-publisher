@@ -18,6 +18,7 @@ import {
 } from "../packages/course/index.ts";
 import {
   BOTH_DELIVERABLES as BOTH,
+  THREE_COMPETENCIES,
   GRID_MARKDOWN,
   GRID_TITLE,
   gridDefining,
@@ -176,11 +177,15 @@ test("a visible that is neither true nor false aborts rather than reading as vis
 });
 
 test("a grid defining no Deliverables aborts, naming the grid", async () => {
-  // The catalog points at a document that carries no front matter at all —
-  // the wrong file, or the right one after its block was deleted. Either way
-  // the grid is named as where the Deliverables are, and they are not there.
+  // The catalog points at a document whose front matter declares the
+  // Competencies and nothing else — the wrong file, or the right one after its
+  // block was deleted. Either way the grid is named as where the Deliverables
+  // are, and they are not there.
   const workspace = makeWorkspace();
-  workspace.write("labs/lab-1.md", GRID_MARKDOWN);
+  workspace.write(
+    "labs/lab-1.md",
+    `---\n${THREE_COMPETENCIES}\n---\n\n${GRID_MARKDOWN}`
+  );
   workspace.writeCatalog({
     grid: "labs/lab-1.md",
     published: [

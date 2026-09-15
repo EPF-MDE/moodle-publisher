@@ -10,9 +10,8 @@
 // The Bands here are EPF's, spelled as `CONTEXT.md` spells them, and the same
 // for every course. The Competencies are not: each course declares its own in
 // its grid. The Bands are constants and not configuration on purpose: a CSV of
-// Bands is later
-// matched against these strings character for character, and a Band that could
-// be spelled two ways is an import that silently lands nothing.
+// Bands is later matched against these strings character for character, and a
+// Band that could be spelled two ways is an import that silently lands nothing.
 
 /**
  * The five Bands, lowest first.

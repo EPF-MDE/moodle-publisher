@@ -15,7 +15,7 @@
 import { bandNamedIn } from "../../course/gradebook.ts";
 import { frontMatter } from "../../documents/index.ts";
 
-import { idsOf } from "./competency.ts";
+import { idsOf, isDeclared } from "./competency.ts";
 
 import type { Competency } from "../../course/gradebook.ts";
 import type { FrontMatterValue } from "../../documents/index.ts";
@@ -153,7 +153,7 @@ function probesIn(
   const entries = Object.entries(written as Record<string, FrontMatterValue>);
   if (entries.length === 0) throw new NoProbes(source);
   return entries.map(([name, value]) => {
-    if (!competencies.some((competency) => competency.id === name)) {
+    if (!isDeclared(competencies, name)) {
       throw new UnknownProbedCompetency(source, name, competencies);
     }
     return [name, readList(source, name, value)] as const;

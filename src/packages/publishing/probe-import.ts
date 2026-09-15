@@ -15,8 +15,8 @@
 // be found first.
 //
 // One import covers every Competency the grid declares. Nothing it sends can be
-// a verdict: the Band
-// columns the generator leaves empty are mapped to `ignore`, so the only cells
+// a verdict: the Band columns the generator leaves empty are mapped to `ignore`,
+// so the only cells
 // this program writes are the sheets themselves and the Band cell it puts on
 // screen stays as empty as the file (ADR-0002). And nothing here reads a Band
 // back out — this repository never becomes a second source of truth for one.

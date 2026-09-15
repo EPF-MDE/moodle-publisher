@@ -237,8 +237,8 @@ function existingItem(
   }
   if (!found.excludedFromTotal) {
     throw new CourseNotConfigurable(
-      `the grade item "${label}" counts towards the course total. Three Bands ` +
-        `aggregated is the /20 this assessment does not have, and it averages "Resit" ` +
+      `the grade item "${label}" counts towards the course total. Bands ` +
+        `aggregated are the /20 this assessment does not have, and it averages "Resit" ` +
         `as though it were a low mark rather than work that was not done. Set the ` +
         `item's weight to 0 in the gradebook (Grades → Setup) and run setup again. ` +
         `Nothing has been changed.`
@@ -252,9 +252,8 @@ function existingItem(
  *
  * Everything already there is left exactly as it is — that is what makes a
  * second run produce no second scale and no second Grade Item for a Competency.
- * The plan is built
- * before anything is written, so the aborts above happen with the gradebook
- * untouched.
+ * The plan is built before anything is written, so the aborts above happen with
+ * the gradebook untouched.
  *
  * The manifest is read alongside the gradebook because it is the only place
  * that remembers which Grade Item belongs to which Competency. Without it,

@@ -9,6 +9,7 @@
 // Every failure here is an abort naming the grid. There is no default set of
 // Competencies: a grid that lost its block would otherwise be graded on
 // whatever this program last knew, which is another course's.
+import { bandNamedIn } from "../../course/gradebook.ts";
 import { frontMatter } from "../../documents/index.ts";
 
 import type { Competency } from "../../course/gradebook.ts";
@@ -74,9 +75,39 @@ export class DuplicateCompetencyId extends Error {
   }
 }
 
+/**
+ * A Competency whose title names a Band.
+ *
+ * The title is half the name of its Grade Item, and that name heads a column of
+ * the Probe Sheets file. A Band there is this program suggesting a verdict
+ * (ADR-0002), which `probes` refuses — so a title carrying one would be let
+ * through `setup`, made into a Grade Item, and then stop every generation after
+ * it, with nothing left to fix but a rename by hand in the gradebook. It is
+ * refused here, before any of that, where the fix is a word in the grid.
+ */
+export class CompetencyNamesABand extends Error {
+  constructor(source: string, competency: Competency, band: string) {
+    super(
+      `Refusing to start: Competency "${competency.id}" in "${source}" is titled ` +
+        `"${competency.title}", which names the band "${band}". Its Grade Item and its ` +
+        `Probe Sheet column are named after the title, and nothing this tooling writes ` +
+        `suggests a band. Retitle it.`
+    );
+    this.name = "CompetencyNamesABand";
+  }
+}
+
 /** The ids of `competencies`, as a message lists them. */
 export function idsOf(competencies: readonly Competency[]): string {
   return competencies.map((competency) => competency.id).join(", ");
+}
+
+/** Whether `id` is one of the Competencies the grid declares. */
+export function isDeclared(
+  competencies: readonly Competency[],
+  id: string
+): boolean {
+  return competencies.some((competency) => competency.id === id);
 }
 
 /**
@@ -114,11 +145,15 @@ function readCompetency(source: string, entry: FrontMatterValue): Competency {
   if (id === undefined) throw new MissingCompetencyField(source, undefined, "id");
   const title = nonEmptyString(fields["title"]);
   if (title === undefined) throw new MissingCompetencyField(source, id, "title");
+  const band = bandNamedIn(title);
+  if (band !== undefined) {
+    throw new CompetencyNamesABand(source, { id, title }, band);
+  }
   return { id, title };
 }
 
 /** A field's value when it was written as a non-empty string, else undefined. */
-function nonEmptyString(
+export function nonEmptyString(
   value: FrontMatterValue | undefined
 ): string | undefined {
   if (typeof value !== "string") return undefined;

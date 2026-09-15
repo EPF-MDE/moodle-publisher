@@ -17,7 +17,7 @@
 // meets at a deadline that nobody wrote down.
 import { frontMatter } from "../../documents/index.ts";
 
-import { idsOf } from "./competency.ts";
+import { idsOf, isDeclared, nonEmptyString } from "./competency.ts";
 import { formatFreeze, formatInstant, readFreeze } from "./freeze.ts";
 
 import type { Competency } from "../../course/gradebook.ts";
@@ -296,10 +296,7 @@ function readServed(
     written === undefined ? [] : Array.isArray(written) ? written : [written];
   const served = listed.map((entry) => {
     const name = nonEmptyString(entry);
-    if (
-      name === undefined ||
-      !declared.some((competency) => competency.id === name)
-    ) {
+    if (name === undefined || !isDeclared(declared, name)) {
       throw new UnknownCompetency(source, id, String(name ?? entry), declared);
     }
     return name;
@@ -329,14 +326,6 @@ function readDue(
     );
   }
   throw new UnreadableFreeze(source, id, due);
-}
-
-/** A field's value when it was written as a non-empty string, else undefined. */
-function nonEmptyString(
-  value: FrontMatterValue | undefined
-): string | undefined {
-  if (typeof value !== "string") return undefined;
-  return value.trim() === "" ? undefined : value.trim();
 }
 
 export { formatFreeze, formatInstant };
