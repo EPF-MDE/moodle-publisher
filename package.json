@@ -15,6 +15,7 @@
     "src/",
     "!src/tests/",
     "docs/",
+    "CONTEXT.md",
     ".env.example"
   ],
   "scripts": {

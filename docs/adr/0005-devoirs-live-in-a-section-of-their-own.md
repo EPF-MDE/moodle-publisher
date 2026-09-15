@@ -1,0 +1,16 @@
+# Devoirs live in a Section of their own, which no document may name
+
+Every Publishable Document names the Section it lands in, one explicit field per catalog entry, and the first design for Deliverables copied that: the front matter of `assessment-grid.md` would carry a `section` alongside `id`, `title`, `competencies`, `due` and `visible`. With exactly two Deliverables and no reason either would sit anywhere but beside the other, that field was a configuration point that would never be configured — and a place for a later edit, or a fixture, to put a Devoir where nobody would look for it.
+
+So the field goes. There is one Section, `Deliverables`, and its membership is derived from the Deliverable table rather than named by an entry. This was the second deliberate application of the rule ADR-0004 wrote for instructor material — "there is no section field; there is exactly one section it can go to, and a field would invite a fixture to name another one" — rather than a coincidence: a Section whose contents are decided by what a thing _is_ does not take a field saying where it goes. Issue #54 has since removed the instructor half of it, and `Deliverables` is now the only Section of this kind; the reasoning stands on its own.
+
+The Section is `Deliverables` and it holds Devoirs only. A Publishable Document naming it aborts the run, which is what makes deleting the field safe: there is exactly one way for anything to arrive there.
+
+## Consequences
+
+- **`Deliverables` is a `SectionName` like any other, and the one constant of its kind.** It joins `SECTION_ORDER` in second place, after `Assessment`, so the grid that states the Freeze and the Section that enforces it are adjacent on a Course built from scratch.
+- **On the live Course it will be last, and a human moves it.** `SECTION_ORDER` only orders Sections created in the same run, and course 14707 already has all six. Moodle appends the seventh. Publishing adds Sections and never reshuffles the Course — ADR-0004 goes further and aborts a planned Section change rather than moving anything — so the position is a person's to set, once, by dragging it. The step is written down beside the 11 September checklist rather than left as folklore.
+- **A document naming `Deliverables` is a new abort, not an existing one.** `UnknownSection` fires for names outside `SECTION_ORDER`, and this name is inside it, so the guard would pass such a document straight through. `ReservedSection` sits beside it in the catalog's guard and names the offending document.
+- **An empty Section is never created.** It is ensured only when a Devoir needs creating, mirroring the rule the publisher already applies to documents. A Deliverables Section with nothing in it is a promise to Students with nothing behind it.
+- **The plan states the Section once.** `publish` prints it as a heading over the two Deliverables rather than as a column repeating a constant, because the value on that page worth checking against intent is the Freeze.
+- **The hidden Devoir sits in a visible Section.** `c3-1` is created hidden and revealed by hand on 11 September, inside a `Deliverables` Section Students can see from day one. Hiding the Section instead is what ADR-0004 forbids, and this way the reveal stays one activity's toggle — the only visibility change the design gives to a person.

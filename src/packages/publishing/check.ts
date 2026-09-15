@@ -11,8 +11,10 @@
 // refusal added to either is a refusal here the day it lands, with the same
 // message: fixing a commit is fixing a run.
 import { documentsToPublish, loadCatalog } from "../catalog/index.ts";
+import { loadCompetencies } from "../catalog/competencies.ts";
 import { loadDeliverables } from "../catalog/deliverables.ts";
 import { loadProbes } from "../catalog/probes.ts";
+import { assertContextPointerResolves } from "./lib/context-map.ts";
 import { formatHiddenLinks } from "./lib/cross-references.ts";
 import { buildPlan } from "./plan.ts";
 
@@ -47,8 +49,9 @@ export interface CheckReport {
  */
 export function checkRepository(repoRoot: string): CheckReport {
   const catalog = loadCatalog(repoRoot);
-  const deliverables = loadDeliverables(repoRoot, catalog);
-  const probes = loadProbes(repoRoot, catalog);
+  const competencies = loadCompetencies(repoRoot, catalog);
+  const deliverables = loadDeliverables(repoRoot, catalog, competencies);
+  const probes = loadProbes(repoRoot, catalog, competencies);
   const plan = buildPlan({
     repoRoot,
     // No site: it is carried for applying, which a check never does.
@@ -58,6 +61,8 @@ export function checkRepository(repoRoot: string): CheckReport {
     manifest: { entries: {} },
     snapshot: { courseId: "", sections: [], items: [] },
   });
+  // Last, because no run reads it: what a run would refuse is named first.
+  assertContextPointerResolves(repoRoot);
   return {
     documents: plan.items.length,
     deliverables: plan.devoirs.length,
