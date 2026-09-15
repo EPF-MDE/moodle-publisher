@@ -80,17 +80,16 @@ export interface Config {
   readonly runsRoot: string;
   readonly driver: DriverName;
   readonly fakeCoursePath: string | undefined;
-  readonly catalogPath: string | undefined;
   /**
    * The date the audit's reveal gate is measured against, when the environment
    * names one; `undefined` means the clock.
    *
-   * Honoured only for the fake driver, like {@link catalogPath} and for the
-   * same reason: it is a test seam and must not be able to reach a live course
-   * however the environment is set. It writes nothing, but a stale value left
-   * in an `.env` would turn a real leak — the brief open a week early — into
-   * "Audit passed", and the one guard that matters most is not the place to
-   * accept that trade for the convenience of asking about a future date.
+   * Honoured only for the fake driver: it is a test seam and must not be able
+   * to reach a live course however the environment is set. It writes nothing,
+   * but a stale value left in an `.env` would turn a real leak — the brief open
+   * a week early — into "Audit passed", and the one guard that matters most is
+   * not the place to accept that trade for the convenience of asking about a
+   * future date.
    */
   readonly now: Date | undefined;
 }
@@ -241,10 +240,6 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     ),
     runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,
-    // The publishable table is code, and a real run always uses the code. The
-    // override is honoured only for the fake driver, so it is a test seam that
-    // cannot reach a live course however the environment is set.
-    catalogPath: driver === "fake" ? env["PUBLISHER_CATALOG"] : undefined,
     now: driver === "fake" ? readNow(env["PUBLISHER_NOW"]) : undefined,
   };
 }

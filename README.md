@@ -212,7 +212,21 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 
 ## What may be published
 
-**One table**, `PUBLISHED` in `src/packages/catalog/lib/table.ts`, reviewed in a diff. An entry names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand.
+**One table**, in the course repository's own `publisher.json`, at its root, reviewed in a diff there. Every run reads it, against the real course or the fake one:
+
+```json
+{
+  "grid": "assessment-grid.md",
+  "published": [
+    { "source": "assessment-grid.md", "title": "Assessment Grid — how you are graded", "section": "Assessment" },
+    { "source": "autonomy/autonomy-2-c3-exercise-brief.md", "title": "C3 exercise brief", "section": "Autonomy", "revealedOn": "2026-09-08" }
+  ]
+}
+```
+
+`grid` is the repository-relative path of the assessment grid, which the Deliverables and the probes are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
+
+**A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one naming no grid, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
 
 Membership is by explicit entry; nothing is discovered by walking a directory. **A document the table does not name is not published** — this program's own documentation, the C3 fixture generator under `script/`, notes nobody meant anyone to read — and a link to one of them is refused rather than published dead. There is no list of things that must never be published, because there is nothing a document has to be taken off.
 
@@ -230,7 +244,7 @@ That is the whole of it, and what it gives up is worth stating: nothing now guar
 
 `publish` **aborts on any flag but `--apply`**, rather than ignoring it. `--phase` used to decide how much of the course a run published; a command line or a note that still carries it is refused by name instead of quietly reporting a full publish.
 
-The real table is checked against the repository it names, so a source path that is a typo fails here rather than in front of a class. Every guard over the table fires before the browser is even opened.
+The table is checked against the repository it sits in, so a source path that is a typo fails here rather than in front of a class. Every guard over the table fires before the browser is even opened.
 
 ## Deliverables
 
@@ -301,7 +315,7 @@ Who it is for rather than whether it is hidden, because the C3 brief is the coun
 
 Two links in the repository came due with this: `c2-assessment-examples--instructor.md` pointed at the publisher's own `src/packages/README.md`, and both lectures pointed at `assets/crash-course/README.md`. Neither target is in the table, so nothing publishes them; each link was dropped and the sentence around it kept, exactly as `labs/lab-3-oral.md`'s pointer at the oral script is.
 
-`PUBLISHER_CATALOG` can point the tests at a fixture table, and `PUBLISHER_NOW` can move the date the audit's reveal gate is measured against. Both are honoured **only when `PUBLISHER_DRIVER=fake`**: the table and the date used against a real course are always the ones in code and on the clock, whatever the environment says. A fixture catalog decides what a fixture repository publishes; it has no say over which of those documents are instructor material, because that is the filename's to say.
+The tests drive the command line against a temporary repository with its own `publisher.json`, exactly as a course repository is run. That file decides what a repository publishes; it has no say over which of those documents are instructor material, because that is the filename's to say.
 
 ## Instructor material
 
@@ -399,7 +413,7 @@ The dates are read by opening each published Devoir's own settings form, one pag
 
 Every finding names the activity, its module id and the section it is in, so a finding can be fixed without hunting for it.
 
-`PUBLISHER_NOW` overrides the date the fourth assertion is measured against, so both sides of the gate can be tested on any day. It is honoured **only when `PUBLISHER_DRIVER=fake`**, exactly like `PUBLISHER_CATALOG`: it writes nothing, but a stale value in an `.env` would turn a brief opened a week early into "Audit passed", and the guard that matters most is not where to accept that. A fake-driver run that uses it says so above its verdict, and a value that is not a date **aborts** rather than falling back to the clock.
+`PUBLISHER_NOW` overrides the date the fourth assertion is measured against, so both sides of the gate can be tested on any day. It is honoured **only when `PUBLISHER_DRIVER=fake`**: it writes nothing, but a stale value in an `.env` would turn a brief opened a week early into "Audit passed", and the guard that matters most is not where to accept that. A fake-driver run that uses it says so above its verdict, and a value that is not a date **aborts** rather than falling back to the clock.
 
 ### Seeing the guards fire
 

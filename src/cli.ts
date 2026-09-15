@@ -65,7 +65,7 @@ import type { Config } from "./config.ts";
 
 const USAGE = `Usage:
   publisher setup [--apply]                Configure the course's gradebook for the Oral. Changes nothing unless --apply is given.
-  publisher publish [--apply]              Report the plan for every document the table names. Applies nothing unless --apply is given.
+  publisher publish [--apply]              Report the plan for every document publisher.json names. Applies nothing unless --apply is given.
   publisher probes                         Write one Probe Sheet per enrolled Student per Competency to a CSV,
                                            ready to be read and then imported. Changes nothing in the course.
   publisher import [--apply]               Put that CSV through Moodle's own gradebook import, so every Probe Sheet
@@ -142,7 +142,7 @@ async function withDriver(
  */
 async function publish(apply: boolean): Promise<number> {
   const config = readConfig();
-  const catalog = loadCatalog(config.catalogPath);
+  const catalog = loadCatalog(config.repoRoot);
   // Read here, with the tables and before the driver is opened, because every
   // refusal it can raise is about the repository: a duplicated id, a Freeze
   // that is not in Paris, a competency the course does not have. None of them
@@ -268,7 +268,7 @@ async function setup(apply: boolean): Promise<number> {
  */
 async function probes(): Promise<number> {
   const config = readConfig();
-  const catalog = loadCatalog(config.catalogPath);
+  const catalog = loadCatalog(config.repoRoot);
   const deliverables = loadDeliverables(config.repoRoot, catalog);
   const probeQuestions = loadProbes(config.repoRoot, catalog);
   const manifest = readManifest(config.manifestPath);
@@ -378,7 +378,7 @@ async function importProbeSheets(apply: boolean): Promise<number> {
 
 async function audit(): Promise<number> {
   const config = readConfig();
-  const catalog = loadCatalog(config.catalogPath);
+  const catalog = loadCatalog(config.repoRoot);
   // Read with the tables, as `publish` reads them, and for the same reason:
   // every refusal they can raise is about the repository, and the audit is the
   // command run in the hour before a Freeze — it should fail on a broken front

@@ -2,30 +2,35 @@
 //
 // Membership is by explicit entry: nothing is discovered by walking a
 // directory, so a document added to the repository later is not published by
-// accident. Who a document is *for* is the one thing not written in the table
-// — the `--instructor` suffix on its filename says it, and nothing else does.
+// accident. The entries are the course repository's own, in the
+// `publisher.json` at its root; what stays here is what every course shares.
+// Who a document is *for* is the one thing not written in an entry — the
+// `--instructor` suffix on its filename says it, and nothing else does.
 import {
-  GRID,
   INSTRUCTOR_TITLE_PREFIX,
-  PUBLISHED,
   isInstructorMaterial,
-} from "./lib/table.ts";
+  publishedTitle,
+} from "./lib/entry.ts";
 import { validate } from "./lib/guard.ts";
-import { readCatalogFile } from "./lib/override.ts";
+import { readPublisherFile } from "./lib/publisher-file.ts";
 
-export type { PublishedEntry } from "./lib/table.ts";
-export { isInstructorMaterial } from "./lib/table.ts";
+export type { PublishedEntry } from "./lib/entry.ts";
 export {
+  DuplicateTitle,
   InvalidRevealDate,
   ReservedSection,
   UnknownSection,
 } from "./lib/guard.ts";
-export { NoGrid } from "./lib/override.ts";
+export {
+  MissingPublisherFile,
+  NoGrid,
+  UnreadablePublisherFile,
+} from "./lib/publisher-file.ts";
 export { isRevealed } from "./lib/reveal.ts";
 
 import type { SectionName } from "../course/index.ts";
 
-import type { PublishedEntry } from "./lib/table.ts";
+import type { PublishedEntry } from "./lib/entry.ts";
 
 export interface Catalog {
   /**
@@ -95,20 +100,17 @@ export interface PublishedDocument {
 }
 
 /**
- * The catalog, checked. Throws — naming the document — when an entry publishes
- * to a section the course page does not have, to the section the Devoirs live
- * in, or on a date the audit could not read, so that a mistaken edit fails
- * loudly before anything runs.
+ * The catalog of the course repository at `repoRoot`, read from its
+ * `publisher.json` and checked. Every run reads it, real or fake.
  *
- * `overridePath` replaces the in-code table with a JSON file of the same shape.
- * It exists for the tests, which drive the command line against a temporary
- * repository of fixture documents; production runs pass nothing.
+ * Throws when the file is missing or cannot be read, and — naming the document
+ * — when an entry publishes to a section the course page does not have, to the
+ * section the Devoirs live in, on a date the audit could not read, or under a
+ * title another document already has, so that a mistaken edit fails loudly
+ * before anything runs.
  */
-export function loadCatalog(overridePath?: string | undefined): Catalog {
-  const catalog: Catalog =
-    overridePath === undefined
-      ? { grid: GRID, published: PUBLISHED }
-      : readCatalogFile(overridePath);
+export function loadCatalog(repoRoot: string): Catalog {
+  const catalog: Catalog = readPublisherFile(repoRoot);
   validate(catalog.published);
   return catalog;
 }
@@ -120,7 +122,7 @@ export function loadCatalog(overridePath?: string | undefined): Catalog {
  * This is where the `--instructor` suffix becomes everything that follows from
  * it: the prefix an examiner reads, the hiding on create, and the re-hiding of
  * anything a later run finds revealed. Derived here, once, rather than typed
- * into the table, so a document cannot be titled as instructor material without
+ * into an entry, so a document cannot be titled as instructor material without
  * being hidden as instructor material.
  */
 export function documentsToPublish(
@@ -141,7 +143,7 @@ export function documentsToPublish(
     }
     return {
       ...document,
-      title: `${INSTRUCTOR_TITLE_PREFIX}${document.title}`,
+      title: publishedTitle(document),
       instructorMaterial: true,
       visibility: "enforced-hidden",
       visibleOnCreate: false,
@@ -154,7 +156,7 @@ export function documentsToPublish(
 
 /**
  * A document's title with the `Instructor — ` prefix taken back off: the title
- * the table writes, and the one a copy somebody made by hand would carry,
+ * the entry writes, and the one a copy somebody made by hand would carry,
  * because nothing they did put the prefix there.
  *
  * Here rather than in the audit so that the prefix stays one string known to
@@ -170,7 +172,7 @@ export function plainTitle(document: PublishedDocument): string {
 /**
  * The human title a document is published under, for messages about it. Falls
  * back to the source path, which is the only honest thing to say about a
- * document the table no longer names.
+ * document the catalog no longer names.
  */
 export function titleFor(catalog: Catalog, source: string): string {
   return (

@@ -148,7 +148,9 @@ export function makeWorkspace(): Workspace {
   const root = mkdtempSync(join(tmpdir(), "publisher-test-"));
   const manifestPath = join(root, "moodle-manifest.json");
   const coursePath = join(root, ".course.json");
-  const catalogPath = join(root, ".catalog.json");
+  // What the course publishes, at the root of the repository, where every run
+  // reads it.
+  const catalogPath = join(root, "publisher.json");
   // The .env at the root every run starts in, empty unless a test writes it:
   // the suite must never read — or be changed by — the .env the developer
   // keeps in their own course repository.
@@ -205,7 +207,6 @@ export function makeWorkspace(): Workspace {
         MOODLE_COURSE_ID: COURSE_ID,
         PUBLISHER_DRIVER: "fake",
         PUBLISHER_FAKE_COURSE: coursePath,
-        PUBLISHER_CATALOG: catalogPath,
         // The run's state follows the directory it is started in, so none of
         // its paths is set — and none a developer's shell exports leaks in.
         PUBLISHER_REPO_ROOT: undefined,

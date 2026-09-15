@@ -1,17 +1,21 @@
 // The startup guard: every published document goes to a section the course
-// page has and is allowed to name, and any reveal date it carries is one the
-// audit can read.
+// page has and is allowed to name, any reveal date it carries is one the audit
+// can read, and no two of them are published under one title.
+//
+// It guards every run. What a course publishes is read from its repository's
+// `publisher.json`, untyped by the time it gets here, so nothing a compiler
+// checked stands between a mistaken edit and a live course but this.
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../../course/index.ts";
+import { publishedTitle } from "./entry.ts";
 import { isCalendarDate } from "./reveal.ts";
 
-import type { PublishedEntry } from "./table.ts";
+import type { PublishedEntry } from "./entry.ts";
 
 /**
  * A document is published to a section the course page does not have.
  *
- * The in-code table cannot say this — its sections are typed — but a catalog
- * read from a file is untyped by the time it gets here, and a section nobody
- * named would be created outside the order students read the page in.
+ * A section nobody named would be created outside the order students read the
+ * page in.
  */
 export class UnknownSection extends Error {
   constructor(source: string, section: string) {
@@ -46,9 +50,7 @@ export class ReservedSection extends Error {
 /**
  * A reveal date the audit cannot read.
  *
- * The in-code table cannot say this — a human wrote the string and a reviewer
- * read it — but a catalog read from a file is untyped by the time it gets
- * here. There is no safe reading: a date this program cannot compare against
+ * There is no safe reading: a date this program cannot compare against
  * would leave the gate permanently open or permanently shut, and either one is
  * a silent answer to the question the entry was added to ask.
  */
@@ -62,7 +64,26 @@ export class InvalidRevealDate extends Error {
   }
 }
 
+/**
+ * Two documents are published under one title, once the `Instructor — ` prefix
+ * is derived.
+ *
+ * A title is how the planner recognises a document the manifest has lost, so
+ * two documents sharing one would have a later run refuse to publish the second
+ * over an activity that is not it — or, worse, take one for the other.
+ */
+export class DuplicateTitle extends Error {
+  constructor(title: string, first: string, second: string) {
+    super(
+      `Refusing to start: "${first}" and "${second}" are both published as "${title}". ` +
+        `A title is how the course page tells documents apart; give one of them another.`
+    );
+    this.name = "DuplicateTitle";
+  }
+}
+
 export function validate(published: readonly PublishedEntry[]): void {
+  const sourceByTitle = new Map<string, string>();
   for (const document of published) {
     if (!SECTION_ORDER.includes(document.section)) {
       throw new UnknownSection(document.source, document.section);
@@ -76,5 +97,11 @@ export function validate(published: readonly PublishedEntry[]): void {
     ) {
       throw new InvalidRevealDate(document.source, document.revealedOn);
     }
+    const title = publishedTitle(document);
+    const earlier = sourceByTitle.get(title);
+    if (earlier !== undefined) {
+      throw new DuplicateTitle(title, earlier, document.source);
+    }
+    sourceByTitle.set(title, document.source);
   }
 }
