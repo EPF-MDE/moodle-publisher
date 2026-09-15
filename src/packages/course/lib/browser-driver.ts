@@ -15,6 +15,7 @@ import {
   required,
   uploadImage,
 } from "./atto-upload.ts";
+import { browserMissing } from "./browser-install.ts";
 import { createRunRecorder } from "./run-recorder.ts";
 import type { RunRecorder } from "./run-recorder.ts";
 import {
@@ -757,7 +758,13 @@ export async function openBrowserCourse(
     );
   }
 
-  const browser: Browser = await chromium.launch({ headless: false });
+  // A missing browser names the publisher's command, not Playwright's: see
+  // browser-install.ts.
+  const browser: Browser = await chromium
+    .launch({ headless: false })
+    .catch((error: unknown) => {
+      throw browserMissing(error) ?? error;
+    });
   const context = await browser.newContext(
     existsSync(options.sessionStatePath)
       ? { storageState: options.sessionStatePath }

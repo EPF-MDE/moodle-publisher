@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// The command line. Seven commands:
+// The command line. Eight commands:
 //
+//   install-browser     install the Chromium the browser driver launches, once per machine
 //   check               check the course repository without Moodle; writes nothing
 //   setup [--apply]     configure the course's gradebook for the Oral, once
 //   publish [--apply]   report the plan; apply only when explicitly asked
@@ -26,6 +27,7 @@ import { loadDeliverables } from "./packages/catalog/deliverables.ts";
 import { loadProbes } from "./packages/catalog/probes.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
+import { installBrowser } from "./packages/course/browser-install.ts";
 import { devoirEntryFor, readManifest } from "./packages/manifest/index.ts";
 import { buildPlan, formatPlan } from "./packages/publishing/plan.ts";
 import { applyPlan } from "./packages/publishing/apply.ts";
@@ -71,6 +73,9 @@ import type { Manifest } from "./packages/manifest/index.ts";
 import type { Config } from "./config.ts";
 
 const USAGE = `Usage:
+  publisher install-browser [--dry-run]    Install the Chromium this publisher's Playwright launches, and no other browser.
+                                           Once per machine, and again after a new publisher tag moves Playwright.
+                                           --dry-run prints what would be downloaded, and where, and downloads nothing.
   publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
@@ -594,9 +599,27 @@ async function wipe(argv: readonly string[]): Promise<number> {
  */
 const PUBLISH_FLAGS: readonly string[] = ["--apply"];
 
+/** The flags `install-browser` takes, and the whole of them. */
+const INSTALL_BROWSER_FLAGS: readonly string[] = ["--dry-run"];
+
 async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
+    case "install-browser": {
+      const unrecognised = rest.filter(
+        (argument) => !INSTALL_BROWSER_FLAGS.includes(argument)
+      );
+      if (unrecognised.length > 0) {
+        // A browser name is the likeliest thing typed here, and this command
+        // installs Chromium and nothing else: said, rather than ignored.
+        process.stderr.write(
+          `Aborting: install-browser takes ${INSTALL_BROWSER_FLAGS.join(" ")} and nothing else. ` +
+            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
+        );
+        return 2;
+      }
+      return installBrowser({ dryRun: rest.includes("--dry-run") });
+    }
     case "publish": {
       const unrecognised = rest.filter(
         (argument) => !PUBLISH_FLAGS.includes(argument)
