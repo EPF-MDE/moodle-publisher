@@ -270,12 +270,9 @@ export const GRID_SOURCE = "assessment-grid.md";
 
 /** The Competencies of this course, as the real grid's front matter declares them. */
 export const THREE_COMPETENCIES = `competencies:
-  - id: C1
-    title: Framing and decomposing work
-  - id: C2
-    title: Extending and constraining an agent
-  - id: C3
-    title: Recovering from failure`;
+  - Framing and decomposing work
+  - Extending and constraining an agent
+  - Recovering from failure`;
 
 /** One probe per Competency, the least a grid can define and still be read. */
 export const ALL_PROBES = `probes:

@@ -73,9 +73,10 @@ export const BAND_SCALE_NAME = "Bands";
  * One independently graded Competency, as the course's grid declares it.
  *
  * Declared by the course rather than written here, so a course graded on two or
- * five is as publishable as one graded on three. The id is written down rather
- * than counted from position, because the manifest records a Grade Item under
- * it: inserting a Competency above another must not rename that one.
+ * five is as publishable as one graded on three. The grid writes only the
+ * title; the id is `C1`, `C2`, … by the order it declares them, and the manifest
+ * records a Grade Item under it. Reordering the grid therefore renumbers the
+ * Competencies, and with them which recorded Grade Item each one is.
  */
 export interface Competency {
   readonly id: string;

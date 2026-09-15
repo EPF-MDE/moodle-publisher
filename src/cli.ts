@@ -148,7 +148,11 @@ async function publish(apply: boolean): Promise<number> {
   // refusal it can raise is about the repository: a duplicated id, a Freeze
   // that is not in Paris, a competency the grid does not declare. None of them
   // is worth finding out with a browser sitting in the course.
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(
+    config.repoRoot,
+    catalog,
+    loadCompetencies(config.repoRoot, catalog)
+  );
   const manifest = readManifest(config.manifestPath);
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
@@ -198,7 +202,7 @@ async function publish(apply: boolean): Promise<number> {
 async function setup(apply: boolean): Promise<number> {
   const config = readConfig();
   // Read before the driver is opened, like `publish` reads the Deliverables: a
-  // grid declaring no Competencies, or one twice, is a mistake in the
+  // grid declaring no Competencies, or an untitled one, is a mistake in the
   // repository, and one Grade Item per Competency is what this run makes.
   const competencies = loadCompetencies(
     config.repoRoot,
@@ -279,8 +283,8 @@ async function probes(): Promise<number> {
   const config = readConfig();
   const catalog = loadCatalog(config.repoRoot);
   const competencies = loadCompetencies(config.repoRoot, catalog);
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
-  const probeQuestions = loadProbes(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
+  const probeQuestions = loadProbes(config.repoRoot, catalog, competencies);
   const manifest = readManifest(config.manifestPath);
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
@@ -402,7 +406,11 @@ async function audit(): Promise<number> {
   // every refusal they can raise is about the repository, and the audit is the
   // command run in the hour before a Freeze — it should fail on a broken front
   // matter before it opens a browser, not after.
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(
+    config.repoRoot,
+    catalog,
+    loadCompetencies(config.repoRoot, catalog)
+  );
   const manifest = readManifest(config.manifestPath);
 
   // One assertion's verdict depends on the date — whether the C3 brief is

@@ -6,9 +6,9 @@
 // question, what a Student must hand in by when is another, and what the
 // Instructor asks about it at the Oral is a third. They meet only in the
 // catalog, which says which document carries the definitions.
-import { readCompetencies } from "./lib/competency.ts";
 import { readProbes } from "./lib/probe.ts";
 
+import type { Competency } from "../course/gradebook.ts";
 import type { Catalog } from "./index.ts";
 import type { Probes } from "./lib/probe.ts";
 
@@ -30,11 +30,12 @@ export type { CompetencyProbes, Probes } from "./lib/probe.ts";
  * default — when the grid defines no probes, when a declared Competency has
  * none, when probes are keyed by a Competency the grid does not declare, when a
  * block is not a list of questions, or when a probe names a Band.
+ * `competencies` is what `loadCompetencies` read from the same grid.
  */
-export function loadProbes(repoRoot: string, catalog: Catalog): Probes {
-  return readProbes(
-    repoRoot,
-    catalog.grid,
-    readCompetencies(repoRoot, catalog.grid)
-  );
+export function loadProbes(
+  repoRoot: string,
+  catalog: Catalog,
+  competencies: readonly Competency[]
+): Probes {
+  return readProbes(repoRoot, catalog.grid, competencies);
 }

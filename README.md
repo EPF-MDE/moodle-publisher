@@ -253,18 +253,15 @@ A course is graded on the **Competencies** its grid declares, in a `competencies
 ```yaml
 ---
 competencies:
-  - id: C1
-    title: Framing and decomposing work
-  - id: C2
-    title: Extending and constraining an agent
-  - id: C3
-    title: Recovering from failure
+  - Framing and decomposing work
+  - Extending and constraining an agent
+  - Recovering from failure
 ---
 ```
 
-Each has an **id written down** and a title. `setup` makes one Grade Item per Competency, named `<id> — <title>` and recorded under the id; `probes` writes one Probe Sheet per enrolled Student per Competency; `import` maps one pair of columns per Competency. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course, and a probe naming one is still refused (ADR-0002).
+Each is written as its title alone. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` and the `probes` keys refer to that id. Reordering the list renumbers them, and the manifest's record of which Grade Item is which with them, so add a Competency at the end. `setup` makes one Grade Item per Competency, named `<id> — <title>` and recorded under the id; `probes` writes one Probe Sheet per enrolled Student per Competency; `import` maps one pair of columns per Competency. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course, and a probe naming one is still refused (ADR-0002).
 
-Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no id or no title, a title that names a Band (it heads a Probe Sheet column), two Competencies sharing an id, a Deliverable serving a Competency the grid does not declare, probes keyed by one it does not declare, and a declared Competency with no probes.
+Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no title, a title that names a Band (it heads a Probe Sheet column), a Deliverable serving a Competency the grid does not declare, probes keyed by one it does not declare, and a declared Competency with no probes.
 
 ## Deliverables
 

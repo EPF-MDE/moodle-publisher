@@ -6,14 +6,19 @@
 // gives about the Freeze: what the gradebook grades, what a Devoir serves and
 // what the Instructor asks are checked against each other by eye, in one diff.
 //
+// The grid writes a title per Competency and nothing else. The id is this
+// program's — `C1`, `C2`, … in the order the grid declares them — and it is
+// what a Deliverable's `competencies` and the `probes` keys refer to.
+//
 // Every failure here is an abort naming the grid. There is no default set of
 // Competencies: a grid that lost its block would otherwise be graded on
 // whatever this program last knew, which is another course's.
 import { bandNamedIn } from "../../course/gradebook.ts";
 import { frontMatter } from "../../documents/index.ts";
 
+import { nonEmptyString } from "./scalar.ts";
+
 import type { Competency } from "../../course/gradebook.ts";
-import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
 
 /**
  * The grid the catalog names declares no Competencies.
@@ -27,7 +32,7 @@ export class NoCompetencies extends Error {
     super(
       `Refusing to start: "${grid}" is the grid that declares the Competencies, and its ` +
         `front matter declares none. Competencies are written in a "competencies:" block at ` +
-        `the top of the file, one "- id:" with its "title:" per Competency. Restore it, or ` +
+        `the top of the file, one "- " line with its title per Competency. Restore it, or ` +
         `point the catalog's grid at the document that declares them.`
     );
     this.name = "NoCompetencies";
@@ -35,43 +40,20 @@ export class NoCompetencies extends Error {
 }
 
 /**
- * A Competency is missing its id or its title.
+ * A Competency written as something other than its title.
  *
- * Neither is defaulted. The Grade Item a Competency is graded in is named
- * `<id> — <title>` and recorded under the id, so a guessed id is a Grade Item a
- * later run no longer recognises, and a guessed title is one the Instructor
- * cannot tell apart from its neighbours.
+ * A title is not defaulted: the Grade Item a Competency is graded in is named
+ * after it, and a guessed one is a Grade Item the Instructor cannot tell apart
+ * from its neighbours.
  */
-export class MissingCompetencyField extends Error {
-  constructor(source: string, id: string | undefined, field: string) {
+export class UntitledCompetency extends Error {
+  constructor(source: string, id: string) {
     super(
-      `Refusing to start: ${
-        id === undefined
-          ? `a Competency in "${source}"`
-          : `Competency "${id}" in "${source}"`
-      } has no "${field}". Every Competency states its id and its title under ` +
-        `"competencies:"; its Grade Item is named after both, so neither is defaulted.`
+      `Refusing to start: Competency ${id} in "${source}" has no title. Every Competency ` +
+        `is written under "competencies:" as one "- " line carrying its title; its Grade ` +
+        `Item is named after it, so it is not defaulted.`
     );
-    this.name = "MissingCompetencyField";
-  }
-}
-
-/**
- * Two Competencies share an id.
- *
- * A Grade Item is recorded under its Competency's id, so two of them are two
- * Grade Items competing for one record — and two Probe Sheet columns nobody
- * could map apart on import.
- */
-export class DuplicateCompetencyId extends Error {
-  constructor(source: string, id: string, first: Competency, second: Competency) {
-    super(
-      `Refusing to start: "${source}" declares two Competencies with the id "${id}" — ` +
-        `"${first.title}" and "${second.title}". A Grade Item is recorded under its ` +
-        `Competency's id, so two of them would compete for one. Give one of them a ` +
-        `different id.`
-    );
-    this.name = "DuplicateCompetencyId";
+    this.name = "UntitledCompetency";
   }
 }
 
@@ -88,7 +70,7 @@ export class DuplicateCompetencyId extends Error {
 export class CompetencyNamesABand extends Error {
   constructor(source: string, competency: Competency, band: string) {
     super(
-      `Refusing to start: Competency "${competency.id}" in "${source}" is titled ` +
+      `Refusing to start: Competency ${competency.id} in "${source}" is titled ` +
         `"${competency.title}", which names the band "${band}". Its Grade Item and its ` +
         `Probe Sheet column are named after the title, and nothing this tooling writes ` +
         `suggests a band. Retitle it.`
@@ -114,7 +96,7 @@ export function isDeclared(
  * Every Competency the grid declares, checked, in the order it declares them.
  *
  * The order is the gradebook's and the Probe Sheets' too: Grade Items are made
- * and columns are written in it.
+ * and columns are written in it, and each Competency's id is its place in it.
  */
 export function readCompetencies(
   repoRoot: string,
@@ -124,38 +106,14 @@ export function readCompetencies(
   if (!Array.isArray(written) || written.length === 0) {
     throw new NoCompetencies(grid);
   }
-  const byId = new Map<string, Competency>();
-  return written.map((entry) => {
-    const competency = readCompetency(grid, entry);
-    const first = byId.get(competency.id);
-    if (first !== undefined) {
-      throw new DuplicateCompetencyId(grid, competency.id, first, competency);
+  return written.map((entry, index) => {
+    const id = `C${index + 1}`;
+    const title = nonEmptyString(entry);
+    if (title === undefined) throw new UntitledCompetency(grid, id);
+    const band = bandNamedIn(title);
+    if (band !== undefined) {
+      throw new CompetencyNamesABand(grid, { id, title }, band);
     }
-    byId.set(competency.id, competency);
-    return competency;
+    return { id, title };
   });
-}
-
-function readCompetency(source: string, entry: FrontMatterValue): Competency {
-  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-    throw new MissingCompetencyField(source, undefined, "id");
-  }
-  const fields = entry as FrontMatter;
-  const id = nonEmptyString(fields["id"]);
-  if (id === undefined) throw new MissingCompetencyField(source, undefined, "id");
-  const title = nonEmptyString(fields["title"]);
-  if (title === undefined) throw new MissingCompetencyField(source, id, "title");
-  const band = bandNamedIn(title);
-  if (band !== undefined) {
-    throw new CompetencyNamesABand(source, { id, title }, band);
-  }
-  return { id, title };
-}
-
-/** A field's value when it was written as a non-empty string, else undefined. */
-export function nonEmptyString(
-  value: FrontMatterValue | undefined
-): string | undefined {
-  if (typeof value !== "string") return undefined;
-  return value.trim() === "" ? undefined : value.trim();
 }

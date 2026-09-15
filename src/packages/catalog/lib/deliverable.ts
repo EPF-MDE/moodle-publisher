@@ -17,8 +17,9 @@
 // meets at a deadline that nobody wrote down.
 import { frontMatter } from "../../documents/index.ts";
 
-import { idsOf, isDeclared, nonEmptyString } from "./competency.ts";
+import { idsOf, isDeclared } from "./competency.ts";
 import { formatFreeze, formatInstant, readFreeze } from "./freeze.ts";
+import { nonEmptyString } from "./scalar.ts";
 
 import type { Competency } from "../../course/gradebook.ts";
 import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
