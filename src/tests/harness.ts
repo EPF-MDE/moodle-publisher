@@ -38,6 +38,18 @@ function packagedCli(): string {
   return bin;
 }
 
+/** The package name a course repository installs the publisher under. */
+export const PUBLISHER_PACKAGE = "@epf-mde/moodle-publisher";
+
+/**
+ * Where the suite's global setup installed the packed publisher: what a course
+ * repository finds under its own `node_modules`, glossary and ADRs included.
+ */
+export function installedPublisher(): string {
+  // The binary is linked from node_modules/.bin, beside the package it runs.
+  return join(dirname(dirname(packagedCli())), PUBLISHER_PACKAGE);
+}
+
 /** The course every run in this suite is pointed at. */
 export const COURSE_ID = "4242";
 
