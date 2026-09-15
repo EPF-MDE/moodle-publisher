@@ -24,6 +24,8 @@ Playwright's browser binary is installed once per machine, as below. Working on 
 ```bash
 cp .env.example .env    # fill in the site and the course id
 
+npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
+
 npm run setup           # reports how the gradebook would be configured for the Oral
 npm run setup -- --apply  # creates the Bands scale and the three grade items
 
@@ -44,6 +46,10 @@ npm run check:upload    # sends pictures into an activity form on the live cours
 npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
 ```
+
+`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a cross-reference to a document no entry names, a Student-facing document linking to Instructor Material, a probe naming a Band — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+
+What it leaves out is only what depends on the live course: a document whose section was changed after it was published, and instructor material already in the course that the manifest has no record of. `npm run plan` still says those.
 
 Reporting the plan is the default. Applying is opt-in (`publish --apply`), so an exploratory invocation is always safe: a plan writes nothing to the course and nothing to the manifest.
 

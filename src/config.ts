@@ -102,7 +102,7 @@ export interface Config {
  * is found at this root, so a root named inside it would move the file that
  * named it.
  */
-function repositoryRoot(env: NodeJS.ProcessEnv): string {
+export function repositoryRoot(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env["PUBLISHER_REPO_ROOT"] ?? process.cwd());
 }
 
