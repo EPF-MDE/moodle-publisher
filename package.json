@@ -31,7 +31,8 @@
     "typecheck": "tsc --noEmit",
     "lint:boundaries": "depcruise src",
     "test": "node --test --test-global-setup=src/tests/packaged.ts",
-    "check": "npm run typecheck && npm run lint:boundaries && npm run test && npm run check:selectors"
+    "check": "npm run typecheck && npm run lint:boundaries && npm run test && npm run check:selectors",
+    "browser": "node src/cli.ts install-browser"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
@@ -40,6 +41,6 @@
   },
   "dependencies": {
     "marked": "^18.0.11",
-    "playwright": "^1.62.1"
+    "playwright": "1.63.0"
   }
 }

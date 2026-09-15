@@ -17,12 +17,13 @@ npx moodle-publisher publish      # the binary takes the commands below
 
 **Run it from the course repository's root.** The directory the command is started in is the repository root: the documents are read from there, and the course's run state is kept there — `moodle-manifest.json` (committed), `.env`, `runs/` and `probe-sheets.csv` (all three git-ignored in the course repository: a session's captures and every Student's sheet). Nothing is kept beside the publisher, which once installed is inside `node_modules`, where the next install would delete it. `PUBLISHER_REPO_ROOT` names another root, and `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE`, `PUBLISHER_PROBE_SHEETS` and `MOODLE_RUN_DIR` each still move one file. The Moodle session stays outside git, in `~/.config/epf-moodle-publisher/`.
 
-Playwright's browser binary is installed once per machine, as below. Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source; this checkout holds no course, so point `PUBLISHER_REPO_ROOT` at one, and the run state follows it there.
+The browser the publisher drives is installed once per machine, by the publisher, as [below](#the-browser). Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source; this checkout holds no course, so point `PUBLISHER_REPO_ROOT` at one, and the run state follows it there.
 
 ## Running it
 
 ```bash
 cp .env.example .env    # fill in the site and the course id
+npx moodle-publisher install-browser  # once per machine: the Chromium the publisher launches
 
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
 
@@ -93,11 +94,15 @@ EPF's Moodle authenticates exclusively through Office 365, and a web service tok
 - Every mutating action is captured **before and after** into a timestamped run directory under `runs/<timestamp>/`. The `after` capture is taken even when the action fails — that is the one worth looking at. An audit mutates nothing and so creates no run directory.
 - A capture is a screenshot, **the page's HTML, and the URL**, and `run.txt` names every action with the page it started and ended on and the message of any abort. A screenshot shows what a page looked like; it does not say which page it was, and it cannot be searched for the markup a selector missed. A failed run against the live course is diagnosed from what it left behind, long after the terminal that printed the error has gone.
 
-Playwright's browser binary is installed once:
+### The browser
+
+A course repository never depends on Playwright, and never runs a Playwright command: Playwright is the publisher's dependency, pinned to an exact version. Its browser is not part of any install, though — it is a download into a per-machine cache (`~/Library/Caches/ms-playwright/` on a Mac) keyed by Chromium revision. The publisher installs the one it launches, Chromium alone, through its own Playwright:
 
 ```bash
-npx playwright install chromium
+npx moodle-publisher install-browser             # --dry-run prints what it would download, and where
 ```
+
+A course repository can name it in its `package.json`, as `"browser": "moodle-publisher install-browser"`, and run `npm run browser`. It is needed once per machine, and again when a new publisher tag moves Playwright to another Chromium revision; a run that finds the browser missing aborts before opening a window and names this command. Nothing downloads it on install: that would be about 180 MB on every `npm install`, CI's included, where only `check` runs and no browser is ever opened.
 
 ### Selectors
 

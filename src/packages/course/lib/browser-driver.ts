@@ -15,6 +15,7 @@ import {
   required,
   uploadImage,
 } from "./atto-upload.ts";
+import { BROWSER_MISSING, isBrowserMissing } from "./browser-install.ts";
 import { createRunRecorder } from "./run-recorder.ts";
 import type { RunRecorder } from "./run-recorder.ts";
 import {
@@ -757,7 +758,14 @@ export async function openBrowserCourse(
     );
   }
 
-  const browser: Browser = await chromium.launch({ headless: false });
+  // Playwright's own box says `npx playwright install`, which a course
+  // repository that never listed Playwright should not have to know about, and
+  // which downloads two browsers this program never launches.
+  const browser: Browser = await chromium
+    .launch({ headless: false })
+    .catch((error: unknown) => {
+      throw isBrowserMissing(error) ? new Error(BROWSER_MISSING) : error;
+    });
   const context = await browser.newContext(
     existsSync(options.sessionStatePath)
       ? { storageState: options.sessionStatePath }
