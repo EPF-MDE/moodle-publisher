@@ -15,13 +15,19 @@
 import { bandNamedIn } from "../../course/gradebook.ts";
 import { frontMatter } from "../../documents/index.ts";
 
-import { COMPETENCIES } from "./deliverable.ts";
+import { idsOf, isDeclared } from "./competency.ts";
 
+import type { Competency } from "../../course/gradebook.ts";
 import type { FrontMatterValue } from "../../documents/index.ts";
-import type { Competency } from "./deliverable.ts";
 
 /** The probes for one Competency, in the order the Instructor reads them. */
-export type Probes = Readonly<Record<Competency, readonly string[]>>;
+export interface CompetencyProbes {
+  readonly competency: Competency;
+  readonly probes: readonly string[];
+}
+
+/** One list of probes per Competency, in the order the grid declares them. */
+export type Probes = readonly CompetencyProbes[];
 
 /**
  * The grid the catalog names defines no probes.
@@ -43,9 +49,9 @@ export class NoProbes extends Error {
   }
 }
 
-/** A Competency the document says nothing about. */
+/** A declared Competency the document says nothing about. */
 export class MissingProbes extends Error {
-  constructor(source: string, competency: Competency) {
+  constructor(source: string, competency: string) {
     super(
       `Refusing to start: "${source}" defines no probes for ${competency}, which is a ` +
         `competency this course grades. Every competency's Probe Sheet is prepared, ` +
@@ -56,12 +62,16 @@ export class MissingProbes extends Error {
   }
 }
 
-/** A probes block naming something that is not a Competency. */
+/** A probes block naming something the grid does not declare as a Competency. */
 export class UnknownProbedCompetency extends Error {
-  constructor(source: string, written: string) {
+  constructor(
+    source: string,
+    written: string,
+    declared: readonly Competency[]
+  ) {
     super(
       `Refusing to start: "${source}" defines probes for "${written}", which is not a ` +
-        `competency this course has. The competencies are ${COMPETENCIES.join(", ")}. Probes ` +
+        `competency it declares. The competencies are ${idsOf(declared)}. Probes ` +
         `nobody is graded on are questions asked at an Oral for nothing.`
     );
     this.name = "UnknownProbedCompetency";
@@ -104,24 +114,33 @@ export class ProbeNamesABand extends Error {
 }
 
 /**
- * The probes every Competency's Probe Sheet carries, read from the grid.
+ * The probes every declared Competency's Probe Sheet carries, read from the
+ * grid.
  *
  * Read before the course is opened, like the Deliverables and for the same
  * reason: every refusal in this file is about the repository, and none of them
  * is worth finding out with a browser sitting in the course.
  */
-export function readProbes(repoRoot: string, grid: string): Probes {
-  const found = new Map<Competency, readonly string[]>(probesIn(repoRoot, grid));
-  for (const competency of COMPETENCIES) {
-    if (!found.has(competency)) throw new MissingProbes(grid, competency);
-  }
-  return Object.fromEntries(found) as Probes;
+export function readProbes(
+  repoRoot: string,
+  grid: string,
+  competencies: readonly Competency[]
+): Probes {
+  const found = new Map<string, readonly string[]>(
+    probesIn(repoRoot, grid, competencies)
+  );
+  return competencies.map((competency) => {
+    const probes = found.get(competency.id);
+    if (probes === undefined) throw new MissingProbes(grid, competency.id);
+    return { competency, probes };
+  });
 }
 
 function probesIn(
   repoRoot: string,
-  source: string
-): readonly (readonly [Competency, readonly string[]])[] {
+  source: string,
+  competencies: readonly Competency[]
+): readonly (readonly [string, readonly string[]])[] {
   const written = frontMatter(repoRoot, source)?.["probes"];
   if (written === undefined) throw new NoProbes(source);
   if (
@@ -134,10 +153,10 @@ function probesIn(
   const entries = Object.entries(written as Record<string, FrontMatterValue>);
   if (entries.length === 0) throw new NoProbes(source);
   return entries.map(([name, value]) => {
-    if (!(COMPETENCIES as readonly string[]).includes(name)) {
-      throw new UnknownProbedCompetency(source, name);
+    if (!isDeclared(competencies, name)) {
+      throw new UnknownProbedCompetency(source, name, competencies);
     }
-    return [name as Competency, readList(source, name, value)] as const;
+    return [name, readList(source, name, value)] as const;
   });
 }
 

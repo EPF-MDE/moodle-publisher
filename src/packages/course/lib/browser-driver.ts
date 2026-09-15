@@ -1553,8 +1553,8 @@ export async function openBrowserCourse(
     if ((await name.count()) === 0) return undefined;
     // A standard scale belongs to the site, not to this course, and the
     // scales page lists both. Reported as no scale at all rather than as one
-    // of the course's: a site scale named `Bands` adopted here is three Grade
-    // Items valued on something an administrator can change under them.
+    // of the course's: a site scale named `Bands` adopted here is every Grade
+    // Item valued on something an administrator can change under them.
     const standard = page.locator(SELECTORS.scaleStandard);
     if ((await standard.count()) > 0 && (await standard.isChecked())) {
       return undefined;
@@ -1970,7 +1970,7 @@ export async function openBrowserCourse(
             throw new Error(
               `Aborting: this Moodle's grade item form has no "${selector}" field, so ` +
                 `"${item.name}" cannot be created ${what}. Nothing has been created. ` +
-                `${why} Or add the three items by hand in the gradebook.`
+                `${why} Or add one item per Competency by hand in the gradebook.`
             );
           }
           // A field that is on the form and not visible is a section this

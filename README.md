@@ -27,7 +27,7 @@ cp .env.example .env    # fill in the site and the course id
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
 
 npm run setup           # reports how the gradebook would be configured for the Oral
-npm run setup -- --apply  # creates the Bands scale and the three grade items
+npm run setup -- --apply  # creates the Bands scale and a grade item per Competency
 
 npm run plan            # reports what would happen; applies nothing
 npm run apply           # publishes; opens a visible browser
@@ -154,17 +154,17 @@ npm run setup -- --apply  # adds it
 It puts two things in the gradebook:
 
 - **The `Bands` scale**, with the five Bands lowest first — `Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding` — spelled as `CONTEXT.md` spells them. It is made by tooling and not by hand because a CSV of Bands is later matched against these strings character for character, and a scale that differs by a capital letter is an import that silently lands the wrong verdicts.
-- **Three grade items**, one per Competency, each **hidden from Students** and each **kept out of the course total** (weight overridden to 0). A visible Grade Item is a provisional Band read the night before the Oral it was meant to be defended at. One that counts is Moodle aggregating three Bands into the /20 the assessment grid refuses, with `Resit` averaged in as though it were a low mark rather than work that was not done.
+- **One grade item per Competency** the grid declares, named `<id> — <title>`, each **hidden from Students** and each **kept out of the course total** (weight overridden to 0). A visible Grade Item is a provisional Band read the night before the Oral it was meant to be defended at. One that counts is Moodle aggregating Bands into the /20 the assessment grid refuses, with `Resit` averaged in as though it were a low mark rather than work that was not done.
 
-  Weight 0 asks something of the course first: Moodle puts "Weight adjusted" on the grade item form **only when the course's grade category aggregates naturally**, and a course that arrived from an import on "Simple weighted mean" (as 14707 did) weighs every item by its maximum grade with no way to say zero. `setup` does not change that setting — the aggregation decides what every other grade in the course means, and it is not this command's to reinterpret. It aborts naming the setting, and a run after the aggregation is set to Natural makes the three items.
+  Weight 0 asks something of the course first: Moodle puts "Weight adjusted" on the grade item form **only when the course's grade category aggregates naturally**, and a course that arrived from an import on "Simple weighted mean" (as 14707 did) weighs every item by its maximum grade with no way to say zero. `setup` does not change that setting — the aggregation decides what every other grade in the course means, and it is not this command's to reinterpret. It aborts naming the setting, and a run after the aggregation is set to Natural makes the items.
 
-A second run creates no second scale and no fourth grade item: it reports everything as already in place and stops. What it will not do is quietly correct one somebody made by hand — a grade item that is visible, that counts, that is valued on something other than the Bands, or that shares its name with another **aborts the run with instructions**, leaving the gradebook alone. A tool that silently reconfigured a Grade Item is a tool nobody can be sure has not also silently reconfigured something holding Bands.
+A second run creates no second scale and no second grade item for a Competency: it reports everything as already in place and stops. What it will not do is quietly correct one somebody made by hand — a grade item that is visible, that counts, that is valued on something other than the Bands, or that shares its name with another **aborts the run with instructions**, leaving the gradebook alone. A tool that silently reconfigured a Grade Item is a tool nobody can be sure has not also silently reconfigured something holding Bands.
 
-The three grade items are recorded in the same manifest as the pages, keyed by Competency (`C1`, `C2`, `C3`) rather than by a source path, because a Grade Item comes from no file.
+The grade items are recorded in the same manifest as the pages, keyed by the Competency's id (`C1`, `C2`, …) rather than by a source path, because a Grade Item comes from no file.
 
-That record is also how a later run recognises one: **by the id the manifest holds**, and by name only when there is no id to go on. A Grade Item somebody has renamed in the gradebook is still that Competency's, and looked for by the name it was created under it would be invisible — the run would make a fourth beside it.
+That record is also how a later run recognises one: **by the id the manifest holds**, and by name only when there is no id to go on. A Grade Item somebody has renamed in the gradebook is still that Competency's, and looked for by the name it was created under it would be invisible — the run would make a second beside it.
 
-Two things are read that the gradebook's own table does not show plainly. A **`Hidden until` date** counts as visible: a Band that becomes readable on a day nobody is watching for is the failure this command exists to prevent, arriving late rather than early. And a **standard, site-wide scale** named `Bands` is not adopted as this course's — the scales page lists it beside the course's own, and three Grade Items valued on a scale an administrator can change under them is not something this course can be sure of.
+Two things are read that the gradebook's own table does not show plainly. A **`Hidden until` date** counts as visible: a Band that becomes readable on a day nobody is watching for is the failure this command exists to prevent, arriving late rather than early. And a **standard, site-wide scale** named `Bands` is not adopted as this course's — the scales page lists it beside the course's own, and Grade Items valued on a scale an administrator can change under them is not something this course can be sure of.
 
 ## Putting the Probe Sheets in the gradebook
 
@@ -176,9 +176,9 @@ npm run import              # reports what would enter the gradebook
 npm run import -- --apply   # puts it through Moodle's own import
 ```
 
-It goes through **Moodle's own gradebook import** (`/grade/import/csv/index.php`) rather than the grading grid: thirty Students times three fields is one form rather than ninety AJAX interactions, and **one import covers C1, C2 and C3** — including C3, the Competency graded live, so that even its field is waiting rather than being made in the middle of a six-minute slot.
+It goes through **Moodle's own gradebook import** (`/grade/import/csv/index.php`) rather than the grading grid: thirty Students times a field per Competency is one form rather than a page of AJAX interactions each, and **one import covers every Competency** — including the one graded live, so that even its field is waiting rather than being made in the middle of a six-minute slot.
 
-**Nothing it sends is a verdict.** The three band columns of the generated file are mapped to _Ignore_, so there is no mapping this program can make that carries a Band into a Grade Item (ADR-0002). What lands is the sheet, in the feedback beside the band cell; the cell itself appears empty, ready for the Instructor to pick from the Bands at the Oral. Nothing reads a filled-in Band back out, either: a verdict entered in Moodle stays there, and re-importing the sheets after a late enrolment leaves the ones already given alone.
+**Nothing it sends is a verdict.** The band columns of the generated file are mapped to _Ignore_, so there is no mapping this program can make that carries a Band into a Grade Item (ADR-0002). What lands is the sheet, in the feedback beside the band cell; the cell itself appears empty, ready for the Instructor to pick from the Bands at the Oral. Nothing reads a filled-in Band back out, either: a verdict entered in Moodle stays there, and re-importing the sheets after a late enrolment leaves the ones already given alone.
 
 Everything it can refuse over is checked before a browser opens — sheets that were never generated, a gradebook `setup` has not configured, a file that is not the one `probes` writes. Three more are checked against the live course before anything is sent: a Grade Item the manifest records and the course no longer holds; one somebody has **revealed**, which would publish what a Student is about to be asked; and an **enrolment the file no longer matches**. That last one is what makes the promise a promise about Students rather than about rows: somebody who enrolled after `probes` ran has no row in the file, and an import of it would report success and leave them with nothing waiting at their Oral. Run `npm run probes` again and import the file it writes — the Bands already entered survive it.
 
@@ -192,8 +192,8 @@ Every abort this would answer prints these steps, because the evening they are n
 2. Upload `probe-sheets.csv`, leave the separator on comma, and continue.
 3. Identify users by **Email address**, mapped from the file's `email` column — the only identity field this Moodle populates.
 4. Map each `Feedback: …` column to the **feedback** of its grade item.
-5. Leave every other column on **Ignore**, including the three band columns. They are empty on purpose: the Band is yours to enter at the Oral.
-6. Import. Each Student then has a sheet waiting in all three grade items.
+5. Leave every other column on **Ignore**, including the band columns. They are empty on purpose: the Band is yours to enter at the Oral.
+6. Import. Each Student then has a sheet waiting in every grade item.
 
 ## Emptying the course
 
@@ -252,6 +252,23 @@ That is the whole of it, and what it gives up is worth stating: nothing now guar
 
 The table is checked against the repository it sits in, so a source path that is a typo fails here rather than in front of a class. Every guard over the table fires before the browser is even opened.
 
+## Competencies
+
+A course is graded on the **Competencies** its grid declares, in a `competencies:` block of the grid's front matter, beside the Deliverables that serve them and the probes the Oral asks about them:
+
+```yaml
+---
+competencies:
+  - Framing and decomposing work
+  - Extending and constraining an agent
+  - Recovering from failure
+---
+```
+
+Each is written as its title alone. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` and the `probes` keys refer to that id. Reordering the list renumbers them, and the manifest's record of which Grade Item is which with them, so add a Competency at the end. `setup` makes one Grade Item per Competency, named `<id> — <title>` and recorded under the id; `probes` writes one Probe Sheet per enrolled Student per Competency; `import` maps one pair of columns per Competency. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course, and a probe naming one is still refused (ADR-0002).
+
+Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no title, a title that names a Band (it heads a Probe Sheet column), a Deliverable serving a Competency the grid does not declare, probes keyed by one it does not declare, and a declared Competency with no probes.
+
 ## Deliverables
 
 A **Deliverable** is something required from a student by a stated instant. This course has exactly two, and each is defined **once**, in the front matter of `assessment-grid.md` — the one document that already states every Freeze in its prose, one screen below. That is the point of putting them there: the instant students read and the instant Moodle will enforce are checked against each other by eye, in one diff. The alternative shipped `14:00` to the live course while two other files said `20:00`.
@@ -286,7 +303,7 @@ Everything that can go wrong here **aborts, before the course is opened, naming 
 | Two Deliverables share an `id` | Refuses, naming both by title and by the document they are written in |
 | `due` has no offset, or an offset that is not `Europe/Paris`'s on that day | Refuses, saying which offset Paris was on |
 | `due` cannot be read, or is absent | Refuses. Nothing is defaulted |
-| A competency the course does not have | Refuses, naming it and the Deliverable |
+| A competency the grid does not declare | Refuses, naming it and the Deliverable |
 | `visible` written as anything but `true` or `false` | Refuses. `visible: fasle` must not read as "visible" — `c3-1` is the one that ships hidden |
 | A published document naming the `Deliverables` section | Refuses, naming the document. Nothing but a Deliverable lands there |
 

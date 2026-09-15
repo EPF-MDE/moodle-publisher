@@ -14,18 +14,14 @@
 // is printed by every abort here rather than kept somewhere that would have to
 // be found first.
 //
-// One import covers C1, C2 and C3. Nothing it sends can be a verdict: the Band
-// columns the generator leaves empty are mapped to `ignore`, so the only cells
-// this program writes are the sheets themselves and the Band cell it puts on
-// screen stays as empty as the file (ADR-0002). And nothing here reads a Band
+// One import covers every Competency the grid declares. Nothing it sends can be
+// a verdict: the Band columns the generator leaves empty are mapped to `ignore`,
+// so the only cells this program writes are the sheets themselves and the Band
+// cell it puts on screen stays as empty as the file (ADR-0002). And nothing here reads a Band
 // back out — this repository never becomes a second source of truth for one.
 import { readFileSync, existsSync } from "node:fs";
 
-import {
-  COMPETENCIES,
-  identityColumnOf,
-  GRADE_IMPORT_PATH,
-} from "../course/gradebook.ts";
+import { identityColumnOf, GRADE_IMPORT_PATH } from "../course/gradebook.ts";
 import { gradeItemFor } from "../manifest/index.ts";
 
 import { probeSheetsColumns } from "./probe-sheets.ts";
@@ -57,9 +53,9 @@ export const MANUAL_FALLBACK =
   `  2. Upload the CSV named above, leave the separator on comma, and continue.\n` +
   `  3. Identify users by "Email address", mapped from the file's "email" column.\n` +
   `  4. Map each "Feedback: …" column to the feedback of its grade item.\n` +
-  `  5. Leave every other column on "Ignore" — including the three band columns,\n` +
+  `  5. Leave every other column on "Ignore" — including the band columns,\n` +
   `     which are empty on purpose: the Band is yours to enter at the Oral.\n` +
-  `  6. Import. Each Student then has a sheet waiting in all three grade items.`;
+  `  6. Import. Each Student then has a sheet waiting in every grade item.`;
 
 /** An abort on this path: a message, and how to do it by hand instead. */
 export class ImportRefused extends Error {
@@ -147,8 +143,10 @@ export interface ImportPlan {
  * an older version of this program, and mapping columns by position out of it
  * would import the C2 sheets into C3.
  */
-function expectedHeader(): readonly string[] {
-  return probeSheetsColumns().map((column) => column.heading);
+function expectedHeader(
+  competencies: readonly Competency[]
+): readonly string[] {
+  return probeSheetsColumns(competencies).map((column) => column.heading);
 }
 
 /**
@@ -164,6 +162,8 @@ function expectedHeader(): readonly string[] {
 export function buildImportPlan(input: {
   readonly courseId: string;
   readonly path: string;
+  /** What the grid declares: one Grade Item, and one pair of columns, each. */
+  readonly competencies: readonly Competency[];
   readonly manifest: Manifest;
 }): ImportPlan {
   if (!existsSync(input.path)) {
@@ -175,11 +175,11 @@ export function buildImportPlan(input: {
     );
   }
 
-  const items = COMPETENCIES.map((competency): CompetencyColumns => {
+  const items = input.competencies.map((competency): CompetencyColumns => {
     const item = gradeItemFor(input.manifest, competency);
     if (item === undefined) {
       throw new ImportRefused(
-        `no Grade Item is recorded for ${competency}, so its sheets have nowhere to ` +
+        `no Grade Item is recorded for ${competency.id}, so its sheets have nowhere to ` +
           `land. Run \`npm run setup -- --apply\` first: it makes the Bands scale and ` +
           `one hidden Grade Item per Competency, and records them. Nothing has been ` +
           `imported.`
@@ -189,7 +189,7 @@ export function buildImportPlan(input: {
   });
 
   const text = readFileSync(input.path, "utf8");
-  const header = expectedHeader();
+  const header = expectedHeader(input.competencies);
   // Compared as the one line the generator wrote, quoting and all, rather than
   // field by field: the file is handed to Moodle whole, so what is checked is
   // the bytes at the top of it.
@@ -244,13 +244,14 @@ export function buildImportPlan(input: {
 function columnsOf(
   items: readonly CompetencyColumns[]
 ): readonly ImportColumn[] {
-  return probeSheetsColumns().map((column): ImportColumn => {
+  const competencies = items.map((one) => one.competency);
+  return probeSheetsColumns(competencies).map((column): ImportColumn => {
     switch (column.role) {
       case "identity":
         return { heading: column.heading, target: { kind: "identity" } };
       case "sheet": {
         const item = items.find(
-          (one) => one.competency === column.competency
+          (one) => one.competency.id === column.competency.id
         )?.item;
         if (item === undefined) {
           throw new ImportRefused(
@@ -264,7 +265,7 @@ function columnsOf(
           target: { kind: "sheet", gradeItemId: item.itemId },
         };
       }
-      // The name column and the three Band columns alike.
+      // The name column and the Band columns alike.
       default:
         return { heading: column.heading, target: { kind: "ignore" } };
     }
@@ -278,15 +279,15 @@ export function formatImportPlan(plan: ImportPlan): string {
     "",
     ...plan.items.map(
       ({ competency, item }) =>
-        `  ${competency}  sheets → feedback of "${item.name}" (grade item ${item.itemId})`
+        `  ${competency.id}  sheets → feedback of "${item.name}" (grade item ${item.itemId})`
     ),
     ...plan.items.map(
       ({ competency }) =>
-        `  ${competency}  band column → ignored, so no verdict travels`
+        `  ${competency.id}  band column → ignored, so no verdict travels`
     ),
     "",
     `${plan.emails.length * plan.items.length} Probe Sheets, in one import covering ` +
-      `${plan.items.map((one) => one.competency).join(", ")}. Every Band cell is left ` +
+      `${plan.items.map((one) => one.competency.id).join(", ")}. Every Band cell is left ` +
       `empty for you to fill in at the Oral.`,
   ].join("\n");
 }
@@ -329,7 +330,7 @@ export async function applyImport(
     if (live === undefined) {
       throw new ImportRefused(
         `course ${plan.courseId} has no grade item ${item.itemId}, which the manifest ` +
-          `records as ${competency}'s ("${item.name}"). Something has removed it since ` +
+          `records as ${competency.id}'s ("${item.name}"). Something has removed it since ` +
           `\`setup\` ran, and an import mapped onto an id the course no longer holds ` +
           `lands nowhere or somewhere else. Run \`npm run setup\` to see what the ` +
           `gradebook holds. Nothing has been imported.`
@@ -369,7 +370,7 @@ export async function applyImport(
  *
  * The promise this command makes is about the enrolled Students and not about
  * the rows of a file: after it, every enrolled Student has a Probe Sheet field
- * waiting in all three Grade Items. A file written before somebody enrolled
+ * waiting in every Grade Item. A file written before somebody enrolled
  * keeps that promise for everyone except them, and the import would report
  * success — the Student it missed is found out at their Oral, which is the one
  * evening there is nothing to be done about it.

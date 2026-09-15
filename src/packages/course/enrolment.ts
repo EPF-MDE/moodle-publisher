@@ -114,7 +114,7 @@ const STUDENT_ROLES = new Set(["student", "étudiant", "etudiant"]);
  *
  * A Probe Sheet is prepared for a Student who sits an Oral. The participants
  * table lists everybody enrolled — the Instructor, a co-teacher, an observer —
- * and giving each of them three sheets pads the file the Instructor reads with
+ * and giving each of them a sheet per Competency pads the file the Instructor reads with
  * rows for people who will never be examined, and pads the gradebook import
  * that file feeds with users who have no business having a Band.
  *

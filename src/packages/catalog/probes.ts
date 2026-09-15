@@ -8,6 +8,7 @@
 // catalog, which says which document carries the definitions.
 import { readProbes } from "./lib/probe.ts";
 
+import type { Competency } from "../course/gradebook.ts";
 import type { Catalog } from "./index.ts";
 import type { Probes } from "./lib/probe.ts";
 
@@ -18,17 +19,23 @@ export {
   ProbeNamesABand,
   UnknownProbedCompetency,
 } from "./lib/probe.ts";
-export type { Probes } from "./lib/probe.ts";
+export type { CompetencyProbes, Probes } from "./lib/probe.ts";
 
 /**
- * The probes each Competency's Probe Sheet carries, checked, in the order the
- * document writes them.
+ * The probes each Competency's Probe Sheet carries, checked, one list per
+ * Competency in the order the grid declares them, and each list in the order
+ * the document writes it.
  *
  * Throws — naming the document and the Competency, and never falling back to a
- * default — when the grid defines no probes, when a
- * Competency has none, when a block is not a list of questions, or when a probe
- * names a Band.
+ * default — when the grid defines no probes, when a declared Competency has
+ * none, when probes are keyed by a Competency the grid does not declare, when a
+ * block is not a list of questions, or when a probe names a Band.
+ * `competencies` is what `loadCompetencies` read from the same grid.
  */
-export function loadProbes(repoRoot: string, catalog: Catalog): Probes {
-  return readProbes(repoRoot, catalog.grid);
+export function loadProbes(
+  repoRoot: string,
+  catalog: Catalog,
+  competencies: readonly Competency[]
+): Probes {
+  return readProbes(repoRoot, catalog.grid, competencies);
 }

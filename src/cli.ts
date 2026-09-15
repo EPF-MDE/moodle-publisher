@@ -21,6 +21,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { documentsToPublish, loadCatalog } from "./packages/catalog/index.ts";
+import { loadCompetencies } from "./packages/catalog/competencies.ts";
 import { loadDeliverables } from "./packages/catalog/deliverables.ts";
 import { loadProbes } from "./packages/catalog/probes.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
@@ -167,9 +168,13 @@ async function publish(apply: boolean): Promise<number> {
   const catalog = loadCatalog(config.repoRoot);
   // Read here, with the tables and before the driver is opened, because every
   // refusal it can raise is about the repository: a duplicated id, a Freeze
-  // that is not in Paris, a competency the course does not have. None of them
+  // that is not in Paris, a competency the grid does not declare. None of them
   // is worth finding out with a browser sitting in the course.
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(
+    config.repoRoot,
+    catalog,
+    loadCompetencies(config.repoRoot, catalog)
+  );
   const manifest = readManifest(config.manifestPath);
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
@@ -209,7 +214,7 @@ async function publish(apply: boolean): Promise<number> {
  * The report-first shape is the same as `publish`'s, and it is worth as much
  * here: a gradebook is the one part of a Moodle course this program cannot
  * take anything back out of, so the first run of a new command shows the scale
- * and the three grade items it is about to add before it adds them.
+ * and the grade items it is about to add before it adds them.
  *
  * One handler covers reading the gradebook and writing to it. A course a human
  * has to correct reads the same either way — instructions rather than a stack —
@@ -218,6 +223,13 @@ async function publish(apply: boolean): Promise<number> {
  */
 async function setup(apply: boolean): Promise<number> {
   const config = readConfig();
+  // Read before the driver is opened, like `publish` reads the Deliverables: a
+  // grid declaring no Competencies, or an untitled one, is a mistake in the
+  // repository, and one Grade Item per Competency is what this run makes.
+  const competencies = loadCompetencies(
+    config.repoRoot,
+    loadCatalog(config.repoRoot)
+  );
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
 
@@ -225,6 +237,7 @@ async function setup(apply: boolean): Promise<number> {
     try {
       const plan = buildSetupPlan(
         config.courseId,
+        competencies,
         await driver.gradebook(),
         readManifest(config.manifestPath)
       );
@@ -267,8 +280,8 @@ async function setup(apply: boolean): Promise<number> {
         `${aborting(error)}\n\n` +
           `Whatever was created before this is in the course and in the manifest ` +
           `(${config.manifestPath}). Run setup again to make the rest: it adds only ` +
-          `what is missing. If it stops here again, make the scale and the three ` +
-          `grade items by hand in the gradebook — hidden, weight 0, valued on the Bands.\n`
+          `what is missing. If it stops here again, make the scale and one grade item ` +
+          `per Competency by hand in the gradebook — hidden, weight 0, valued on the Bands.\n`
       );
       return 2;
     }
@@ -291,8 +304,9 @@ async function setup(apply: boolean): Promise<number> {
 async function probes(): Promise<number> {
   const config = readConfig();
   const catalog = loadCatalog(config.repoRoot);
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
-  const probeQuestions = loadProbes(config.repoRoot, catalog);
+  const competencies = loadCompetencies(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
+  const probeQuestions = loadProbes(config.repoRoot, catalog, competencies);
   const manifest = readManifest(config.manifestPath);
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
@@ -301,6 +315,7 @@ async function probes(): Promise<number> {
     const { enrolments, handedIn } = await readCourse(
       driver,
       deliverables,
+      competencies,
       manifest
     );
     const sheets = buildProbeSheets({
@@ -340,6 +355,13 @@ async function probes(): Promise<number> {
  */
 async function importProbeSheets(apply: boolean): Promise<number> {
   const config = readConfig();
+  // Outside the handler below, whose remedy is importing the file by hand: a
+  // grid declaring no Competencies is not answered by that, and which columns
+  // the file has depends on what it declares.
+  const competencies = loadCompetencies(
+    config.repoRoot,
+    loadCatalog(config.repoRoot)
+  );
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
 
@@ -347,6 +369,7 @@ async function importProbeSheets(apply: boolean): Promise<number> {
     const plan = buildImportPlan({
       courseId: config.courseId,
       path: config.probeSheetPath,
+      competencies,
       manifest: readManifest(config.manifestPath),
     });
     process.stdout.write(`${formatImportPlan(plan)}\n`);
@@ -367,8 +390,8 @@ async function importProbeSheets(apply: boolean): Promise<number> {
         report: (line) => process.stdout.write(`  ${line}\n`),
       });
       process.stdout.write(
-        `\nEvery Student enrolled in the course now has a Probe Sheet waiting in all\n` +
-          `three grade items. The bands are empty: you fill them in at the Oral. A Student\n` +
+        `\nEvery Student enrolled in the course now has a Probe Sheet waiting in every\n` +
+          `grade item. The bands are empty: you fill them in at the Oral. A Student\n` +
           `who enrols from here on is in neither the file nor the gradebook — run probes\n` +
           `again, and this again, and the Bands already entered are untouched.\n`
       );
@@ -405,7 +428,11 @@ async function audit(): Promise<number> {
   // every refusal they can raise is about the repository, and the audit is the
   // command run in the hour before a Freeze — it should fail on a broken front
   // matter before it opens a browser, not after.
-  const deliverables = loadDeliverables(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(
+    config.repoRoot,
+    catalog,
+    loadCompetencies(config.repoRoot, catalog)
+  );
   const manifest = readManifest(config.manifestPath);
 
   // One assertion's verdict depends on the date — whether the C3 brief is

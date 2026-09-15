@@ -35,8 +35,9 @@ import type { PublishedEntry } from "./lib/entry.ts";
 export interface Catalog {
   /**
    * The repository-relative path of the assessment grid, whose front matter
-   * defines the Deliverables and the Oral's probes. Read by `loadDeliverables`
-   * and `loadProbes` in this package's other entry points.
+   * declares the Competencies and defines the Deliverables and the Oral's
+   * probes. Read by `loadCompetencies`, `loadDeliverables` and `loadProbes` in
+   * this package's other entry points.
    */
   readonly grid: string;
   readonly published: readonly PublishedEntry[];
