@@ -8,7 +8,7 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 ### Publishing
 
-**Published Document**: A markdown file in the course repository that the Instructor has explicitly listed as allowed into the Course. Membership is an entry in one table, the `published` list of `publisher.json`, never a directory walk: a document nobody listed is not published, and a link to it aborts the run.
+**Published Document**: A markdown file in the course repository that the Instructor has explicitly listed as allowed into the Course. Membership is an entry in one table, the `published` list of `publisher.json`, never a directory walk: a document nobody listed is not published, and a link to it publishes as its link text alone. A link to a Published Document publishes as text naming it and its Section — `"Killing bloat" (document available in the Resources section)` — never as a link.
 
 **Instructor Material**: A Published Document named with an `--instructor` suffix, published hidden into the Section its Student counterpart sits in — or, where it has none, into the Section its reader is already in — and which no Student-facing document may link to. The suffix is what says so; there is no other place that does. It may be an answer key beside a Student-facing document or the source one is written from, and the publisher treats both the same (ADR-0004).
 
