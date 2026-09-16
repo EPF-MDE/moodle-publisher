@@ -18,7 +18,7 @@ import type { CrossReference, LinkTarget } from "./links.ts";
  * How a cross-reference is published, as the hash records it: as text naming
  * its target. Changing that changes every page that links, so it is hashed.
  */
-const LINKS_AS_TEXT = "named-text";
+const LINK_RENDERING_VERSION = "named-text";
 
 /**
  * The absolute path of `source`, or a refusal. Every read in this file goes
@@ -264,7 +264,7 @@ export function hashDocument(
   // different page from the one an earlier version of this program published
   // for the same markdown. Folded in only when there are links, so a document
   // making none is not republished for a change that does not touch it.
-  if (links.length > 0) parts.push(`\0links:${LINKS_AS_TEXT}\0`);
+  if (links.length > 0) parts.push(`\0links:${LINK_RENDERING_VERSION}\0`);
   // Sorted, so the hash does not turn on the order the links happen to be
   // written in: reordering two paragraphs already changes the markdown itself.
   for (const link of [...links]

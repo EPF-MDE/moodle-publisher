@@ -368,7 +368,8 @@ test("two new documents linking to each other publish in one pass", async () => 
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.doesNotMatch(result.stdout, /relinked/);
+  // One write per page: nothing is written twice to fill in a module id.
+  assert.equal(result.stdout.match(/^updated /gm), null);
   assert.ok(bodyOf(workspace, GRID).includes(named(LAB, "Labs")));
   assert.ok(bodyOf(workspace, LAB).includes(GRID_TEXT));
 });

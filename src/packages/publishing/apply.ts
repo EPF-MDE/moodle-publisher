@@ -25,13 +25,13 @@ import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
  */
 type ModuleIdBySource = Map<string, string>;
 
-function knownActivities(plan: Plan): ModuleIdBySource {
-  const activities: ModuleIdBySource = new Map();
+function knownModuleIds(plan: Plan): ModuleIdBySource {
+  const moduleIds: ModuleIdBySource = new Map();
   for (const item of plan.items) {
     if (item.verb !== "create")
-      activities.set(item.document.source, item.published.moduleId);
+      moduleIds.set(item.document.source, item.published.moduleId);
   }
-  return activities;
+  return moduleIds;
 }
 
 export interface ApplyOptions {
@@ -217,7 +217,7 @@ async function hide(item: PlanItem, options: ApplyOptions): Promise<void> {
  */
 async function publishDevoirs(
   plan: Plan,
-  activities: ModuleIdBySource,
+  moduleIds: ModuleIdBySource,
   options: ApplyOptions
 ): Promise<void> {
   for (const devoir of plan.devoirs) {
@@ -231,7 +231,7 @@ async function publishDevoirs(
     const html = devoirDescription(
       devoir.deliverable,
       devoir.brief,
-      pageUrl(plan.baseUrl, briefModuleId(devoir, activities), "")
+      pageUrl(plan.baseUrl, briefModuleId(devoir, moduleIds), "")
     );
     if (devoir.verb === "update") {
       await rewriteDevoir(devoir, html, options);
@@ -252,9 +252,9 @@ async function publishDevoirs(
  */
 function briefModuleId(
   devoir: Extract<DevoirPlanItem, { verb: "create" | "update" }>,
-  activities: ModuleIdBySource
+  moduleIds: ModuleIdBySource
 ): string {
-  const moduleId = activities.get(devoir.brief.source);
+  const moduleId = moduleIds.get(devoir.brief.source);
   if (moduleId === undefined) {
     throw new Error(
       `Aborting: the Devoir for "${devoir.deliverable.id}" links to "${devoir.brief.source}", and this ` +
@@ -349,11 +349,11 @@ export async function applyPlan(
 ): Promise<void> {
   await ensureSections(plan, options);
 
-  const activities = knownActivities(plan);
+  const moduleIds = knownModuleIds(plan);
 
   for (const item of plan.items) {
     if (item.verb === "create") {
-      activities.set(item.document.source, await create(item, options));
+      moduleIds.set(item.document.source, await create(item, options));
     } else if (item.verb === "update") {
       await update(item, options);
     } else if (!item.hide) {
@@ -362,5 +362,5 @@ export async function applyPlan(
     await hide(item, options);
   }
 
-  await publishDevoirs(plan, activities, options);
+  await publishDevoirs(plan, moduleIds, options);
 }
