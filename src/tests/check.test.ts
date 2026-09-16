@@ -19,6 +19,7 @@ import {
   ORAL_SCRIPT_SOURCE,
   gridDefining,
   makeWorkspace,
+  pointContextAtPublisher,
   writeDayOneSet,
   writeInstructorSet,
 } from "./harness.ts";
@@ -50,10 +51,12 @@ function filesIn(workspace: Workspace): Record<string, string> {
 /**
  * A course repository with everything a check has to read: documents in
  * several sections, instructor material, a picture, and cross-references in
- * both directions a student can follow.
+ * both directions a student can follow, and the context pointer into the
+ * installed publisher.
  */
 function validRepository(): Workspace {
   const workspace = makeWorkspace();
+  pointContextAtPublisher(workspace);
   writeInstructorSet(workspace);
   workspace.write("assets/workflow.png", "a diagram");
   workspace.write(

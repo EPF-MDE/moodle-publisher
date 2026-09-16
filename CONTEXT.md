@@ -2,7 +2,7 @@
 
 Publishes a Course from its repository into EPF's Moodle, one way and repeatably: the documents Students read, the Devoirs they hand in to, and the gradebook the Instructor fills in at the Oral. Git is canonical; Moodle is the rendered mirror.
 
-This glossary ships with the package. A course repository reaches it, and the ADRs in `docs/adr/`, through the `CONTEXT-MAP.md` at its root, which points into the installed publisher; `check` fails when that pointer names nothing. Upgrading the pinned tag is the sync. **Course**, **Instructor**, **Student** and **Oral** are the course repository's words, and are used here in the sense its own glossary gives them.
+This glossary ships with the package. A course repository reaches it, and the ADRs in `docs/adr/`, through the `CONTEXT-MAP.md` it is required to keep at its root, which points into the installed publisher; `check` fails when that map is missing, does not link to both, or names nothing. Upgrading the pinned tag is the sync. **Course**, **Instructor**, **Student** and **Oral** are the course repository's words, and are used here in the sense its own glossary gives them.
 
 ## Language
 

@@ -14,7 +14,7 @@ import { documentsToPublish, loadCatalog } from "../catalog/index.ts";
 import { loadCompetencies } from "../catalog/competencies.ts";
 import { loadDeliverables } from "../catalog/deliverables.ts";
 import { loadProbes } from "../catalog/probes.ts";
-import { assertContextPointerResolves } from "./lib/context-map.ts";
+import { assertContextPointer } from "./lib/context-map.ts";
 import { formatHiddenLinks } from "./lib/cross-references.ts";
 import { buildPlan } from "./plan.ts";
 
@@ -62,7 +62,7 @@ export function checkRepository(repoRoot: string): CheckReport {
     snapshot: { courseId: "", sections: [], items: [] },
   });
   // Last, because no run reads it: what a run would refuse is named first.
-  assertContextPointerResolves(repoRoot);
+  assertContextPointer(repoRoot);
   return {
     documents: plan.items.length,
     deliverables: plan.devoirs.length,

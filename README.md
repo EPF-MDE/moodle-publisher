@@ -50,7 +50,7 @@ npm run wipe -- --course <id> --apply   # empties the course
 
 `check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a cross-reference to a document no entry names, a Student-facing document linking to Instructor Material, a probe naming a Band — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
 
-`check` also checks the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
+`check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
 ```markdown
 # Context map
@@ -60,7 +60,7 @@ npm run wipe -- --course <id> --apply   # empties the course
   [ADRs](./node_modules/@epf-mde/moodle-publisher/docs/adr/): publishing and grading.
 ```
 
-Every link in it that goes into `node_modules/@epf-mde/moodle-publisher/` has to name something there, and `check` fails, naming the path, when one does not — a typo, or a publisher that is not installed. A repository with no `CONTEXT-MAP.md` has no pointer to check.
+The map is required, as `publisher.json` is. `check` fails when the course repository has no `CONTEXT-MAP.md`, and when the map does not link to the installed publisher's `CONTEXT.md` or to its `docs/adr/`, giving the links to add. A link counts however it is written: inline or reference-style, with or without `./`, with or without the trailing `/`, with an anchor. Every link in the map that goes into `node_modules/@epf-mde/moodle-publisher/` also has to name something there, and `check` fails, naming the path, when one does not — a typo, or a publisher that is not installed. The course's own links are its business: a course with no glossary or ADRs of its own need not name any. Only `check` reads the map; no other command needs it.
 
 What it leaves out is only what depends on the live course: a document whose section was changed after it was published, and instructor material already in the course that the manifest has no record of. `npm run plan` still says those.
 

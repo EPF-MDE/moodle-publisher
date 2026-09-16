@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
   existsSync,
 } from "node:fs";
@@ -48,6 +49,33 @@ export const PUBLISHER_PACKAGE = "@epf-mde/moodle-publisher";
 export function installedPublisher(): string {
   // The binary is linked from node_modules/.bin, beside the package it runs.
   return join(dirname(dirname(packagedCli())), PUBLISHER_PACKAGE);
+}
+
+/** Where a course repository's `node_modules` holds the publisher. */
+export const INSTALLED_PUBLISHER = `node_modules/${PUBLISHER_PACKAGE}`;
+
+/** The publisher installed into the course repository, as `npm install` leaves it. */
+export function installPublisher(workspace: Workspace): void {
+  const target = join(workspace.root, INSTALLED_PUBLISHER);
+  mkdirSync(dirname(target), { recursive: true });
+  symlinkSync(installedPublisher(), target, "dir");
+}
+
+/** The `CONTEXT-MAP.md` the README shows: the course's context beside the publisher's. */
+export const CONTEXT_MAP_MARKDOWN = `# Context map
+
+- [Course](./CONTEXT.md) and its [ADRs](./docs/adr/): this course.
+- [Publisher](./${INSTALLED_PUBLISHER}/CONTEXT.md) and its
+  [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/): publishing and grading.
+`;
+
+/**
+ * The publisher installed, and the course repository's context pointer into
+ * it: what `check` requires of every course repository before it passes.
+ */
+export function pointContextAtPublisher(workspace: Workspace): void {
+  installPublisher(workspace);
+  workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
 }
 
 /** The course every run in this suite is pointed at. */

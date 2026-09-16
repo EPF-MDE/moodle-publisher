@@ -7,8 +7,10 @@
 // that can go stale: a typo, a folder renamed by an upgrade, a publisher that
 // was never installed. Each leaves an agent following a path to nothing.
 //
-// A repository with no `CONTEXT-MAP.md` has no pointer to go stale, and a link
-// that does not go into the installed publisher is the course's own business.
+// The pointer is required, as `publisher.json` is: a repository with no
+// `CONTEXT-MAP.md`, or with one that never links to the publisher's glossary
+// and its ADRs, leaves an agent with no way to find them at all. Any other
+// link — the course's own glossary, its own ADRs — is the course's business.
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 
@@ -38,6 +40,26 @@ export class UnresolvedContextPointer extends Error {
   }
 }
 
+/** A link every context map has to hold, as it is written into one. */
+interface RequiredLink {
+  readonly label: string;
+  readonly target: string;
+}
+
+/** The course repository has no context pointer: no map, or one missing a link it needs. */
+export class MissingContextPointer extends Error {
+  constructor(refusal: string, missing: readonly RequiredLink[]) {
+    const links = missing.map(({ label, target }) => `- [${label}](./${target})`);
+    super(`Refusing to pass: ${refusal}\n${links.join("\n")}`);
+    this.name = "MissingContextPointer";
+  }
+}
+
+/** `./a/b/` and `a/b` are one link. */
+function normaliseTarget(target: string): string {
+  return posix.normalize(target).replace(/\/$/, "");
+}
+
 /** Inline links, `[text](target "title")`, and reference definitions, `[id]: target`. */
 const LINK_TARGETS = [/\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g, /^\s*\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)/gm];
 
@@ -56,20 +78,45 @@ function linkTargets(markdown: string): string[] {
 }
 
 /**
- * Throws {@link UnresolvedContextPointer} for the first link in the course
- * repository's `CONTEXT-MAP.md` that goes into the installed publisher and
- * names nothing there. Writes nothing.
+ * Throws {@link MissingContextPointer} when the course repository has no
+ * `CONTEXT-MAP.md`, {@link UnresolvedContextPointer} for the first link in it
+ * that goes into the installed publisher and names nothing there, and
+ * {@link MissingContextPointer} again when it links to neither or only one of
+ * the publisher's glossary and its ADRs. Writes nothing.
  */
-export function assertContextPointerResolves(repoRoot: string): void {
-  const path = join(repoRoot, CONTEXT_MAP);
-  if (!existsSync(path)) return;
-
+export function assertContextPointer(repoRoot: string): void {
   const installed = `node_modules/${packageName()}`;
+  const required: readonly RequiredLink[] = [
+    { label: "Publisher", target: `${installed}/CONTEXT.md` },
+    { label: "ADRs", target: `${installed}/docs/adr/` },
+  ];
+
+  const path = join(repoRoot, CONTEXT_MAP);
+  if (!existsSync(path)) {
+    throw new MissingContextPointer(
+      `${CONTEXT_MAP} is required at the root of the course repository, pointing into ` +
+        `the installed publisher. Create it with these links:`,
+      required
+    );
+  }
+
+  const linked = new Set<string>();
   for (const target of linkTargets(readFileSync(path, "utf8"))) {
-    const normalised = posix.normalize(target);
+    const normalised = normaliseTarget(target);
     const intoPublisher = normalised === installed || normalised.startsWith(`${installed}/`);
     if (intoPublisher && !existsSync(join(repoRoot, normalised))) {
       throw new UnresolvedContextPointer(target, installed);
     }
+    linked.add(normalised);
+  }
+
+  const missing = required.filter(({ target }) => !linked.has(normaliseTarget(target)));
+  if (missing.length > 0) {
+    const named = missing.map(({ target }) => target).join(" and ");
+    throw new MissingContextPointer(
+      `${CONTEXT_MAP} does not link to ${named}. ` +
+        `Add ${missing.length === 1 ? "this link" : "these links"} to it:`,
+      missing
+    );
   }
 }
