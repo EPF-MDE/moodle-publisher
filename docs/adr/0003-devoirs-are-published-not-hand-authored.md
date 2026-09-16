@@ -6,12 +6,14 @@ Moodle exposes no web service that creates or configures a course activity — t
 
 Hand-authoring was recommended in an earlier handoff on the grounds that browser automation breaks silently on a Moodle upgrade nobody here controls, and that a missing Deliverable at a Freeze is the worst available failure. That reasoning treated the driver as hypothetical. It is not: every page a Student reads is already created by it, behind a plan gate, an audit and a wipe rollback, so the marginal risk is one already carried and the marginal cost is one more set of selectors.
 
-The decisive argument against hand-authoring is drift. A Freeze written in a markdown brief and a cut-off date typed separately into Moodle are two values that must agree forever, and this repository has already shipped a grid saying `14:00` while two other documents said `20:00`.
+The decisive argument against hand-authoring is drift. A Freeze written in a markdown brief and a cut-off date typed separately into Moodle are two values that must agree forever, and nothing keeps them agreeing but a human remembering both.
+
+_Context: the decision was taken in the 2026 course, where the grid had already shipped stating one Freeze time while two other documents stated another. That is the drift the argument is about; those documents and times are that course's, not a rule here._
 
 ## Consequences
 
 - A Devoir's due date and cut-off date are both set from the single `due` in the front matter, so a late Submission is not merely flagged — it does not exist.
 - A malformed or missing date fails the run loudly. Nothing falls back to a default, because the wrong Freeze is this system's most expensive defect.
 - The audit compares the live Devoir's dates against the front matter, so a hand-edited cut-off in Moodle is caught rather than invisible.
-- The prefilled Probe Sheet reaches the gradebook the same way: the driver drives Moodle's own CSV import, not its grading grid, because importing a file is one form where typing is thirty Students times three fields.
-- The Course must be configured before any Probe Sheet can be imported: the Band scale and the three hidden Grade Items are created by a setup step, not by hand, because the CSV import matches scale values by exact string and a hand-made scale reading `Needs work` maps Bands one notch off in silence.
+- The prefilled Probe Sheet reaches the gradebook the same way: the driver drives Moodle's own CSV import, not its grading grid, because importing a file is one form where typing is one field per Student per declared Competency.
+- The Course must be configured before any Probe Sheet can be imported: the Band scale and one hidden Grade Item per declared Competency are created by a setup step, not by hand, because the CSV import matches scale values by exact string and a hand-made scale reading `Needs work` maps Bands one notch off in silence.

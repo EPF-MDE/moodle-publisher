@@ -24,7 +24,7 @@ The publisher writes `@@PLUGINFILE@@` and then **reads the rendered page back** 
 
 ## The name a file is stored under
 
-Its repository path, flattened: `assets/crash-course/06-dumb-zone.png` is uploaded as `assets-crash-course-06-dumb-zone.png`.
+Its repository path, flattened: `assets/lecture-1/06-dumb-zone.png` is uploaded as `assets-lecture-1-06-dumb-zone.png`.
 
 Not the file's own name. One document may show `assets/before/diagram.png` and `assets/after/diagram.png`; uploading both as `diagram.png` leaves one file in the activity, both references show the same drawing, and the document reads as if nothing had changed between the two.
 
