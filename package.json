@@ -15,6 +15,7 @@
     "src/",
     "!src/tests/",
     "docs/",
+    "skills/",
     "CONTEXT.md",
     ".env.example"
   ],

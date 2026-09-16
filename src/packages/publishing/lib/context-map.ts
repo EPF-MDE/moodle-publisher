@@ -14,18 +14,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 
+import { installedPublisher } from "../../skills/installed.ts";
+
 /** Where a course repository keeps its context pointer. */
 const CONTEXT_MAP = "CONTEXT-MAP.md";
-
-/**
- * The name this package is installed under, read from its own `package.json`
- * so that the pointer is checked against what `npm install` actually creates.
- */
-function packageName(): string {
-  const manifest = new URL("../../../../package.json", import.meta.url);
-  const { name } = JSON.parse(readFileSync(manifest, "utf8")) as { name: string };
-  return name;
-}
 
 /** The context pointer names a path into the installed publisher that is not there. */
 export class UnresolvedContextPointer extends Error {
@@ -85,7 +77,7 @@ function linkTargets(markdown: string): string[] {
  * the publisher's glossary and its ADRs. Writes nothing.
  */
 export function assertContextPointer(repoRoot: string): void {
-  const installed = `node_modules/${packageName()}`;
+  const installed = installedPublisher();
   const required: readonly RequiredLink[] = [
     { label: "Publisher", target: `${installed}/CONTEXT.md` },
     { label: "ADRs", target: `${installed}/docs/adr/` },

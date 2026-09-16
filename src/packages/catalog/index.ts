@@ -41,6 +41,12 @@ export interface Catalog {
    */
   readonly grid: string;
   readonly published: readonly PublishedEntry[];
+  /**
+   * The `feedbackLetter` block, as written, or `undefined`. Read and checked by
+   * `loadFeedbackLetter` in this package's `feedback-letter.ts`, and by nothing
+   * that writes to a course.
+   */
+  readonly feedbackLetter?: unknown;
 }
 
 /**
