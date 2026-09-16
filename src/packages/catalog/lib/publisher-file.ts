@@ -60,15 +60,18 @@ export class NoGrid extends Error {
 interface PublisherFile {
   readonly grid?: unknown;
   readonly published?: unknown;
+  readonly feedbackLetter?: unknown;
 }
 
 /**
  * The catalog `repoRoot` publishes, as written. Unchecked beyond its shape:
- * what each entry says is the guard's to refuse.
+ * what each entry says is the guard's to refuse. The `feedbackLetter` block is
+ * carried as written, and is only read by `check`.
  */
 export function readPublisherFile(repoRoot: string): {
   grid: string;
   published: readonly PublishedEntry[];
+  feedbackLetter: unknown;
 } {
   const path = join(repoRoot, PUBLISHER_FILE);
   let text: string;
@@ -111,6 +114,7 @@ export function readPublisherFile(repoRoot: string): {
   return {
     grid: parsed.grid,
     published: parsed.published as readonly PublishedEntry[],
+    feedbackLetter: parsed.feedbackLetter,
   };
 }
 

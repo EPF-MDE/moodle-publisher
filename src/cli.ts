@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// The command line. Eight commands:
+// The command line. Nine commands:
 //
 //   install-browser     install the Chromium the browser driver launches, once per machine
+//   install-skills      link the publisher's agent skills into .claude/skills, once
 //   check               check the course repository without Moodle; writes nothing
 //   setup [--apply]     configure the course's gradebook for the Oral, once
 //   publish [--apply]   report the plan; apply only when explicitly asked
@@ -28,6 +29,7 @@ import { loadProbes } from "./packages/catalog/probes.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
+import { installSkills, SkillLinkRefused } from "./packages/skills/index.ts";
 import { devoirEntryFor, readManifest } from "./packages/manifest/index.ts";
 import { buildPlan, formatPlan } from "./packages/publishing/plan.ts";
 import { applyPlan } from "./packages/publishing/apply.ts";
@@ -76,6 +78,9 @@ const USAGE = `Usage:
   publisher install-browser [--dry-run]    Install the Chromium this publisher's Playwright launches, and no other browser.
                                            Once per machine, and again after a new publisher tag moves Playwright.
                                            --dry-run prints what would be downloaded, and where, and downloads nothing.
+  publisher install-skills [--dry-run]     Link the publisher's agent skills, feedback-letter and banding-anchors, into
+                                           .claude/skills/, so a new publisher tag updates them. Once per course repository.
+                                           --dry-run prints what would be linked, and links nothing.
   publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
@@ -157,6 +162,26 @@ async function withDriver(
 function check(): number {
   process.stdout.write(`${formatCheck(checkRepository(repositoryRoot()))}\n`);
   return 0;
+}
+
+/**
+ * Links the skills, and touches nothing else: no configuration is read, for the
+ * reason `check` reads none. A refusal is printed and nothing is linked.
+ */
+function linkSkills(dryRun: boolean): number {
+  try {
+    installSkills(repositoryRoot(), {
+      dryRun,
+      report: (line) => process.stdout.write(`${line}\n`),
+    });
+    return 0;
+  } catch (error) {
+    if (error instanceof SkillLinkRefused) {
+      process.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -602,40 +627,50 @@ const PUBLISH_FLAGS: readonly string[] = ["--apply"];
 /** The flags `install-browser` takes, and the whole of them. */
 const INSTALL_BROWSER_FLAGS: readonly string[] = ["--dry-run"];
 
+/** The flags `install-skills` takes, and the whole of them. */
+const INSTALL_SKILLS_FLAGS: readonly string[] = ["--dry-run"];
+
+/**
+ * Exit status 2, with the usage, when `argv` holds anything but `flags`;
+ * `undefined` when the command may run.
+ *
+ * The arguments are echoed as they were typed rather than described, because a
+ * flag and the value after it are both unrecognised and only the person who
+ * typed them knows which was meant to be which.
+ */
+function refuseUnrecognised(
+  command: string,
+  argv: readonly string[],
+  flags: readonly string[]
+): number | undefined {
+  const unrecognised = argv.filter((argument) => !flags.includes(argument));
+  if (unrecognised.length === 0) return undefined;
+  process.stderr.write(
+    `Aborting: ${command} takes ${flags.join(" ")} and nothing else. ` +
+      `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
+  );
+  return 2;
+}
+
 async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
-    case "install-browser": {
-      const unrecognised = rest.filter(
-        (argument) => !INSTALL_BROWSER_FLAGS.includes(argument)
+    case "install-browser":
+      // A browser name is the likeliest thing typed here, and this command
+      // installs Chromium and nothing else: said, rather than ignored.
+      return (
+        refuseUnrecognised(command, rest, INSTALL_BROWSER_FLAGS) ??
+        installBrowser({ dryRun: rest.includes("--dry-run") })
       );
-      if (unrecognised.length > 0) {
-        // A browser name is the likeliest thing typed here, and this command
-        // installs Chromium and nothing else: said, rather than ignored.
-        process.stderr.write(
-          `Aborting: install-browser takes ${INSTALL_BROWSER_FLAGS.join(" ")} and nothing else. ` +
-            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
-        );
-        return 2;
-      }
-      return installBrowser({ dryRun: rest.includes("--dry-run") });
-    }
-    case "publish": {
-      const unrecognised = rest.filter(
-        (argument) => !PUBLISH_FLAGS.includes(argument)
+    case "install-skills":
+      // A skill name is the likeliest thing typed here, and this command
+      // links every skill the publisher ships or none: said, not ignored.
+      return (
+        refuseUnrecognised(command, rest, INSTALL_SKILLS_FLAGS) ??
+        linkSkills(rest.includes("--dry-run"))
       );
-      if (unrecognised.length > 0) {
-        // The arguments are echoed as they were typed rather than described,
-        // because a flag and the value after it are both unrecognised and only
-        // the person who typed them knows which was meant to be which.
-        process.stderr.write(
-          `Aborting: publish takes ${PUBLISH_FLAGS.join(" ")} and nothing else. ` +
-            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
-        );
-        return 2;
-      }
-      return publish(rest.includes("--apply"));
-    }
+    case "publish":
+      return refuseUnrecognised(command, rest, PUBLISH_FLAGS) ?? publish(rest.includes("--apply"));
     case "check":
       if (rest.length > 0) {
         process.stderr.write(

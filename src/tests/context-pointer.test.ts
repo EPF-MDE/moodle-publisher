@@ -18,6 +18,7 @@ import {
   INSTALLED_PUBLISHER,
   installPublisher,
   installedPublisher,
+  linkSkills,
   makeWorkspace,
 } from "./harness.ts";
 
@@ -38,14 +39,12 @@ const TERMS = [
   "Extension",
   "Competency",
   "Band",
-  "Probe Sheet",
-  "Probes",
-  "Enrolment",
-  "Grade Item",
+  "Feedback Letter",
+  "Banding Anchors",
 ];
 
 /** The decisions the publisher keeps, under the numbers they were taken under. */
-const ADRS = ["0002", "0003", "0004", "0005", "0007"];
+const ADRS = ["0002", "0003", "0004", "0005", "0007", "0011"];
 
 /** A `CONTEXT-MAP.md` naming the course's own context and the publisher's. */
 function contextMap(glossary: string, adrs: string): string {
@@ -103,6 +102,7 @@ test("check passes on the context map the README shows", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  linkSkills(workspace);
   const readme = readFileSync(join(installedPublisher(), "README.md"), "utf8");
   assert.ok(readme.includes(CONTEXT_MAP_MARKDOWN), "the README shows this map");
 
@@ -207,6 +207,7 @@ test("check counts the links however they are written: reference-style, bare, wi
 [glossary]: ./${INSTALLED_PUBLISHER}/CONTEXT.md#language
 `
   );
+  linkSkills(workspace);
 
   const result = await check(workspace);
 

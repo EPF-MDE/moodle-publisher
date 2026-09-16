@@ -9,11 +9,15 @@
 //
 // It reads what a run reads, through the same loaders and the same plan, so a
 // refusal added to either is a refusal here the day it lands, with the same
-// message: fixing a commit is fixing a run.
+// message: fixing a commit is fixing a run. It also refuses what only the
+// course repository's agents read: the context pointer into the publisher, the
+// links to the publisher's skills, and the `feedbackLetter` block.
 import { documentsToPublish, loadCatalog } from "../catalog/index.ts";
 import { loadCompetencies } from "../catalog/competencies.ts";
 import { loadDeliverables } from "../catalog/deliverables.ts";
+import { loadFeedbackLetter } from "../catalog/feedback-letter.ts";
 import { loadProbes } from "../catalog/probes.ts";
+import { assertSkillLinks } from "../skills/index.ts";
 import { assertContextPointer } from "./lib/context-map.ts";
 import { formatHiddenLinks } from "./lib/cross-references.ts";
 import { buildPlan } from "./plan.ts";
@@ -61,8 +65,11 @@ export function checkRepository(repoRoot: string): CheckReport {
     manifest: { entries: {} },
     snapshot: { courseId: "", sections: [], items: [] },
   });
-  // Last, because no run reads it: what a run would refuse is named first.
+  // Last, because no run reads them: what a run would refuse is named first.
+  // Called only to validate the block: a check has no letter to write.
+  loadFeedbackLetter(catalog);
   assertContextPointer(repoRoot);
+  assertSkillLinks(repoRoot);
   return {
     documents: plan.items.length,
     deliverables: plan.devoirs.length,

@@ -24,6 +24,7 @@ The browser the publisher drives is installed once per machine, by the publisher
 ```bash
 cp .env.example .env    # fill in the site and the course id
 npx moodle-publisher install-browser  # once per machine: the Chromium the publisher launches
+npx moodle-publisher install-skills   # once per course repository: links the publisher's agent skills
 
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
 
@@ -62,6 +63,10 @@ npm run wipe -- --course <id> --apply   # empties the course
 
 The map is required, as `publisher.json` is. `check` fails when the course repository has no `CONTEXT-MAP.md`, and when the map does not link to the installed publisher's `CONTEXT.md` or to its `docs/adr/`, giving the links to add. A link counts however it is written: inline or reference-style, with or without `./`, with or without the trailing `/`, with an anchor. Every link in the map that goes into `node_modules/@epf-mde/moodle-publisher/` also has to name something there, and `check` fails, naming the path, when one does not — a typo, or a publisher that is not installed. The course's own links are its business: a course with no glossary or ADRs of its own need not name any. Only `check` reads the map; no other command needs it.
 
+`check` also requires the publisher's **agent skills** to be linked, and fails, naming the link and saying to run `npx moodle-publisher install-skills`, when either is missing or leads anywhere but the installed skill. See [Agent skills](#agent-skills).
+
+When `publisher.json` has a `feedbackLetter` block, `check` fails on one whose `course`, `prefix` or `signature` is not a non-blank string, or whose `prefix` is not lower-case kebab-case. See [Agent skills](#agent-skills).
+
 What it leaves out is only what depends on the live course: a document whose section was changed after it was published, and instructor material already in the course that the manifest has no record of. `npm run plan` still says those.
 
 Reporting the plan is the default. Applying is opt-in (`publish --apply`), so an exploratory invocation is always safe: a plan writes nothing to the course and nothing to the manifest.
@@ -79,6 +84,29 @@ MOODLE_COURSE_ID=771 npm run apply   # goes to 771, whatever .env says
 ```
 
 That ordering is the point of reading the file at all. Publishing to the wrong course is the expensive mistake here, and the way it would happen is a stale `.env` in the working copy quietly beating the id an instructor typed on purpose. A run with no `.env` at all works exactly as before. `PUBLISHER_ENV_FILE` names a different file; if that file does not exist the run aborts rather than silently falling back to whatever is left in the shell.
+
+## Agent skills
+
+The package ships two skills for the agent an Instructor grades with, under `skills/`:
+
+- **`feedback-letter`** reads one Student's work against the grid's Solid column and the Competency's Banding Anchors, argues for a Band per Competency, and drafts the Instructor's Feedback Letter as a secret gist, always in English. It is drafted before the Oral and revised in the same gist after it. A Band goes into the letter only once the Instructor has stated it (ADR-0011).
+- **`banding-anchors`** writes the Banding Anchors for one Competency: worked example oral answers, as Instructor Material, named `<id>-banding-anchors--instructor.md` by default.
+
+Both are invoked only by the user (`/feedback-letter`, `/banding-anchors`). A course repository links them rather than copying them, so moving the pinned tag updates them, as it updates the glossary:
+
+```bash
+npx moodle-publisher install-skills             # --dry-run prints what it would link, and links nothing
+```
+
+It creates `.claude/skills/feedback-letter` and `.claude/skills/banding-anchors` as relative symlinks to `node_modules/@epf-mde/moodle-publisher/skills/<name>`, and commits nothing for you: commit the two links. It never reads the configuration and never touches Moodle. A second run finds the links in place and changes nothing. It refuses, and links nothing, when the publisher is not installed in the course repository, or when something it did not make is where a link goes: a directory, a file, or a link to anywhere else. A link it made that leads nowhere, as a renamed skill would leave, is replaced.
+
+The letter skill reads what it needs about the course from a `feedbackLetter` block in `publisher.json`, instead of hard-coding it:
+
+```json
+"feedbackLetter": { "course": "Software Craft 2027", "prefix": "craft-2027", "signature": "Ada" }
+```
+
+`course` opens every gist description: `<course> — <NAME First-name> : <Competencies> — <angle>`. `prefix` opens every letter's filename: `<prefix>-<name>-<first-name>-feedback.md`, so it is lower-case kebab-case. `signature` signs the letter. The block is optional, and no run reads it; `check` validates it when it is there.
 
 ## The attended browser
 
