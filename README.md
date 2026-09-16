@@ -203,6 +203,10 @@ That is the whole of it, and what it gives up is worth stating: nothing now guar
 
 The table is checked against the repository it sits in, so a source path that is a typo fails here rather than in front of a class. Every guard over the table fires before the browser is even opened.
 
+## The assessment grid
+
+The package ships a starting point for the grid: [docs/assessment-grid-template.md](./docs/assessment-grid-template.md). A course copies it, by hand, to the path its `publisher.json` names as `grid`, and fills in the placeholders written `<like this>`. Nothing generates, installs or updates it, and once copied it is the course's own. It holds what is the same in every EPF course: front matter with a `competencies:` and a `deliverables:` block that `check` accepts as written, the legend of the five Bands, the two gaps (_justification_ and _knowing the limits_), how the Oral checks a provisional Band, and the Resit section. It also holds one block per Competency: the fiche quote, the Subject, the expected evidence, the five Band rows and the Oral question.
+
 ## Competencies
 
 A course is graded on the **Competencies** its grid declares, in a `competencies:` block of the grid's front matter, beside the Deliverables that serve them:
