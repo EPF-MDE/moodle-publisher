@@ -1,6 +1,6 @@
 # EPF Moodle publisher
 
-Publishes a Course from its repository into EPF's Moodle, one way and repeatably: the documents Students read, the Devoirs they hand in to, and the gradebook the Instructor fills in at the Oral. Git is canonical; Moodle is the rendered mirror.
+Publishes a Course from its repository into EPF's Moodle, one way and repeatably: the documents Students read, and the Devoirs they hand in to. Git is canonical; Moodle is the rendered mirror.
 
 This glossary ships with the package. A course repository reaches it, and the ADRs in `docs/adr/`, through the `CONTEXT-MAP.md` it is required to keep at its root, which points into the installed publisher; `check` fails when that map is missing, does not link to both, or names nothing. Upgrading the pinned tag is the sync. **Course**, **Instructor**, **Student** and **Oral** are the course repository's words, and are used here in the sense its own glossary gives them.
 
@@ -34,19 +34,15 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 ### Grading
 
-**Competency**: One independently graded capability of a Course, declared per course in the `competencies:` block of the grid's front matter, one title per line, beside the Deliverables that serve it and the Probes that ask about it; its id — `C1`, `C2`, … — is its place in that block, and there is no default set. _Avoid_: skill (reserved for agent skills), criterion, learning outcome
+**Competency**: One independently graded capability of a Course, declared per course in the `competencies:` block of the grid's front matter, one title per line, beside the Deliverables that serve it; its id — `C1`, `C2`, … — is its place in that block, and there is no default set. _Avoid_: skill (reserved for agent skills), criterion, learning outcome
 
 **Band**: One of five ordered verdicts on one Competency: `Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding`; the scale is fixed, built into the publisher and the same in every course. There is no numeric score, no average and no /20. _Avoid_: grade, mark, score, note
 
 **Resit**: The Band meaning the work for a Competency was not done. It is an absence verdict, not the bottom of a quality scale, and it never averages with anything.
 
-**Probe Sheet**: The per-Student, per-Competency prompt the Instructor fills in during the Oral: the provisional Band, the yes/no Probes drawn from the grid, and the weakest point to probe. It is prepared by tooling and completed by a human (ADR-0002). _Avoid_: rubric, scorecard, pre-evaluation
+**Feedback Letter**: The Instructor's written account to one Student of their Bands and the reasons for them, or of what would reach the next Band. There is one per Student, kept as a secret gist: the Instructor's correspondence with that Student, not course material. It is drafted before the Oral and revised after it, and its revision history shows the verdict before and after. An agent may draft it and argue for a Band, but a Band appears in it only once the Instructor has stated it. _Avoid_: gist, report, transcript, feedback (on its own)
 
-**Probes**: The yes/no questions one Probe Sheet asks, one list per declared Competency. Defined once, in the front matter of the grid, beside the Deliverables — so that what is asked at the Oral and what Students read are checked by eye in one diff. A declared Competency with no Probes, or Probes keyed by a Competency the grid does not declare, aborts the run. A probe naming a Band is refused: the sheet carries the questions, never the verdict (ADR-0002). _Avoid_: questions (too broad), criteria (those are the grid's), checklist
-
-**Enrolment**: One Student the Course reports as enrolled, read from Moodle at the moment sheets are generated — never authored here, since nothing in the publisher enrols or unenrols anyone. The email is the identity, carried as opaque data; the name is for the human reading the sheet and is never a key. Only those enrolled as Students are Enrolments, because a Probe Sheet is prepared for somebody who sits an Oral. _Avoid_: user, participant, roster
-
-**Grade Item**: Where a Probe Sheet lives in Moodle: one manual gradebook column per declared Competency, named `<id> — <title>`, hidden from Students, excluded from the course total, valued on the Bands rather than a number. _Avoid_: grade, column, note
+**Banding Anchors**: Worked example answers for one Competency, written as Instructor Material: what falls short, what Solid sounds like, what Outstanding adds, and the near-misses. They let the Instructor place a Student's answer within the time the Oral allows, and they are read with the grid's Solid column when a Feedback Letter is drafted. _Avoid_: assessment examples, model answers, rubric
 
 ## Retired terms
 
@@ -55,3 +51,4 @@ Do not reintroduce these.
 - **Publishable Document**, **Never-Publish** and **membership class** — there is one table of Published Documents, and the `--instructor` suffix says who each is for. A document nobody listed is simply not published.
 - **The `Instructors` Section** — Instructor Material is hidden per page and sits in the Section its Student counterpart is in (ADR-0004).
 - **Phase** — a batch of material a run published up to. Every Published Document publishes on every run; a document that must not appear yet carries a reveal date and ships hidden (ADR-0007).
+- **Probe Sheet**, **Probes**, **Grade Item** and **Enrolment** — the Oral's prefilled sheet, its yes/no questions, the hidden gradebook column it was imported into, and the enrolled Student it was prepared for. The Feedback Letter replaced all four. No tool writes a Band into Moodle, and the grid's Solid column is what a Student's work is read against (ADR-0011).
