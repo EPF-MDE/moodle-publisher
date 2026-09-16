@@ -1,6 +1,6 @@
 The EPF Moodle publisher: publishes a course from its own repository into Moodle, one way and repeatably. A course repository installs it as a git dependency pinned to a tag and runs the `moodle-publisher` binary.
 
-Run `npm run check` (typecheck + import boundaries + tests + grade import selectors) before calling a code change done.
+Run `npm run check` (typecheck + import boundaries + tests) before calling a code change done.
 
 ## No build step
 

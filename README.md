@@ -15,7 +15,7 @@ npm install --save-dev github:epf-mde/moodle-publisher#<tag>
 npx moodle-publisher publish      # the binary takes the commands below
 ```
 
-**Run it from the course repository's root.** The directory the command is started in is the repository root: the documents are read from there, and the course's run state is kept there — `moodle-manifest.json` (committed), `.env`, `runs/` and `probe-sheets.csv` (all three git-ignored in the course repository: a session's captures and every Student's sheet). Nothing is kept beside the publisher, which once installed is inside `node_modules`, where the next install would delete it. `PUBLISHER_REPO_ROOT` names another root, and `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE`, `PUBLISHER_PROBE_SHEETS` and `MOODLE_RUN_DIR` each still move one file. The Moodle session stays outside git, in `~/.config/epf-moodle-publisher/`.
+**Run it from the course repository's root.** The directory the command is started in is the repository root: the documents are read from there, and the course's run state is kept there — `moodle-manifest.json` (committed), `.env` and `runs/` (both git-ignored in the course repository: the configuration and a session's captures). Nothing is kept beside the publisher, which once installed is inside `node_modules`, where the next install would delete it. `PUBLISHER_REPO_ROOT` names another root, and `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE` and `MOODLE_RUN_DIR` each still move one file. The Moodle session stays outside git, in `~/.config/epf-moodle-publisher/`.
 
 The browser the publisher drives is installed once per machine, by the publisher, as [below](#the-browser). Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source; this checkout holds no course, so point `PUBLISHER_REPO_ROOT` at one, and the run state follows it there.
 
@@ -27,19 +27,10 @@ npx moodle-publisher install-browser  # once per machine: the Chromium the publi
 
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
 
-npm run setup           # reports how the gradebook would be configured for the Oral
-npm run setup -- --apply  # creates the Bands scale and a grade item per Competency
-
 npm run plan            # reports what would happen; applies nothing
 npm run apply           # publishes; opens a visible browser
-npm run probes          # writes the Probe Sheets to probe-sheets.csv
-                        # reads the live enrolment and the Submissions; changes nothing
-npm run import          # reports what would enter the gradebook from that file
-npm run import -- --apply  # puts it through Moodle's own gradebook import
 npm run audit           # reads the course and checks it; writes nothing
-                        # all of these open a visible browser and need a signed-in
-                        # session, except `npm run import` without --apply, which
-                        # reads the generated file and the manifest, not the course
+                        # all three open a visible browser and need a signed-in session
 
 npm run check:upload    # sends pictures into an activity form on the live course
                         # through the driver's own code, and abandons the form
@@ -48,7 +39,7 @@ npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
 ```
 
-`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a cross-reference to a document no entry names, a Student-facing document linking to Instructor Material, a probe naming a Band — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a cross-reference to a document no entry names, a Student-facing document linking to Instructor Material, a grid that still has the retired `probes:` block — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
 
 `check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
@@ -65,8 +56,6 @@ The map is required, as `publisher.json` is. `check` fails when the course repos
 What it leaves out is only what depends on the live course: a document whose section was changed after it was published, and instructor material already in the course that the manifest has no record of. `npm run plan` still says those.
 
 Reporting the plan is the default. Applying is opt-in (`publish --apply`), so an exploratory invocation is always safe: a plan writes nothing to the course and nothing to the manifest.
-
-`npm run probes` has no `--apply`, and that is not an omission: its whole output is a file. It writes one Probe Sheet per enrolled Student per Competency — the yes/no probes from the grid's front matter, that Student's submitted URL, an empty provisional band and an empty weakest point — to `probe-sheets.csv`, which is git-ignored because every line of it belongs to somebody. Read it before any of it enters the gradebook. Students are matched by **email**: it is the only identity field this Moodle populates, and nothing anywhere reads the part after the `@`. A Submission whose email matches nobody enrolled aborts the run, because the alternative is a sheet silently missing from the set.
 
 It does, however, **read** the course, and so it opens the browser and needs a signed-in session exactly as an apply does. That is new, and it is the price of one line in the plan: whether instructor material somebody revealed has to be re-hidden is a fact about the live course, not about the course repository, and a dry run that could not say so would be hiding the riskiest thing the run does until the moment it did it.
 
@@ -115,9 +104,7 @@ npx playwright codegen --load-storage ~/.config/epf-moodle-publisher/session.jso
 
 They deliberately favour core Moodle URLs and stable form ids over theme markup: the page activity is created through `/course/modedit.php`, not by clicking through the activity chooser, which is the part a theme is most likely to reskin.
 
-The **gradebook CSV import** is the least verified of these paths, and it is the one run on the evening of the Orals. It drives Moodle's own three-step import form, and every option it picks — the identity field, each column's mapping, _Ignore_ — is chosen **by value** (`useremail`, `feedback_<id>`, `0`) and never by the label on screen, because this site is in French; a value the form does not offer aborts naming what the select did offer. None of those values has been confirmed against this Moodle yet: walk the form once in codegen before the first Orals it is run for (10 September, in the 2026 course), and if it has moved, the manual steps below are the fallback and cost typing rather than the sheets.
-
-Adding a section, deleting an activity and deleting a section are the newest and least verified of the rest: they go through `/course/changenumsections.php`, `/course/editsection.php` and `/course/mod.php`, and the confirmation button is matched by a list of the ids core Moodle has used rather than one known id. Each of them therefore **reads the course back afterwards** and aborts if what it asked for did not happen — a delete URL a future Moodle stops honouring fails loudly instead of reporting a clean course that is still full. Confirm them in codegen before the first real wipe; a run of `npm run wipe -- --course <scratch id>` without `--apply` exercises every read involved and deletes nothing.
+Adding a section, deleting an activity and deleting a section are the newest and least verified of these paths: they go through `/course/changenumsections.php`, `/course/editsection.php` and `/course/mod.php`, and the confirmation button is matched by a list of the ids core Moodle has used rather than one known id. Each of them therefore **reads the course back afterwards** and aborts if what it asked for did not happen — a delete URL a future Moodle stops honouring fails loudly instead of reporting a clean course that is still full. Confirm them in codegen before the first real wipe; a run of `npm run wipe -- --course <scratch id>` without `--apply` exercises every read involved and deletes nothing.
 
 ## Re-running
 
@@ -159,59 +146,6 @@ Each entry names the section its document belongs in. The publisher **takes the 
 
 Two sections with the same name is an **abort**, not a choice. Course imports leave repeated names behind (`Section 2` twice over is what the 2026 course had after its import), and publishing into one of them at random would put the document somewhere nobody thought to look, with nothing in the output saying so. Rename or remove the duplicate and run again.
 
-## Configuring the course for the Oral
-
-`setup` is not `publish`. Publishing runs every time a document changes; this runs **once per course** and then does nothing again, which is why it is a command of its own rather than something attempted at the start of every routine run.
-
-```bash
-npm run setup             # lists what it would add
-npm run setup -- --apply  # adds it
-```
-
-It puts two things in the gradebook:
-
-- **The `Bands` scale**, with the five Bands lowest first — `Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding` — spelled as `CONTEXT.md` spells them. It is made by tooling and not by hand because a CSV of Bands is later matched against these strings character for character, and a scale that differs by a capital letter is an import that silently lands the wrong verdicts.
-- **One grade item per Competency** the grid declares, named `<id> — <title>`, each **hidden from Students** and each **kept out of the course total** (weight overridden to 0). A visible Grade Item is a provisional Band read the night before the Oral it was meant to be defended at. One that counts is Moodle aggregating Bands into the /20 the assessment grid refuses, with `Resit` averaged in as though it were a low mark rather than work that was not done.
-
-  Weight 0 asks something of the course first: Moodle puts "Weight adjusted" on the grade item form **only when the course's grade category aggregates naturally**, and a course that arrived from an import on "Simple weighted mean" (as the 2026 course, 14707, did) weighs every item by its maximum grade with no way to say zero. `setup` does not change that setting — the aggregation decides what every other grade in the course means, and it is not this command's to reinterpret. It aborts naming the setting, and a run after the aggregation is set to Natural makes the items.
-
-A second run creates no second scale and no second grade item for a Competency: it reports everything as already in place and stops. What it will not do is quietly correct one somebody made by hand — a grade item that is visible, that counts, that is valued on something other than the Bands, or that shares its name with another **aborts the run with instructions**, leaving the gradebook alone. A tool that silently reconfigured a Grade Item is a tool nobody can be sure has not also silently reconfigured something holding Bands.
-
-The grade items are recorded in the same manifest as the pages, keyed by the Competency's id (`C1`, `C2`, …) rather than by a source path, because a Grade Item comes from no file.
-
-That record is also how a later run recognises one: **by the id the manifest holds**, and by name only when there is no id to go on. A Grade Item somebody has renamed in the gradebook is still that Competency's, and looked for by the name it was created under it would be invisible — the run would make a second beside it.
-
-Two things are read that the gradebook's own table does not show plainly. A **`Hidden until` date** counts as visible: a Band that becomes readable on a day nobody is watching for is the failure this command exists to prevent, arriving late rather than early. And a **standard, site-wide scale** named `Bands` is not adopted as the course's — the scales page lists it beside the course's own, and Grade Items valued on a scale an administrator can change under them is not something a course can be sure of.
-
-## Putting the Probe Sheets in the gradebook
-
-`npm run probes` writes the file. `npm run import` puts it in the gradebook. Two commands and not one, because the gap between them is where the sheets are read: the CSV is on disk to be looked at before any of it reaches a Student's row, and generating never touches Moodle.
-
-```bash
-npm run probes              # writes probe-sheets.csv; changes nothing
-npm run import              # reports what would enter the gradebook
-npm run import -- --apply   # puts it through Moodle's own import
-```
-
-It goes through **Moodle's own gradebook import** (`/grade/import/csv/index.php`) rather than the grading grid: one field per Student per Competency is one form rather than a page of AJAX interactions each, and **one import covers every Competency** — including any graded live, so that even its field is waiting rather than being made in the middle of a six-minute slot.
-
-**Nothing it sends is a verdict.** The band columns of the generated file are mapped to _Ignore_, so there is no mapping this program can make that carries a Band into a Grade Item (ADR-0002). What lands is the sheet, in the feedback beside the band cell; the cell itself appears empty, ready for the Instructor to pick from the Bands at the Oral. Nothing reads a filled-in Band back out, either: a verdict entered in Moodle stays there, and re-importing the sheets after a late enrolment leaves the ones already given alone.
-
-Everything it can refuse over is checked before a browser opens — sheets that were never generated, a gradebook `setup` has not configured, a file that is not the one `probes` writes. Three more are checked against the live course before anything is sent: a Grade Item the manifest records and the course no longer holds; one somebody has **revealed**, which would publish what a Student is about to be asked; and an **enrolment the file no longer matches**. That last one is what makes the promise a promise about Students rather than about rows: somebody who enrolled after `probes` ran has no row in the file, and an import of it would report success and leave them with nothing waiting at their Oral. Run `npm run probes` again and import the file it writes — the Bands already entered survive it.
-
-The file is **unchanged on disk** afterwards, byte for byte — it is uploaded as it is, never rewritten — which is what makes the fallback below a fallback rather than a second generation.
-
-### Importing it by hand
-
-Every abort this would answer prints these steps, because the evening they are needed is not an evening for reading a README. Two aborts deliberately do not print them, because importing this file by hand is not what they need: the enrolment has moved since the file was written, and — the only failure found after the sheets have gone in — the file changed on disk during the import. The point of writing them down twice is that a broken selector on the evening of the Orals costs typing and not the sheets:
-
-1. Open **Grades → Import → CSV file** in the course (`/grade/import/csv/index.php`).
-2. Upload `probe-sheets.csv`, leave the separator on comma, and continue.
-3. Identify users by **Email address**, mapped from the file's `email` column — the only identity field this Moodle populates.
-4. Map each `Feedback: …` column to the **feedback** of its grade item.
-5. Leave every other column on **Ignore**, including the band columns. They are empty on purpose: the Band is yours to enter at the Oral.
-6. Import. Each Student then has a sheet waiting in every grade item.
-
 ## Emptying the course
 
 A course under design gets built more than once, so emptying it is a command rather than an afternoon of clicking:
@@ -247,7 +181,7 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 }
 ```
 
-`grid` is the repository-relative path of the assessment grid, which the Deliverables and the probes are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
+`grid` is the repository-relative path of the assessment grid, which the Competencies and the Deliverables are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
 
 **A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
 
@@ -271,7 +205,7 @@ The table is checked against the repository it sits in, so a source path that is
 
 ## Competencies
 
-A course is graded on the **Competencies** its grid declares, in a `competencies:` block of the grid's front matter, beside the Deliverables that serve them and the probes the Oral asks about them:
+A course is graded on the **Competencies** its grid declares, in a `competencies:` block of the grid's front matter, beside the Deliverables that serve them:
 
 ```yaml
 ---
@@ -282,9 +216,11 @@ competencies:
 ---
 ```
 
-Each is written as its title alone. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` and the `probes` keys refer to that id. Reordering the list renumbers them, and the manifest's record of which Grade Item is which with them, so add a Competency at the end. `setup` makes one Grade Item per Competency, named `<id> — <title>` and recorded under the id; `probes` writes one Probe Sheet per enrolled Student per Competency; `import` maps one pair of columns per Competency. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course, and a probe naming one is still refused (ADR-0002).
+Each is written as its title alone. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` refer to that id. Reordering the list renumbers them, so add a Competency at the end. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course.
 
-Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no title, a title that names a Band (it heads a Probe Sheet column), a Deliverable serving a Competency the grid does not declare, probes keyed by one it does not declare, and a declared Competency with no probes.
+Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no title, and a Deliverable serving a Competency the grid does not declare.
+
+A grid that still has a `probes:` block **aborts every command**, naming [ADR-0011](./docs/adr/0011-the-feedback-letter-replaces-the-probe-sheet.md): the publisher no longer prepares the Oral, so delete the block. Its Solid column is what a Student's work is read against. The Grade Items and the `Bands` scale an earlier version made in a live course stay where they are; whether to delete those gradebook columns is the Instructor's call, made by hand. The manifest still reads the entries it recorded for them, and the next run that writes it leaves them out.
 
 ## Deliverables
 
@@ -309,7 +245,7 @@ deliverables:
 
 `id` is **authored, never computed from position**: it is what the published Devoir will be recorded under, so inserting a Deliverable above another one must not rename it. `visible` defaults to true and is the only defaulted field. There is no `link_kind`: the 2026 course's two Deliverables are both repository URLs, and nothing distinguishes them by link kind.
 
-Which document defines the Deliverables is the catalog's `grid`: one assessment grid, from whose front matter the Oral's probes are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
+Which document defines the Deliverables is the catalog's `grid`: one assessment grid, from whose front matter the Competencies are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
 
 `publish` reports every Deliverable and states each **Freeze in full** — the weekday, the date, the time, the zone and the instant — so a wrong date is caught by reading the plan rather than by a student at a deadline. The section is stated once, in the heading over them, rather than repeated down a column: it is the same constant for every Devoir, and what is worth checking against the timetable on that page is the Freeze.
 

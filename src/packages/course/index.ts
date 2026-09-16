@@ -1,10 +1,6 @@
 // The seam between everything that decides what to publish and the transport
 // that writes it. Two implementations sit behind it: `fake.ts` (an in-memory
 // course, used by the tests) and `browser.ts` (Playwright against real Moodle).
-//
-// The gradebook half of the same seam lives in `gradebook.ts`, and a driver
-// implements both: one course, one session, one thing to open and close.
-import type { GradebookDriver } from "./gradebook.ts";
 
 /**
  * The sections of the course page, in the order students read them.
@@ -371,49 +367,7 @@ export interface DevoirSettings {
   readonly cutOff: Date | undefined;
 }
 
-/**
- * One Student enrolled in the Course, as the course reports them.
- *
- * Mirrored, never authored: nothing in this program enrols or unenrols anyone,
- * and this is the whole of what it knows about a Student.
- *
- * The email is the identity. It is the only field this Moodle actually
- * populates — `idnumber` is empty on every sampled user — so it is what a
- * Submission is matched to a Student by, and what a Probe Sheet is addressed
- * to. It is carried as data and nothing more: two domains are in use
- * (`@epf.fr` and `@epfedu.fr`), neither means anything, and nothing anywhere
- * in this program reads a domain off one.
- *
- * The name is for the human reading the sheet, and for nothing else. No lookup
- * is ever done by it: names collide, are re-spelled and are re-ordered, and a
- * sheet that went to the wrong Student would be found out at the Oral.
- */
-export interface Enrolment {
-  readonly email: string;
-  /** As the course spells it, for the Instructor to read. Never a key. */
-  readonly name: string;
-}
-
-/**
- * One Student's Submission on one Devoir: whose it is, and the URL they handed
- * in.
- *
- * A URL revised in place with no attempt history, which is why there is no date
- * and no version here — it is the record of handing in, not the work.
- *
- * Read but never written. No tool in this repository hands anything in, and
- * this is the one direction in which anything a Student did travels: onto the
- * sheet the Instructor opens the Oral with, so that nobody is cross-referencing
- * the Devoir and the gradebook mid-interview.
- */
-export interface Submission {
-  /** Whose it is. The identity, for the reason {@link Enrolment} gives. */
-  readonly email: string;
-  /** The online text, which for this course is one URL. */
-  readonly url: string;
-}
-
-export interface CourseDriver extends GradebookDriver {
+export interface CourseDriver {
   /** Reads the live course. Never mutates. */
   snapshot(): Promise<CourseSnapshot>;
   /**
@@ -507,34 +461,6 @@ export interface CourseDriver extends GradebookDriver {
    * no `undefined` here to be read as zero further up.
    */
   countSubmissions(moduleId: string): Promise<number>;
-  /**
-   * The Students enrolled in the Course right now.
-   *
-   * Students, and not everybody the participants page lists: the Instructor, a
-   * co-teacher and any observer are enrolled too, and a Probe Sheet is prepared
-   * for somebody who sits an Oral. Three sheets each for the people running the
-   * course pads the file the Instructor reads, and pads the gradebook import it
-   * feeds with users who have no business having a Band.
-   *
-   * Read at the moment it is asked for and never cached anywhere, because that
-   * is what makes a Student who enrolled late appear on the set of sheets
-   * rather than be missing from it. Reading, never writing: enrolment is
-   * mirrored, and no tool here adds or removes anyone.
-   */
-  enrolments(): Promise<readonly Enrolment[]>;
-  /**
-   * What has been handed into the Devoir at `moduleId`, one entry per Student
-   * who has handed something in.
-   *
-   * Beside {@link countSubmissions} rather than replacing it, though a count is
-   * the length of this. They answer different questions and are allowed to fail
-   * differently: a count is what stands between thirty Students' work and a
-   * delete, and it refuses over a page it could not read, whereas this reads the
-   * work itself and a Devoir nobody has handed into yet is an empty list rather
-   * than a problem. Folding one into the other would make `wipe`'s refusal
-   * depend on reading online text it has no use for.
-   */
-  submissions(moduleId: string): Promise<readonly Submission[]>;
   /** Removes one activity. Used only by `wipe`. */
   deleteItem(moduleId: string): Promise<void>;
   /**

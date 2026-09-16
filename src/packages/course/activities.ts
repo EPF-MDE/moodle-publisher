@@ -128,8 +128,8 @@ export const SUBMISSION_STATUS_PREFIX = "submissionstatus";
  *   an untouched row actually carries and `submissionstatusnew` is a class
  *   core never renders. Read live off this course's Devoirs, where every row
  *   is `<div class="submissionstatus">Pas de travail remis</div>`: counting
- *   those as work made the Probe Sheets refuse to name a single Student, and
- *   would have called a course nobody has handed into unrebuildable.
+ *   those as work would have called a course nobody has handed into
+ *   unrebuildable.
  * - `submissionstatustable` names the table around every row, submitted or not.
  *
  * Both are whole tokens, and matched as whole tokens below: a status this

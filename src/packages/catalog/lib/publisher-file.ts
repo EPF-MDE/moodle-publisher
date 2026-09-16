@@ -39,7 +39,7 @@ export class UnreadablePublisherFile extends Error {
 /**
  * A `publisher.json` that does not say which document is the grid.
  *
- * No default: the grid is where the Deliverables and the probes are read from,
+ * No default: the grid is where the Competencies and the Deliverables are read from,
  * and a file that forgot to name it must not publish Devoirs out of whichever
  * file a default happened to point at.
  */

@@ -21,7 +21,7 @@ import { idsOf, isDeclared } from "./competency.ts";
 import { formatFreeze, formatInstant, readFreeze } from "./freeze.ts";
 import { nonEmptyString } from "./scalar.ts";
 
-import type { Competency } from "../../course/gradebook.ts";
+import type { Competency } from "./competency.ts";
 import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
 import type { Freeze } from "./freeze.ts";
 

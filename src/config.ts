@@ -5,7 +5,7 @@
 //
 // The run happens in a course repository: the directory the command line is
 // started in. The documents are read from there, and the course's run state —
-// the manifest, the Probe Sheets, the run captures and the `.env` — is kept
+// the manifest, the run captures and the `.env` — is kept
 // there, never beside this package, which once installed is inside
 // node_modules and goes with the next install.
 //
@@ -67,16 +67,6 @@ export interface Config {
   readonly repoRoot: string;
   readonly manifestPath: string;
   readonly sessionStatePath: string;
-  /**
-   * Where the generated Probe Sheets are written.
-   *
-   * A path and not a directory of dated files: the sheets are generated the
-   * evening before the Orals and imported from the same file, and a second run
-   * that produced a second file would leave the Instructor choosing between two
-   * on the night. Re-running overwrites, which is what makes fixing a typo in a
-   * probe and generating again boring.
-   */
-  readonly probeSheetPath: string;
   readonly runsRoot: string;
   readonly driver: DriverName;
   readonly fakeCoursePath: string | undefined;
@@ -234,9 +224,6 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     sessionStatePath: resolve(
       env["MOODLE_SESSION_STATE"] ??
         join(homedir(), ".config", "epf-moodle-publisher", "session.json")
-    ),
-    probeSheetPath: resolve(
-      env["PUBLISHER_PROBE_SHEETS"] ?? join(repoRoot, "probe-sheets.csv")
     ),
     runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,

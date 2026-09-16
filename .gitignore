@@ -5,9 +5,6 @@ node_modules
 runs/
 session.json
 
-# The generated Probe Sheets: every line of it belongs to a Student.
-probe-sheets.csv
-
 # What `npm pack` leaves when run by hand.
 *.tgz
 

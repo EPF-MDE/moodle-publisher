@@ -15,5 +15,4 @@ _Context: the decision was taken in the 2026 course, where the grid had already 
 - A Devoir's due date and cut-off date are both set from the single `due` in the front matter, so a late Submission is not merely flagged — it does not exist.
 - A malformed or missing date fails the run loudly. Nothing falls back to a default, because the wrong Freeze is this system's most expensive defect.
 - The audit compares the live Devoir's dates against the front matter, so a hand-edited cut-off in Moodle is caught rather than invisible.
-- The prefilled Probe Sheet reaches the gradebook the same way: the driver drives Moodle's own CSV import, not its grading grid, because importing a file is one form where typing is one field per Student per declared Competency.
-- The Course must be configured before any Probe Sheet can be imported: the Band scale and one hidden Grade Item per declared Competency are created by a setup step, not by hand, because the CSV import matches scale values by exact string and a hand-made scale reading `Needs work` maps Bands one notch off in silence.
+- Nothing else reaches Moodle's gradebook through the driver: the Oral is prepared outside Moodle ([ADR-0011](./0011-the-feedback-letter-replaces-the-probe-sheet.md)).

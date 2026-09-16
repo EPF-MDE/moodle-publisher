@@ -4,50 +4,23 @@
 // attended run against a scratch course, which is why every step it takes is
 // visible on screen and captured to disk.
 import { existsSync, mkdirSync } from "node:fs";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Locator, Page } from "playwright";
 
-import {
-  fillRichBody,
-  openUploadPane,
-  required,
-  uploadImage,
-} from "./atto-upload.ts";
+import { fillRichBody, required, uploadImage } from "./atto-upload.ts";
 import { browserMissing } from "./browser-install.ts";
 import { createRunRecorder } from "./run-recorder.ts";
 import type { RunRecorder } from "./run-recorder.ts";
 import {
-  EMAIL_OPTION_VALUE,
-  IGNORE_OPTION_VALUE,
   MICROSOFT_LOGIN_HOST,
   PLAIN_TEXT_EDITOR,
   RICH_EDITOR,
   SELECTORS,
-  feedbackOptionValue,
-  gradeImportMapping,
 } from "./selectors.ts";
 
 import { DELIVERABLE_SECTION, PLUGINFILE_PREFIX } from "../index.ts";
-
-import type {
-  CourseGradeItem,
-  CourseScale,
-  SheetImport,
-  Gradebook,
-  ImportColumn,
-  NewGradeItem,
-  NewScale,
-} from "../gradebook.ts";
-
-import {
-  GRADE_IMPORT_PATH,
-  SCALE_FORM_PATH,
-  gradeItemIdsOnPage,
-  identityColumnOf,
-  idsLinkedToForm,
-} from "../gradebook.ts";
 
 import {
   readSections as readSectionMarkup,
@@ -60,7 +33,6 @@ import {
   readsAsDevoir,
   readsAsHoldingSubmissions,
 } from "../activities.ts";
-import { emailIn, enrolsAsStudent, submittedUrl } from "../enrolment.ts";
 import {
   DEVOIR_DATE_CONTROLS,
   DEVOIR_SUBMISSION_FIELDS,
@@ -82,8 +54,6 @@ import type {
   CreatedPage,
   DevoirSettings,
   DevoirUpdate,
-  Enrolment,
-  Submission,
   NewDevoir,
   NewPage,
   PageImage,
@@ -111,21 +81,20 @@ const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
  * whole cohort has handed into is the slowest page this program opens: Moodle
  * renders every Student, their status and their online text in one go, and on a
  * teaching afternoon it takes longer than that. A timeout there reads like a
- * broken run — the Probe Sheets never got as far as the participants page — when
- * what happened is that a slow page was given a desktop's patience instead of a
- * test's. Generous rather than absent: a page that never arrives still stops.
+ * broken run when what happened is that a slow page was given a desktop's
+ * patience instead of a test's. Generous rather than absent: a page that never arrives still stops.
  */
 const TABLE_PAGE_TIMEOUT_MS = 3 * 60 * 1000;
 
 /**
  * How long a table that the page renders *after* it loads is waited for.
  *
- * Moodle 4's participants table is one: `/user/index.php` arrives with its
+ * Moodle 4 renders some of its tables that way: the page arrives with its
  * filters and its heading and no table at all, and fetches the rows over AJAX
- * a moment later. Read at `domcontentloaded` it is a page with no
- * `#participants` on it — which is indistinguishable, from out here, from a
- * page this program failed to understand, so the enrolment aborted over a
- * table that was merely still on its way.
+ * a moment later. Read at `domcontentloaded` it is a page with no table on it —
+ * which is indistinguishable, from out here, from a page this program failed
+ * to understand, so a run would abort over a table that was merely still on
+ * its way.
  *
  * Shorter than {@link TABLE_PAGE_TIMEOUT_MS} because nothing is being
  * downloaded by then: the page is in the browser and this is waiting on one
@@ -145,16 +114,6 @@ const TABLE_APPEARS_TIMEOUT_MS = 60 * 1000;
  * loaded page needs, and short enough that a wrong guess costs nothing.
  */
 const OPTIONAL_CLICK_TIMEOUT_MS = 2000;
-
-/**
- * How long the gradebook import's file has to arrive in the form's draft area.
- *
- * Generous, because what is travelling is a file the site has to take, store
- * and render a name for, and because the alternative to waiting is submitting
- * a form with nothing attached — an import that reports success and prepares
- * nobody, found out at the first Oral.
- */
-const UPLOAD_TIMEOUT_MS = 60 * 1000;
 
 export class BouncedToMicrosoftLogin extends Error {
   constructor(url: string) {
@@ -275,12 +234,10 @@ function assertNotOnLoginHost(page: Page, watch: LoginWatch): void {
 /**
  * Every page of a paged Moodle table, in turn.
  *
- * Three tables are read this way — the grading table for a count and again for
- * the work itself, and the participants table for the enrolment — and every one
- * of them has the same three properties, which is why the walk is here rather
- * than written out at each of them. Every page is visited, because a reading
- * that stopped at the first twenty rows understates what is about to be deleted
- * and leaves Students off the set of Probe Sheets. Paging is followed by the
+ * A Devoir's grading table is read this way, for the count that guards a
+ * delete, and the walk has three properties. Every page is visited, because a
+ * reading that stopped at the first twenty rows understates what is about to
+ * be deleted. Paging is followed by the
  * links the table itself renders, never by a page number this program
  * constructs, so a table that pages differently is followed rather than guessed
  * at. And a page whose table could not be found stops the walk: an empty table
@@ -991,6 +948,40 @@ export async function openBrowserCourse(
   }
 
   /**
+   * Opens whatever the form is keeping folded away.
+   *
+   * Moodle hides availability and weight behind "Show more…" inside a
+   * collapsed fieldset, and a control that is in the DOM and not visible is
+   * one Playwright will not check. Both controls are clicked when they are
+   * there, and neither is required: a theme that shows everything already is
+   * not a failure.
+   */
+  async function revealAdvancedFields(): Promise<void> {
+    // Each shut section by its own toggle, and never the form's "expand all"
+    // link. That link is a toggle, not a command: on a form Moodle serves with
+    // its fieldsets already open, clicking it shuts them all, and a field
+    // inside a section this program had just closed spends thirty seconds not
+    // becoming visible. Asking only the sections that are actually collapsed
+    // to open makes the call idempotent, which is what "reveal" means.
+    const collapsed = page.locator(SELECTORS.formCollapsedSection);
+    for (const toggle of await collapsed.all()) {
+      await toggle
+        .click({ timeout: OPTIONAL_CLICK_TIMEOUT_MS })
+        .catch(() => undefined);
+    }
+    // "Show more…" is separate: it reveals advanced fields *inside* a section
+    // rather than opening one. Moodle serves those hidden, so the first click
+    // is the revealing one.
+    const more = page.locator(SELECTORS.formShowMore);
+    if ((await more.count()) > 0) {
+      await more
+        .first()
+        .click({ timeout: OPTIONAL_CLICK_TIMEOUT_MS })
+        .catch(() => undefined);
+    }
+  }
+
+  /**
    * The form's own "expand all", clicked once.
    *
    * A blunter instrument than {@link revealAdvancedFields}, and a toggle
@@ -1007,27 +998,6 @@ export async function openBrowserCourse(
   }
 
   /**
-   * Chooses an option on a select that a collapsed fieldset may be hiding.
-   *
-   * The select is expected to exist: a form that does not offer visibility at
-   * all is a different problem, and one this program must not paper over by
-   * carrying on as though it had set it. So a missing field still throws — but
-   * a field that is merely folded away gets the form expanded and is then set
-   * like any other.
-   *
-   * Two ways of opening the form, in order, because the two forms this driver
-   * fills are folded differently. Asking each shut section to open is what the
-   * grade item form needs; the activity form does not answer to it, and needs
-   * the "expand all" link that would have shut the grade item form. Trying the
-   * gentle one first and escalating only while the field is *still* hidden is
-   * what lets one function serve both.
-   *
-   * And when neither works, this says so at once instead of leaving Playwright
-   * to spend thirty seconds choosing an option on something invisible. That
-   * wait is not idle time: the last run to hit it submitted the form while it
-   * ran, and left an activity in the course that no manifest accounted for.
-   */
-  /**
    * One field of a settings form, ready to be written to.
    *
    * Two things stand between a field and being writable, and both are asked
@@ -1039,12 +1009,12 @@ export async function openBrowserCourse(
    * can be asked to choose an option from, and expanding the form is a click
    * on the page's own control rather than a way of reaching around the page.
    *
-   * Two ways of opening the form, in order, because the two forms this driver
-   * fills are folded differently. Asking each shut section to open is what the
-   * grade item form needs; the activity form does not answer to it, and needs
-   * the "expand all" link that would have shut the grade item form. Trying the
-   * gentle one first and escalating only while the field is *still* hidden is
-   * what lets one function serve both.
+   * Two ways of opening the form, in order, because Moodle folds its forms
+   * differently. Asking each shut section to open is enough for a form served
+   * open; the activity form does not answer to it, and needs the "expand all"
+   * link that would shut a form served open. Trying the gentle one first and
+   * escalating only while the field is *still* hidden is what lets one
+   * function serve both.
    *
    * And when neither works, this says so at once instead of leaving Playwright
    * to spend thirty seconds writing to something invisible. That wait is not
@@ -1516,530 +1486,7 @@ export async function openBrowserCourse(
     return readItems(page, watch);
   }
 
-  // --- the gradebook ------------------------------------------------------
-  //
-  // Read through the forms rather than off the gradebook's setup table. The
-  // table renders a Grade Item's state as styling — a dimmed row for hidden, a
-  // weight in a box — and this program refuses to run against a course where
-  // it cannot tell hidden from visible, so it asks the form that owns the
-  // setting instead of interpreting a theme's rendering of it.
-
-  function gradeUrl(path: string, query: string): string {
-    return new URL(`/grade/edit/${path}?${query}`, options.baseUrl).toString();
-  }
-
-  /**
-   * Ids of the things the page links to `formPath`, in page order.
-   *
-   * Every link's `href` attribute is handed over verbatim, and which of them
-   * name a row is decided in {@link idsLinkedToForm} — a page writes some of
-   * these links relative and some absolute, and a selector that matches the
-   * attribute against a path sees only the absolute ones.
-   */
-  async function linkedIds(formPath: string): Promise<readonly string[]> {
-    return idsLinkedToForm(formPath, page.url(), await pageHrefs());
-  }
-
-  /** Every link's `href` on the page, verbatim, resolved by nobody. */
-  async function pageHrefs(): Promise<readonly string[]> {
-    return page
-      .locator("a[href]")
-      .evaluateAll((links) =>
-        links.map((link) => link.getAttribute("href") ?? "")
-      );
-  }
-
-  /** One scale, read off its own form. */
-  async function readScale(id: string): Promise<CourseScale | undefined> {
-    await page.goto(
-      gradeUrl("scale/edit.php", `courseid=${options.courseId}&id=${id}`),
-      { waitUntil: "domcontentloaded" }
-    );
-    assertNotOnLoginHost(page, watch);
-    const name = page.locator(SELECTORS.scaleName);
-    if ((await name.count()) === 0) return undefined;
-    // A standard scale belongs to the site, not to this course, and the
-    // scales page lists both. Reported as no scale at all rather than as one
-    // of the course's: a site scale named `Bands` adopted here is every Grade
-    // Item valued on something an administrator can change under them.
-    const standard = page.locator(SELECTORS.scaleStandard);
-    if ((await standard.count()) > 0 && (await standard.isChecked())) {
-      return undefined;
-    }
-    // Moodle stores a scale as one comma-separated line, lowest first, and
-    // trims around the commas when it saves. Splitting it the same way is what
-    // makes "Needs Work" compare equal to what was typed into the box.
-    const values = (await page.locator(SELECTORS.scaleValues).inputValue())
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value !== "");
-    return { id, name: await name.inputValue(), values };
-  }
-
-  /**
-   * One grade item, read off its own form, or nothing when the form has no
-   * name field.
-   *
-   * That absence is the test for "this is not a Grade Item this program deals
-   * with": the course total and the categories are edited through the same
-   * URL, and neither offers an item name.
-   */
-  async function readGradeItem(
-    id: string
-  ): Promise<CourseGradeItem | undefined> {
-    await page.goto(
-      gradeUrl("tree/item.php", `courseid=${options.courseId}&id=${id}`),
-      { waitUntil: "domcontentloaded" }
-    );
-    assertNotOnLoginHost(page, watch);
-    const name = page.locator(SELECTORS.gradeItemName);
-    if ((await name.count()) === 0) return undefined;
-    await revealAdvancedFields();
-
-    const scale = page.locator(SELECTORS.gradeItemScale);
-    const hidden = page.locator(SELECTORS.gradeItemHidden);
-    const override = page.locator(SELECTORS.gradeItemWeightOverride);
-    const weight = page.locator(SELECTORS.gradeItemWeight);
-    // A field that is not on the form is reported as the unsafe answer, never
-    // the safe one: `setup` refuses a Grade Item it cannot see is hidden, which is
-    // the behaviour wanted from a Moodle whose form this program cannot read.
-    // Hidden, and hidden with no date on it. "Hidden until" is a Band that
-    // becomes readable on a day nobody is watching for, which is the failure
-    // this program refuses, arriving late rather than early.
-    const until = page.locator(SELECTORS.gradeItemHiddenUntilEnabled);
-    const revealedOn = (await until.count()) > 0 && (await until.isChecked());
-    const isHidden =
-      (await hidden.count()) > 0 && (await hidden.isChecked()) && !revealedOn;
-    const weightless =
-      (await override.count()) > 0 &&
-      (await override.isChecked()) &&
-      Number((await weight.inputValue()).replace(",", ".")) === 0;
-    const scaleId =
-      (await scale.count()) === 0 ? undefined : await scale.inputValue();
-
-    return {
-      id,
-      name: await name.inputValue(),
-      scaleId: scaleId === "" || scaleId === "0" ? undefined : scaleId,
-      hidden: isHidden,
-      excludedFromTotal: weightless,
-    };
-  }
-
-  /**
-   * Opens whatever the form is keeping folded away.
-   *
-   * Moodle hides availability and weight behind "Show more…" inside a
-   * collapsed fieldset, and a control that is in the DOM and not visible is
-   * one Playwright will not check. Both controls are clicked when they are
-   * there, and neither is required: a theme that shows everything already is
-   * not a failure.
-   */
-  async function revealAdvancedFields(): Promise<void> {
-    // Each shut section by its own toggle, and never the form's "expand all"
-    // link. That link is a toggle, not a command: Moodle serves the grade item
-    // form with its fieldsets already open, so clicking it shut them all and
-    // `#id_weightoverride` — resolved, in the DOM, inside a section this
-    // program had just closed — spent thirty seconds not becoming visible.
-    // Asking only the sections that are actually collapsed to open makes the
-    // call idempotent, which is what "reveal" was meant to mean all along.
-    const collapsed = page.locator(SELECTORS.formCollapsedSection);
-    for (const toggle of await collapsed.all()) {
-      await toggle
-        .click({ timeout: OPTIONAL_CLICK_TIMEOUT_MS })
-        .catch(() => undefined);
-    }
-    // "Show more…" is separate: it reveals advanced fields *inside* a section
-    // rather than opening one. Moodle serves those hidden, so the first click
-    // is the revealing one.
-    const more = page.locator(SELECTORS.formShowMore);
-    if ((await more.count()) > 0) {
-      await more
-        .first()
-        .click({ timeout: OPTIONAL_CLICK_TIMEOUT_MS })
-        .catch(() => undefined);
-    }
-  }
-
-  /** The course's gradebook, read whole. */
-  async function readGradebook(): Promise<Gradebook> {
-    await page.goto(gradeUrl("scale/index.php", `id=${options.courseId}`), {
-      waitUntil: "domcontentloaded",
-    });
-    assertNotOnLoginHost(page, watch);
-    await assertInConfiguredCourse(page, options);
-    const scaleIds = await linkedIds(SCALE_FORM_PATH);
-
-    await page.goto(
-      new URL(
-        `/grade/edit/tree/index.php?id=${options.courseId}`,
-        options.baseUrl
-      ).toString(),
-      { waitUntil: "domcontentloaded" }
-    );
-    assertNotOnLoginHost(page, watch);
-    await assertInConfiguredCourse(page, options);
-    const itemIds = gradeItemIdsOnPage(
-      page.url(),
-      await pageHrefs(),
-      await page
-        .locator(SELECTORS.gradeItemRow)
-        .evaluateAll((rows) =>
-          rows.map((row) => row.getAttribute("data-itemid") ?? "")
-        )
-    );
-
-    const scales: CourseScale[] = [];
-    for (const id of scaleIds) {
-      const scale = await readScale(id);
-      if (scale !== undefined) scales.push(scale);
-    }
-    const items: CourseGradeItem[] = [];
-    for (const id of itemIds) {
-      const item = await readGradeItem(id);
-      if (item !== undefined) items.push(item);
-    }
-    return { scales, items };
-  }
-
-  // --- the gradebook import, run once before the Orals ---------------------
-  //
-  // Moodle's own three-step CSV import, driven as a human drives it: upload
-  // the file, say what its columns are, import. The file is uploaded as it is
-  // — nothing here reads, rewrites or re-encodes it — so the same file remains
-  // importable by hand through this same screen if any of the steps below stop
-  // matching what Moodle serves.
-  //
-  // Every choice is made by option **value** and never by label. This site is
-  // in French, and a driver that picked "Email address" out of a select would
-  // map nothing at all on the one course it exists to serve.
-
-  /** Every option value a select on the page offers, in its own order. */
-  async function optionValues(selector: string): Promise<readonly string[]> {
-    return page
-      .locator(`${selector} option`)
-      .evaluateAll((options_) =>
-        options_.map((option) => option.getAttribute("value") ?? "")
-      );
-  }
-
-  /**
-   * Chooses `value` in `selector`, or aborts naming what the select did offer.
-   *
-   * The abort is the interesting half. A missing option means Moodle's import
-   * form is not the one this driver was written against — a version that keys
-   * feedback differently, a Grade Item that has gone — and selecting something
-   * else would import the sheets into a column nobody asked for. What it prints
-   * is what the page offered, which is what a human needs to finish the import
-   * by hand on the screen already in front of them.
-   */
-  async function chooseOption(
-    selector: string,
-    value: string,
-    what: string
-  ): Promise<void> {
-    const offered = await optionValues(selector);
-    if (!offered.includes(value)) {
-      throw new Error(
-        `Aborting: Moodle's gradebook import has no "${value}" option for ${what} ` +
-          `("${selector}" offers ${offered.join(", ") || "nothing"}). Nothing has been ` +
-          `imported, and the CSV is exactly as it was.`
-      );
-    }
-    await page.locator(selector).selectOption(value);
-  }
-
-  /** What one column of the file is mapped onto, as a form option value. */
-  function mappingValue(column: ImportColumn): string {
-    return column.target.kind === "sheet"
-      ? feedbackOptionValue(column.target.gradeItemId)
-      : IGNORE_OPTION_VALUE;
-  }
-
-  /**
-   * Whatever Moodle is complaining about on the page, or nothing.
-   *
-   * Read for its text and never matched against one: the run stops because the
-   * notification is there, and quotes it so that a human can act on it in a
-   * language this program does not have to know.
-   */
-  async function importProblem(): Promise<string | undefined> {
-    const problems = page.locator(SELECTORS.gradeImportProblem);
-    if ((await problems.count()) === 0) return undefined;
-    const text = (await problems.first().innerText()).trim();
-    return text === "" ? undefined : text;
-  }
-
-  /** Puts the file into the import form's draft area, through the picker. */
-  async function uploadImportFile(path: string, what: string): Promise<void> {
-    await (
-      await required(page, SELECTORS.gradeImportChooseFile, what)
-    )
-      .first()
-      .click();
-    const input = await openUploadPane(page, what);
-    await input.setInputFiles(path);
-    await (
-      await required(page, SELECTORS.filePickerUploadButton, what)
-    ).click();
-    // Waited for by what it leaves on the form — the file's name beside the
-    // picker — rather than by a fixed pause: submitting before the upload has
-    // landed is an import of nothing, reported as an import.
-    //
-    // The name and not the container it lands in. Moodle serves that container
-    // empty from the start, holding the "drop files here" message, so a run
-    // that waited for the container alone was satisfied before it had uploaded
-    // anything — which is the failure this wait exists to prevent, passing.
-    const named = basename(path);
-    const landed = page
-      .locator(SELECTORS.gradeImportChosenFile)
-      .filter({ hasText: named });
-    await landed
-      .first()
-      .waitFor({ state: "attached", timeout: UPLOAD_TIMEOUT_MS })
-      .catch(() => {});
-    if ((await landed.count()) === 0) {
-      throw new Error(
-        `Aborting: ${what} — the picker was sent ${path} and the form does not ` +
-          `show "${named}" afterwards, so the file cannot be confirmed to be in ` +
-          `the draft area. Submitting now would import nothing and report an ` +
-          `import. Nothing has been imported.`
-      );
-    }
-  }
-
-  /**
-   * Puts one file through the import, and reports nothing: what a run says it
-   * sent is what the file held, which it read itself.
-   */
-  async function importThroughMoodle(request: SheetImport): Promise<void> {
-    const what = `importing ${request.path} into course ${options.courseId}`;
-
-    await page.goto(
-      new URL(
-        `${GRADE_IMPORT_PATH}?id=${options.courseId}`,
-        options.baseUrl
-      ).toString(),
-      { waitUntil: "domcontentloaded" }
-    );
-    assertNotOnLoginHost(page, watch);
-    await assertNotMoodleError(page, what);
-    await assertInConfiguredCourse(page, options);
-
-    await uploadImportFile(request.path, what);
-    await (await required(page, SELECTORS.gradeImportSubmit, what)).click();
-    await page.waitForLoadState("domcontentloaded");
-    assertNotOnLoginHost(page, watch);
-    await assertNotMoodleError(page, what);
-
-    const rejected = await importProblem();
-    if (rejected !== undefined) {
-      throw new Error(
-        `Aborting: Moodle would not read ${request.path}: ${rejected}. Nothing has ` +
-          `been imported, and the file is exactly as it was.`
-      );
-    }
-
-    // Who each row is for. The column is the file's, the field is Moodle's,
-    // and both are stated by value: email is the only identity this Moodle
-    // populates, and it is the one thing that must not be mismapped — a row
-    // matched by name would put one Student's sheet on another.
-    const identityAt = identityColumnOf(request.columns, what);
-    await chooseOption(
-      SELECTORS.gradeImportMapFrom,
-      String(identityAt),
-      `the file's "${request.columns[identityAt]?.heading ?? ""}" column`
-    );
-    await chooseOption(
-      SELECTORS.gradeImportMapTo,
-      EMAIL_OPTION_VALUE,
-      "matching Students by their email address"
-    );
-
-    // Every column, including the ones left out: a select this run does not
-    // set keeps whatever Moodle guessed from its heading, and a guessed
-    // mapping is a Band column guessed onto a Grade Item.
-    for (const [at, column] of request.columns.entries()) {
-      await chooseOption(
-        gradeImportMapping(at),
-        mappingValue(column),
-        `the file's "${column.heading}" column`
-      );
-    }
-
-    await (await required(page, SELECTORS.gradeImportSubmit, what)).click();
-    await page.waitForLoadState("domcontentloaded");
-    assertNotOnLoginHost(page, watch);
-    await assertNotMoodleError(page, what);
-
-    const refused = await importProblem();
-    if (refused !== undefined) {
-      throw new Error(
-        `Aborting: Moodle reported a problem importing ${request.path}: ${refused}. ` +
-          `Some rows may have landed and some may not — open the gradebook and check ` +
-          `before importing again. The file is exactly as it was.`
-      );
-    }
-  }
-
   return {
-    async gradebook(): Promise<Gradebook> {
-      return readGradebook();
-    },
-
-    async createScale(scale: NewScale): Promise<CourseScale> {
-      const mutation = await prepareToMutate();
-      const after = await mutation.capture(`create scale ${scale.name}`);
-      try {
-        await page.goto(
-          gradeUrl("scale/edit.php", `courseid=${options.courseId}&id=0`),
-          { waitUntil: "domcontentloaded" }
-        );
-        assertNotOnLoginHost(page, watch);
-        await assertNotMoodleError(page, `creating the scale "${scale.name}"`);
-        await assertInConfiguredCourse(page, options);
-
-        // Unchecked before anything else: a scale saved as standard is the
-        // site's, and this course's next run would not find it among its own.
-        const standard = page.locator(SELECTORS.scaleStandard);
-        if ((await standard.count()) > 0) await standard.first().uncheck();
-        await page.locator(SELECTORS.scaleName).fill(scale.name);
-        await page.locator(SELECTORS.scaleValues).fill(scale.values.join(","));
-        await page.locator(SELECTORS.scaleSubmit).click();
-        await page.waitForLoadState("domcontentloaded");
-        assertNotOnLoginHost(page, watch);
-
-        // Read back off the course's own list, not off the form that was just
-        // submitted: what a later run will find is what the course holds, and
-        // a scale saved into the site's list instead of this course's is a
-        // scale the next run cannot see.
-        const created = (await readGradebook()).scales.find(
-          (found) => found.name === scale.name
-        );
-        if (created === undefined) {
-          throw new Error(
-            `Aborting: submitted the scale "${scale.name}" to course ${options.courseId} ` +
-              `and it is not in the course's scales afterwards. Check the form at ` +
-              `/grade/edit/scale/edit.php in an attended codegen session (see the publisher's README.md).`
-          );
-        }
-        return created;
-      } catch (error) {
-        noteAbort(mutation, error);
-        throw error;
-      } finally {
-        await after();
-      }
-    },
-
-    async createGradeItem(item: NewGradeItem): Promise<CourseGradeItem> {
-      const mutation = await prepareToMutate();
-      const after = await mutation.capture(`create grade item ${item.name}`);
-      try {
-        await page.goto(
-          gradeUrl("tree/item.php", `courseid=${options.courseId}&id=0`),
-          { waitUntil: "domcontentloaded" }
-        );
-        assertNotOnLoginHost(page, watch);
-        await assertNotMoodleError(page, `creating the item "${item.name}"`);
-        await assertInConfiguredCourse(page, options);
-        await revealAdvancedFields();
-
-        await page.locator(SELECTORS.gradeItemName).fill(item.name);
-        // Grade type "Scale" first: the scale select is disabled until it is
-        // chosen, and one left on "Value" takes a number, which is the
-        // /20 this assessment does not have.
-        await page.locator(SELECTORS.gradeItemType).selectOption("2");
-        await page.locator(SELECTORS.gradeItemScale).selectOption(item.scaleId);
-
-        for (const [selector, what] of [
-          [SELECTORS.gradeItemHidden, "hidden from Students"],
-          [SELECTORS.gradeItemWeightOverride, "kept out of the course total"],
-        ] as const) {
-          const control = page.locator(selector);
-          if ((await control.count()) === 0) {
-            // The weight field is the one that goes missing for a reason
-            // outside this program: Moodle puts "Weight adjusted" on the item
-            // form only when the parent grade category aggregates
-            // **naturally**. A course left on any other aggregation — this
-            // one arrived on "Simple weighted mean" from its import — gives
-            // every item a weight derived from its maximum grade, and offers
-            // no way to say zero. So the remedy is the course's own gradebook
-            // setting, and saying "re-check the selectors" here sends the
-            // reader to the one place the answer is not.
-            const why =
-              selector === SELECTORS.gradeItemWeightOverride
-                ? `Moodle offers "Weight adjusted" only when the course's grade category ` +
-                  `aggregates naturally. Set the aggregation of course ${options.courseId} ` +
-                  `to "Natural" in /grade/edit/tree/index.php (the course category's ` +
-                  `settings) and run setup again.`
-                : `Re-check the selectors against this site (see the publisher's README.md).`;
-            throw new Error(
-              `Aborting: this Moodle's grade item form has no "${selector}" field, so ` +
-                `"${item.name}" cannot be created ${what}. Nothing has been created. ` +
-                `${why} Or add one item per Competency by hand in the gradebook.`
-            );
-          }
-          // A field that is on the form and not visible is a section this
-          // program failed to open, and waiting on it is thirty seconds of a
-          // timeout that names a locator and not a cause.
-          if (!(await control.first().isVisible())) {
-            await revealAdvancedFields();
-          }
-          if (!(await control.first().isVisible())) {
-            throw new Error(
-              `Aborting: "${selector}" is on this Moodle's grade item form but not ` +
-                `visible, so "${item.name}" cannot be created ${what}. Nothing has been ` +
-                `created. A fieldset this program could not open is the usual cause; ` +
-                `check the form at /grade/edit/tree/item.php in an attended codegen ` +
-                `session (see the publisher's README.md).`
-            );
-          }
-          await control.first().check();
-        }
-        await page.locator(SELECTORS.gradeItemWeight).fill("0");
-
-        await page.locator(SELECTORS.gradeItemSubmit).click();
-        await page.waitForLoadState("domcontentloaded");
-        assertNotOnLoginHost(page, watch);
-
-        // Read back, for the reason the whole command exists: a Grade Item that
-        // saved visible, or with its weight ignored, is found out either by a
-        // Student reading their Band or by Moodle publishing a total. Neither
-        // is discovered by this program believing what it typed.
-        const created = (await readGradebook()).items.find(
-          (found) => found.name === item.name
-        );
-        if (created === undefined) {
-          throw new Error(
-            `Aborting: submitted the grade item "${item.name}" to course ` +
-              `${options.courseId} and no such item is in the gradebook afterwards. ` +
-              `Check the form at /grade/edit/tree/item.php in an attended codegen ` +
-              `session (see the publisher's README.md).`
-          );
-        }
-        return created;
-      } catch (error) {
-        noteAbort(mutation, error);
-        throw error;
-      } finally {
-        await after();
-      }
-    },
-
-    async importSheets(request: SheetImport): Promise<void> {
-      const mutation = await prepareToMutate();
-      const after = await mutation.capture(`import sheets ${request.path}`);
-      try {
-        await importThroughMoodle(request);
-      } catch (error) {
-        noteAbort(mutation, error);
-        throw error;
-      } finally {
-        await after();
-      }
-    },
-
     async snapshot(): Promise<CourseSnapshot> {
       await gotoCourse(page, options, watch);
       const sections = await readSections(page);
@@ -2408,226 +1855,6 @@ export async function openBrowserCourse(
         }
       );
       return counted;
-    },
-
-    async enrolments(): Promise<readonly Enrolment[]> {
-      // The page a teacher already reads this off, with the session this
-      // driver holds — no web service token, for the reason the Submission
-      // count gives. Everybody the page lists is read; which of them is a
-      // Student is decided below, by `enrolsAsStudent`.
-      // Both initials filters are cleared in the URL, and that is not
-      // decoration: the participants table's "Filtrer par nom" is a *stored
-      // user preference*, so a page opened at the letter D stays at the letter
-      // D for that account until something sets it back — in this browser, in
-      // the instructor's own, and for every later run. One walk that mistook
-      // the initials bar for a paging bar left it on D, and course 14707 then
-      // reported nought participants of forty-four, no table at all, and an
-      // abort that read like a broken page. Asking for "all" every time makes
-      // the enrolment read what is enrolled rather than what was last clicked.
-      // `tifirst=`/`tilast=` empty is core's own "Tout" link.
-      const start = new URL(
-        `/user/index.php?id=${options.courseId}&tifirst=&tilast=`,
-        options.baseUrl
-      ).toString();
-      const enrolments: Enrolment[] = [];
-      const anonymous: string[] = [];
-      const roleless: string[] = [];
-
-      await eachPageOf(
-        page,
-        watch,
-        start,
-        SELECTORS.participantsTable,
-        () =>
-          page.evaluate((selectors) => {
-            const table = document.querySelector(selectors.participantsTable);
-            if (table === null) {
-              return {
-                understood: false,
-                rows: [] as {
-                  cells: string[];
-                  name: string;
-                  roles: string;
-                }[],
-                links: [] as string[],
-              };
-            }
-            const rows = Array.from(table.querySelectorAll("tbody tr")).map(
-              (row) => ({
-                cells: Array.from(row.querySelectorAll("td, th")).map(
-                  (cell) => cell.textContent ?? ""
-                ),
-                name:
-                  row
-                    .querySelector<HTMLAnchorElement>(
-                      'a[href*="/user/view.php"]'
-                    )
-                    ?.textContent?.trim() ?? "",
-                roles:
-                  row
-                    .querySelector(selectors.participantsRoles)
-                    ?.textContent?.trim() ?? "",
-              })
-            );
-            const links = Array.from(
-              document.querySelectorAll<HTMLAnchorElement>(
-                selectors.participantsPaging
-              )
-            ).map((link) => link.href);
-            return { understood: true, rows, links };
-          }, SELECTORS),
-        (url) =>
-          `Aborting: read ${url} and could not find the participants table on it, so ` +
-          `who is enrolled in course ${options.courseId} cannot be established. ` +
-          `Probe Sheets are generated from the enrolment, and a set with Students ` +
-          `missing from it is one nobody can tell is short until an Oral. Open that ` +
-          `page and check it lists the Students.`,
-        (read) => {
-          for (const row of read.rows) {
-            const email = emailIn(row.cells);
-            if (email === undefined) {
-              // A row that is not a Student at all — a spacer, a summary line —
-              // has no name either, and is passed over. One with a name and no
-              // readable email is a Student whose sheet would go missing, and
-              // that is collected and refused below, all of them at once, so
-              // the fix is one visit to the course's settings rather than one
-              // per Student.
-              if (row.name !== "") anonymous.push(row.name);
-              continue;
-            }
-            if (row.roles === "") {
-              // The roles cell is what tells a Student from the Instructor, and
-              // a row without one cannot be placed either way. Collected rather
-              // than guessed at, and refused below with the rest: including
-              // everybody would prepare sheets for people who never sit an
-              // Oral, and excluding everybody would drop a Student silently.
-              roleless.push(email);
-              continue;
-            }
-            if (!enrolsAsStudent(row.roles)) continue;
-            if (!enrolments.some((found) => found.email === email)) {
-              enrolments.push({
-                email,
-                name: row.name === "" ? email : row.name,
-              });
-            }
-          }
-        }
-      );
-
-      if (anonymous.length > 0) {
-        throw new Error(
-          `Aborting: ${anonymous.length} enrolled ${
-            anonymous.length === 1 ? "Student has" : "Students have"
-          } no email address on the participants page of course ${options.courseId} ` +
-            `(${anonymous.join(", ")}). A Student is matched by email — it is the only ` +
-            `identity field this Moodle populates — so a Probe Sheet for them cannot be ` +
-            `addressed, and generating the rest would drop them silently. Add "Email ` +
-            `address" to the course's user identity fields (Course → Users → Permissions, ` +
-            `or the site's showuseridentity setting) and run this again.`
-        );
-      }
-      if (roleless.length > 0) {
-        throw new Error(
-          `Aborting: the roles of ${roleless.length} enrolled ${
-            roleless.length === 1 ? "person" : "people"
-          } could not be read off the participants page of course ` +
-            `${options.courseId} (${roleless.join(", ")}). A Probe Sheet is prepared for ` +
-            `the Students who sit an Oral, so the Instructor and any observer have to be ` +
-            `told apart from them — and a page whose roles column this cannot find is one ` +
-            `where including everybody and excluding everybody are both wrong. Open that ` +
-            `page and check it shows a Roles column.`
-        );
-      }
-      return enrolments;
-    },
-
-    async submissions(moduleId: string): Promise<readonly Submission[]> {
-      // The same table the count is read from, read for what is in it rather
-      // than for how many rows carry a status. Both walk every page, and both
-      // refuse a page they did not understand: what differs is that a Devoir
-      // nobody has handed into yet is an empty list here and not a problem.
-      const start = new URL(
-        `/mod/assign/view.php?id=${moduleId}&action=grading`,
-        options.baseUrl
-      ).toString();
-      const submissions: Submission[] = [];
-      const unreadable: string[] = [];
-
-      await eachPageOf(
-        page,
-        watch,
-        start,
-        SELECTORS.assignGradingTable,
-        () =>
-          page.evaluate((selectors) => {
-            const empty = {
-              understood: false,
-              rows: [] as {
-                cells: string[];
-                text: string;
-                hrefs: string[];
-                status: string[];
-              }[],
-              links: [] as string[],
-            };
-            if (document.querySelector(selectors.assignPage) === null) {
-              return empty;
-            }
-            const table = document.querySelector(selectors.assignGradingTable);
-            if (table === null) return empty;
-
-            const rows = Array.from(table.querySelectorAll("tr")).map(
-              (row) => ({
-                cells: Array.from(row.querySelectorAll("td, th")).map(
-                  (cell) => cell.textContent ?? ""
-                ),
-                text: row.textContent ?? "",
-                hrefs: Array.from(
-                  row.querySelectorAll<HTMLAnchorElement>("a[href]")
-                ).map((link) => link.href),
-                status: Array.from(
-                  row.querySelectorAll(selectors.assignSubmissionStatus)
-                ).map((carrier) => carrier.getAttribute("class") ?? ""),
-              })
-            );
-            const links = Array.from(
-              document.querySelectorAll<HTMLAnchorElement>(
-                selectors.assignGradingPaging
-              )
-            ).map((link) => link.href);
-            return { understood: true, rows, links };
-          }, SELECTORS),
-        (url) =>
-          `Aborting: read ${url} and could not find the grading table on it, so what ` +
-          `has been handed into activity ${moduleId} cannot be established. Nothing ` +
-          `has been written. Open that page and check it lists the Submissions.`,
-        (read) => {
-          for (const row of read.rows) {
-            if (!readsAsHoldingSubmissions(row.status)) continue;
-            const email = emailIn(row.cells);
-            const handed = submittedUrl(row.hrefs, row.text, options.baseUrl);
-            if (email === undefined || handed === undefined) {
-              unreadable.push(email ?? row.cells[1]?.trim() ?? "a Student");
-              continue;
-            }
-            if (!submissions.some((found) => found.email === email)) {
-              submissions.push({ email, url: handed });
-            }
-          }
-        }
-      );
-
-      if (unreadable.length > 0) {
-        throw new Error(
-          `Aborting: activity ${moduleId} holds work whose Student or URL could not be ` +
-            `read off the grading table (${unreadable.join(", ")}). A Probe Sheet ` +
-            `carrying half a URL sends the Instructor to a repository that is not there, ` +
-            `so nothing is generated over a reading this program is unsure of. Open ` +
-            `${start} and read those Submissions by hand.`
-        );
-      }
-      return submissions;
     },
 
     async deleteItem(moduleId: string): Promise<void> {
