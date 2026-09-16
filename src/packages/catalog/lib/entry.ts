@@ -24,7 +24,7 @@ export interface PublishedEntry {
    * decision but the course repository's.
    *
    * It is not a schedule. Nothing in this program reveals anything, on this
-   * date or any other: the date is what the *audit* measures the course
+   * date or any other: the date is what a human review measures the course
    * against, so that a document found visible the week before is a failure and
    * the same document found visible on the day is not. Publishing on the
    * morning of the reveal, or an hour after it, does not change what students

@@ -182,7 +182,7 @@ const MALFORMED: readonly (readonly [
 ];
 
 for (const [what, spoil, named] of MALFORMED) {
-  test(`${what} stops publish and audit, naming the file and what is wrong, writing nothing`, async () => {
+  test(`${what} stops a plan and a publish, naming the file and what is wrong, writing nothing`, async () => {
     // Every command that reads the catalog reads it before anything opens, so
     // each refuses with the same message and leaves everything as it was.
     const workspace = makeWorkspace();
@@ -193,7 +193,7 @@ for (const [what, spoil, named] of MALFORMED) {
 
     spoil(workspace);
 
-    for (const args of [["publish", "--apply"], ["audit"]]) {
+    for (const args of [["publish", "--apply"], ["publish"]]) {
       const result = await workspace.publisher(args);
 
       assert.equal(result.code, 1, `${args.join(" ")}: ${result.stdout}`);

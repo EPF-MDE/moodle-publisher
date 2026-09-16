@@ -92,7 +92,7 @@ test("a grid with no competencies block aborts every command that reads it, nami
     `---\n${deliverableServing("C1, C2")}\n---\n\n${GRID_MARKDOWN}`
   );
 
-  for (const command of [["publish", "--apply"], ["audit"], ["check"]]) {
+  for (const command of [["publish", "--apply"], ["publish"], ["check"]]) {
     const result = await workspace.publisher(command);
 
     assert.equal(result.code, 1, `${command.join(" ")} was accepted`);

@@ -1,6 +1,6 @@
 // Implementation: private to the documents package.
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, sep } from "node:path";
 
 import { pluginfileReference } from "../../course/index.ts";
 import type { PageImage } from "../../course/index.ts";
@@ -33,10 +33,9 @@ function pathInside(repoRoot: string, source: string): string {
  * A document as a reader reads it: its front matter, if it has any, is not
  * part of it.
  *
- * Everything downstream — the rendering, the hash, the fingerprints, the
- * audit's prose — goes through here, so a document that starts carrying front
- * matter does not start publishing it as a paragraph of YAML above its first
- * heading.
+ * Everything downstream — the rendering and the hash — goes through here, so
+ * a document that starts carrying front matter does not start publishing it as
+ * a paragraph of YAML above its first heading.
  */
 export function readSource(repoRoot: string, source: string): string {
   return splitFrontMatter(readFileSync(pathInside(repoRoot, source), "utf8"))
@@ -294,103 +293,5 @@ function bytesOf(repoRoot: string, image: string): Buffer | undefined {
     return readFileSync(pathInside(repoRoot, image));
   } catch {
     return undefined;
-  }
-}
-
-function markdownFilesUnder(root: string, relative: string): readonly string[] {
-  const path = join(root, relative);
-  let entries;
-  try {
-    entries = readdirSync(path, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  return entries.flatMap((entry) => {
-    const child = join(relative, entry.name);
-    if (entry.isDirectory()) return markdownFilesUnder(root, child);
-    return entry.name.endsWith(".md") ? [child] : [];
-  });
-}
-
-/**
- * A document's lines with markdown punctuation taken out: what a reader of the
- * published page sees, rather than what the file spells. Both the fingerprints
- * and the audit's comparisons are made in this form, so it is written once.
- */
-function proseLines(markdown: string): readonly string[] {
-  return markdown.split("\n").map((line) =>
-    line
-      .replace(/[*_`#>|-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-  );
-}
-
-/**
- * A handful of long prose lines: distinctive enough that finding one in a
- * course body means the document itself is in there, short enough to survive
- * whitespace differences between markdown and rendered HTML.
- */
-export function fingerprintsOf(markdown: string): readonly string[] {
-  return proseLines(markdown)
-    .filter((line) => line.length >= 60)
-    .slice(0, 5);
-}
-
-/**
- * Fingerprints for a catalog entry, which may name a file or a directory.
- *
- * Which one it is comes from the filesystem, not from the shape of the string:
- * the trailing-slash convention belongs to the catalog, and re-reading it here
- * would put the same rule in two packages.
- */
-export function fingerprintsForEntry(
-  repoRoot: string,
-  source: string
-): readonly string[] {
-  return textsForEntry(repoRoot, source).flatMap(fingerprintsOf);
-}
-
-/**
- * Every prose line of a catalog entry, long or short.
- *
- * The audit reads a document's whole prose, rather than its fingerprints, when
- * it asks whether a phrase is also in something students are meant to read:
- * the five lines a document is recognised *by* are not the only lines it can
- * share with another document.
- */
-export function proseForEntry(
-  repoRoot: string,
-  source: string
-): readonly string[] {
-  return textsForEntry(repoRoot, source).flatMap(proseLines);
-}
-
-/** The markdown behind a catalog entry, which may name a file or a directory. */
-function textsForEntry(repoRoot: string, source: string): readonly string[] {
-  // Deliberately outside the catch below: an entry that climbs out of the
-  // repository is a mistake in the catalog, and silently fingerprinting nothing
-  // would leave the audit unable to recognise the very material it guards.
-  const path = pathInside(repoRoot, source);
-
-  if (isDirectory(path)) {
-    return markdownFilesUnder(repoRoot, source).map((file) =>
-      readSource(repoRoot, file)
-    );
-  }
-  // A named document that is not there yet is not an error: the audit simply
-  // has no body text to match it by, and still matches it by title.
-  try {
-    return [readSource(repoRoot, source)];
-  } catch {
-    return [];
-  }
-}
-
-function isDirectory(path: string): boolean {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return false;
   }
 }

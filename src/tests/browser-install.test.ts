@@ -59,7 +59,7 @@ test("a missing browser names the publisher's command, not Playwright's", async 
   // launch is the driver's first step after that refusal, and it fails there,
   // before any window or any Moodle page.
   const browsers = mkdtempSync(join(tmpdir(), "no-browsers-"));
-  const result = await workspace.publisher(["audit"], {
+  const result = await workspace.publisher(["publish"], {
     PUBLISHER_DRIVER: undefined,
     CI: undefined,
     PLAYWRIGHT_BROWSERS_PATH: browsers,

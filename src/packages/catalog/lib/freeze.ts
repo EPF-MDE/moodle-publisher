@@ -97,17 +97,8 @@ export function formatFreeze(freeze: Freeze): string {
   return `${formatInstant(freeze.instant)} (${freeze.written})`;
 }
 
-/**
- * One instant, named the way a Freeze is named.
- *
- * What the audit says a live Devoir's dates in. There is no string a human
- * wrote to quote for those: Moodle holds an instant and renders it in the
- * reader's own zone, so what a date in the course *is* can only be stated —
- * and it is stated in the same words, in the same zone, as the Freeze it is
- * about to be compared against. Two dates written two ways is how a reader
- * ends up comparing the spelling instead of the instant.
- */
-export function formatInstant(instant: Date): string {
+/** One instant, named the way a Freeze is named. */
+function formatInstant(instant: Date): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: ZONE,
     weekday: "long",

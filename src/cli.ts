@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-// The command line. Six commands:
+// The command line. Five commands:
 //
 //   install-browser     install the Chromium the browser driver launches, once per machine
 //   install-skills      link the publisher's agent skills into .claude/skills, once
 //   check               check the course repository without Moodle; writes nothing
 //   publish [--apply]   report the plan; apply only when explicitly asked
-//   audit               read the live course and check it, writing nothing
 //   wipe --course <id>  empty the course back to one section; --apply to do it
 //
 // This is the seam the tests drive: they run these commands against the fake
@@ -20,10 +19,9 @@ import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
 import { installSkills, SkillLinkRefused } from "./packages/skills/index.ts";
-import { devoirEntryFor, readManifest } from "./packages/manifest/index.ts";
+import { readManifest } from "./packages/manifest/index.ts";
 import { buildPlan, formatPlan } from "./packages/publishing/plan.ts";
 import { applyPlan } from "./packages/publishing/apply.ts";
-import { auditCourse, formatAudit } from "./packages/publishing/audit.ts";
 import {
   applyWipe,
   assertNoSubmissions,
@@ -37,9 +35,7 @@ import {
   repositoryRoot,
 } from "./config.ts";
 
-import type { CourseDriver, DevoirSettings } from "./packages/course/index.ts";
-import type { Deliverable } from "./packages/catalog/deliverables.ts";
-import type { Manifest } from "./packages/manifest/index.ts";
+import type { CourseDriver } from "./packages/course/index.ts";
 import type { Config } from "./config.ts";
 
 const USAGE = `Usage:
@@ -53,9 +49,6 @@ const USAGE = `Usage:
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
   publisher publish [--apply]              Report the plan for every document publisher.json names. Applies nothing unless --apply is given.
-  publisher audit                          Check the live course against this repository: everything published present,
-                                           every instructor page hidden, no instructor material where a student can reach it,
-                                           and every Devoir closing at the Freeze the front matter states. Writes nothing.
   publisher wipe --course <id> [--apply]   Empty the course back to its top section. Deletes nothing unless --apply is given.
 `;
 
@@ -185,76 +178,6 @@ async function publish(apply: boolean): Promise<number> {
     process.stdout.write(`\nManifest: ${config.manifestPath}\n`);
     return 0;
   });
-}
-
-async function audit(): Promise<number> {
-  const config = readConfig();
-  const catalog = loadCatalog(config.repoRoot);
-  // Read with the tables, as `publish` reads them, and for the same reason:
-  // every refusal they can raise is about the repository, and the audit is the
-  // command run in the hour before a Freeze — it should fail on a broken front
-  // matter before it opens a browser, not after.
-  const deliverables = loadDeliverables(
-    config.repoRoot,
-    catalog,
-    loadCompetencies(config.repoRoot, catalog)
-  );
-  const manifest = readManifest(config.manifestPath);
-
-  // One assertion's verdict depends on the date — whether the C3 brief is
-  // still meant to be hidden — so a run that was handed a date says so before
-  // it says anything else. A stale PUBLISHER_NOW in an .env would otherwise
-  // make "Audit passed" a statement about a day that is not today.
-  const now = config.now ?? new Date();
-  if (config.now !== undefined) {
-    process.stdout.write(
-      `PUBLISHER_NOW is set: auditing as of ${now.toISOString()}, not today.\n`
-    );
-  }
-
-  return withDriver(config, async (driver) => {
-    const snapshot = await driver.snapshot();
-    const report = auditCourse({
-      repoRoot: config.repoRoot,
-      catalog,
-      deliverables,
-      manifest,
-      snapshot,
-      devoirs: await readDevoirs(driver, deliverables, manifest),
-      now,
-    });
-    process.stdout.write(`${formatAudit(report)}\n`);
-    return report.passed ? 0 : 1;
-  });
-}
-
-/**
- * What each published Devoir is collecting, read back one activity at a time.
- *
- * Only the Devoirs the manifest records, and only for the Deliverables the
- * front matter still defines: a Deliverable nothing was published for has
- * nothing to open, and the audit says so from the manifest without a page
- * load. A Devoir the course has lost answers `undefined` and is simply left
- * out of the map — what happened to it is the audit's to say, not this
- * function's.
- *
- * Reading is all this does. It is what makes the audit safe to run before a
- * deadline, and the guarantee is the driver's: {@link CourseDriver.readDevoir}
- * opens a settings form and never submits one.
- */
-async function readDevoirs(
-  driver: CourseDriver,
-  deliverables: readonly Deliverable[],
-  manifest: Manifest
-): Promise<Map<string, DevoirSettings>> {
-  const live = new Map<string, DevoirSettings>();
-  for (const deliverable of deliverables) {
-    const entry = devoirEntryFor(manifest, deliverable.id);
-    if (entry === undefined) continue;
-    const settings = await driver.readDevoir(entry.moduleId);
-    if (settings !== undefined) live.set(entry.moduleId, settings);
-  }
-  return live;
 }
 
 /** The value of `--name value`, or undefined. */
@@ -415,8 +338,6 @@ async function main(argv: readonly string[]): Promise<number> {
         return 2;
       }
       return check();
-    case "audit":
-      return audit();
     case "wipe":
       return wipe(rest);
     default:

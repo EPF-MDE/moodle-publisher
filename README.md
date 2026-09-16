@@ -30,8 +30,7 @@ npx moodle-publisher check  # checks the course repository; no Moodle, no browse
 
 npm run plan            # reports what would happen; applies nothing
 npm run apply           # publishes; opens a visible browser
-npm run audit           # reads the course and checks it; writes nothing
-                        # all three open a visible browser and need a signed-in session
+                        # both open a visible browser and need a signed-in session
 
 npm run check:upload    # sends pictures into an activity form on the live course
                         # through the driver's own code, and abandons the form
@@ -103,12 +102,12 @@ EPF's Moodle authenticates exclusively through Office 365, and a web service tok
 
 - The browser is **visible**, always. It never runs headless and refuses to run when `CI` is set.
 - The instructor logs in to Microsoft **by hand, once**. This tool never reads, stores or transmits the EPF password; only Playwright's session state is persisted, to `~/.config/epf-moodle-publisher/session.json` by default — outside git, and revocable by logging out of Office 365. The run waits for `MOODLE_BASE_URL` itself and for a signed-in page, not merely for the browser to leave the Microsoft host: a real sign-in may hop through an intermediate identity host on its way back.
-- If a run is ever bounced to `login.microsoftonline.com` it **aborts immediately** rather than half-writing content. The check starts once the hand login is done, so the login you were asked to perform is not itself mistaken for a bounce; every page the driver opens after that is watched, including the per-activity pages the audit reads.
+- If a run is ever bounced to `login.microsoftonline.com` it **aborts immediately** rather than half-writing content. The check starts once the hand login is done, so the login you were asked to perform is not itself mistaken for a bounce; every page the driver opens after that is watched, including the per-activity pages a snapshot reads.
 - If the course in the browser is not `MOODLE_COURSE_ID`, it aborts. The course id is read from the page, not assumed from the URL requested.
-- HTML goes in through the editor's **source view**: the driver switches the instructor's editor preference to the plain text area, fills the field, and restores the previous preference when the run ends. A document that shows a picture is written through Atto's source view instead, because the file picker is the only way a file gets into this Moodle — see [Pictures](#pictures). Nothing is typed character by character. If the preference cannot be set the run aborts, because filling a rich editor's hidden textarea produces an activity whose body is quietly wrong. The switch happens only when a run is about to write something — an audit never touches the preference, and so can never abort on it. If the restore fails the run still finishes, with a warning naming the value to set back by hand.
+- HTML goes in through the editor's **source view**: the driver switches the instructor's editor preference to the plain text area, fills the field, and restores the previous preference when the run ends. A document that shows a picture is written through Atto's source view instead, because the file picker is the only way a file gets into this Moodle — see [Pictures](#pictures). Nothing is typed character by character. If the preference cannot be set the run aborts, because filling a rich editor's hidden textarea produces an activity whose body is quietly wrong. The switch happens only when a run is about to write something — a plan never touches the preference, and so can never abort on it. If the restore fails the run still finishes, with a warning naming the value to set back by hand.
 - An update opens **the same form on the existing activity** (`/course/modedit.php?update=<module id>`) and fills the name and the content and nothing else. Moodle keeps the module id, the section and the visibility, and the driver reads the course back afterwards: an update form a future Moodle stops honouring fails loudly instead of reporting a document republished while students carry on reading last week's version.
 - The activity form is submitted with **save and return to course**, so the run lands back on the course page and reads the new module id from the same page the course check runs against. It waits for the course URL specifically, not for a load to settle: settling can be satisfied by the form page being left, and reading the module id from there would fail a run whose activity had actually been created — the one case that writes the course without writing the manifest.
-- Every mutating action is captured **before and after** into a timestamped run directory under `runs/<timestamp>/`. The `after` capture is taken even when the action fails — that is the one worth looking at. An audit mutates nothing and so creates no run directory.
+- Every mutating action is captured **before and after** into a timestamped run directory under `runs/<timestamp>/`. The `after` capture is taken even when the action fails — that is the one worth looking at. A plan mutates nothing and so creates no run directory.
 - A capture is a screenshot, **the page's HTML, and the URL**, and `run.txt` names every action with the page it started and ended on and the message of any abort. A screenshot shows what a page looked like; it does not say which page it was, and it cannot be searched for the markup a selector missed. A failed run against the live course is diagnosed from what it left behind, long after the terminal that printed the error has gone.
 
 ### The browser
@@ -156,7 +155,7 @@ The driver keeps its own guard for the same page, because an activity can be del
 
 Visibility is set **only on create**, for everything students see. Revealing a document is a human decision, and a publisher that reasserted visibility every run would quietly undo it the next time a typo was fixed. The update path has no way to express visibility at all.
 
-Created visible is the default, not the rule. An entry may carry a **`revealedOn` date**, and the presence of that date is what makes the document ship **hidden**: it goes to Moodle with everything else and the instructor opens it by hand on the day — see [A document with a reveal date](#a-document-with-a-reveal-date). Nothing in this program reveals it on that date or any other. The date exists for the audit, which measures the course against it; no code path that writes to the course reads it, and there is **no command-line flag anywhere that changes visibility**.
+Created visible is the default, not the rule. An entry may carry a **`revealedOn` date**, and the presence of that date is what makes the document ship **hidden**: it goes to Moodle with everything else and the instructor opens it by hand on the day — see [A document with a reveal date](#a-document-with-a-reveal-date). Nothing in this program reveals it on that date or any other. The date is what a [review of the course](#reviewing-the-course) measures it against; no code path that writes to the course reads it, and there is **no command-line flag anywhere that changes visibility**.
 
 The one exception is instructor material, which is created hidden and **re-hidden** by any later run that finds it showing — see [Instructor material](#instructor-material). The publisher only ever moves that material towards hidden: the driver call it uses to do so takes no argument and can only conceal, so there is no run, and no later edit above it, that reveals anything.
 
@@ -342,13 +341,13 @@ There is deliberately **no guard against listing an instructor document without 
 Four things make the per-page lock enforceable rather than merely intended:
 
 1. **Created hidden, in one submission.** There is no moment between an instructor page being created and being hidden: the activity form carries the visibility, so the page is never on the course page showing.
-2. **Hidden, never stealthed.** "Available but not shown on the course page" leaves a URL that still works for anyone who has one. The publisher never sets stealth mode, and the audit **fails** if it finds instructor material stealthed.
+2. **Hidden, never stealthed.** "Available but not shown on the course page" leaves a URL that still works for anyone who has one. The publisher never sets stealth mode, and a driver that finds a page it just created stealthed **aborts**.
 3. **Self-healing, one way only.** A run that finds an instructor page visible **re-hides it and says so** in the output, so an accidental reveal is corrected at the next publish rather than persisting until a student finds it. The plan reports the `hide` before anything is applied, and a dry run performs none of it. The driver call it uses takes **no boolean**, so the publisher has no operation that reveals.
 4. **Every visibility write is read back.** Creating an activity hidden and re-hiding one are each confirmed against the course page afterwards, and a write that quietly did nothing **aborts** with an instruction to hide it by hand. So does a write whose result cannot be read back at all: an activity the course page no longer lists is a question the run could not get an answer to, and "I cannot find the answer key" is not reported as "the answer key is hidden".
 
 Instructor material is published from the first run, wherever it sits — including, in the 2026 course, the oral protocol, beside the student-facing brief it is the examiner's half of. What keeps it from students is the hiding and the re-hiding, and nothing about _when_ a document is published has any say over it.
 
-**Titles carry the prefix, derived rather than typed.** In the 2026 course an examiner reads `Instructor — C3 worked solution`; the table entry says `C3 worked solution`. The prefix is what a section name used to say and nothing else now does, so it is derived from the suffix at publish time — there is no entry that can carry the prefix without the hiding, or the hiding without the prefix. Nothing in the publisher _recognises_ instructor material by its title: the audit finds these documents by module id, which is the only thing that still identifies an activity somebody has retitled by hand.
+**Titles carry the prefix, derived rather than typed.** In the 2026 course an examiner reads `Instructor — C3 worked solution`; the table entry says `C3 worked solution`. The prefix is what a section name used to say and nothing else now does, so it is derived from the suffix at publish time — there is no entry that can carry the prefix without the hiding, or the hiding without the prefix. Nothing in the publisher _recognises_ instructor material by its title: a run finds these documents by module id, which is the only thing that still identifies an activity somebody has retitled by hand.
 
 **Seeing it hold.** The test suite proves the mechanism; the guarantee is confirmed by hand, once, on each real course: publish, then use Moodle's **Switch role to… Student** and check that no instructor page, and no direct URL to one, is reachable. A guard never seen to fire is not a guard, and this is the guard that matters most.
 
@@ -394,7 +393,7 @@ What a `revealedOn` date is for. A document that carries one is published with e
 
 _In the 2026 course: `autonomy/autonomy-2-c3-exercise-brief.md` carries `revealedOn: 2026-09-08`, is published into **Autonomy**, and is revealed at the start of the autonomy slot on 8 September, because the exercise depends on students meeting the seeded bug for the first time in that slot._
 
-**Hidden means Moodle's hidden state**, never "available but not shown on the course page". A stealthed activity is missing from the page and its URL still works for whoever has one, so a student who guesses it is in; the audit fails on stealth as it does on visible.
+**Hidden means Moodle's hidden state**, never "available but not shown on the course page". A stealthed activity is missing from the page and its URL still works for whoever has one, so a student who guesses it is in; a [review of the course](#reviewing-the-course) treats stealth before the reveal date as a leak, as it does visible.
 
 **The tool cannot take the reveal back.** Such a document's policy is `manual`, the same policy as every other student-facing document: visibility is chosen on create and never written again. The interface is what enforces it rather than discipline —
 
@@ -406,34 +405,17 @@ So no run reveals such a document, and no run re-hides it once a human has revea
 
 **And no flag.** There is no `--reveal`, no `--visible` and no environment variable that changes visibility — `publish` takes `--apply` and nothing else, and anything further is refused by name — so there is nothing to fire by accident under time pressure.
 
-**The audit's date gate.** Before a document's `revealedOn` date, finding it visible or stealthed **fails** the audit. On and after, the audit **reports what it saw and passes** — the reveal was always going to happen and the tool has no business fighting the instructor over it. It still says something either way: that the document is now visible, as intended, or that it is still hidden and nothing but a human will open it. `PUBLISHER_NOW` moves the reference date.
+## Reviewing the course
 
-## The audit
+Nothing in the publisher checks the course after a run. What a human did by hand in Moodle — a revealed page of Instructor Material, a Freeze moved, file upload switched back on, a Devoir deleted — is found by reviewing the course by eye, against [docs/human-review-checklist.md](./docs/human-review-checklist.md). The `audit` command that used to read the course for this is retired.
 
-`npm run audit` runs standalone, reads the course and writes nothing — not to the course, and not to the instructor's account either. It asserts:
-
-1. Everything the manifest claims is published is actually present in the course, in the section the manifest records. The section the audit compares is whatever the course calls it, including a name the publisher has never heard of: an activity dragged elsewhere is reported, not assumed to be where it was put.
-2. Every instructor document is present, hidden and not stealthed — read back **by module id**, which is what survives the activity being renamed or dragged. Where it sits is named in the message and is not a failure: the section is not what keeps students out of it.
-3. No instructor material is anywhere a student can reach — matched on activity **title** and on **body content**, so a hand-made copy survives being renamed, against every activity but the instructor pages themselves.
-4. Every document with a `revealedOn` date is present, hidden and not stealthed — **until that date**. On and after it, the same reading is **reported and not a finding**: see [A document with a reveal date](#a-document-with-a-reveal-date).
-5. Every Deliverable the front matter defines has a Devoir in the course, and that Devoir's **due date and cut-off date are the Freeze**, to the instant, and it collects **online text with file upload off**. A Devoir that is gone, a date somebody moved in Moodle, a cut-off switched off, a file upload switched back on — none of them shows on the course page, and all of them are otherwise found out by a student at the Freeze. Both instants are named in the message, so the fix — republish, or correct the front matter — is a decision the report is enough to make. The manifest is then read the other way round: a Devoir published for a Deliverable the front matter has since dropped is still on the course page collecting Submissions nothing grades, and no run of publish removes it, so the message sends you to Moodle rather than to `publish --apply`.
-6. Each Devoir's **visibility is stated, never judged**: a Devoir whose Deliverable is `visible: false` is created hidden and revealed by hand, exactly like a document with a reveal date, so the audit ends its checklist by saying what is open and what is not. A Devoir taken off the page that was published visible is said too, because nobody can hand in while it is off, and a **stealthed** Devoir is said as neither — it claims to be visible and is not on the page, which is the one state a reading of `visible` alone would report as revealed.
-
-The dates are read by opening each published Devoir's own settings form, one page load per Devoir, and never submitting it. That is the only place they exist: the course page says what an activity is called and who can see it, and nothing about what it collects.
-
-Every finding names the activity, its module id and the section it is in, so a finding can be fixed without hunting for it.
-
-`PUBLISHER_NOW` overrides the date the fourth assertion is measured against, so both sides of the gate can be tested on any day. It is honoured **only when `PUBLISHER_DRIVER=fake`**: it writes nothing, but a stale value in an `.env` would turn a brief opened a week early into "Audit passed", and the guard that matters most is not where to accept that. A fake-driver run that uses it says so above its verdict, and a value that is not a date **aborts** rather than falling back to the clock.
-
-### Seeing the guards fire
+## Seeing the guards fire
 
 A guard never seen to fire is not a guard, so each is exercised:
 
-- A student-facing document linking to instructor material makes the **publisher refuse to start**, naming both ends (`src/tests/cross-references.test.ts`), in markdown and in raw HTML, in either quote style. The startup guard is deliberately in front of everything else, so the signpost never reaches the course for the audit to find.
+- A student-facing document linking to instructor material makes the **publisher refuse to start**, naming both ends (`src/tests/cross-references.test.ts`), in markdown and in raw HTML, in either quote style. The startup guard is deliberately in front of everything else, so the signpost never reaches the course.
 - Revealing an instructor activity in the fake course makes the next run **re-hide it and report it**, and only it (`src/tests/instructors.test.ts`); revealing a student-facing document proves the opposite rule still holds, and it stays revealed.
-- Stealthing an instructor activity, or pasting its text into a lecture under an innocuous title, each make the **audit fail** (`src/tests/audit.test.ts`). That second one is the leak the audit exists to catch: a copy from an earlier manual upload, which no startup check can see.
 - Renaming a document to add or drop the `--instructor` suffix, with no other edit, changes whether it publishes hidden and under the prefix (`src/tests/catalog.test.ts`).
-- Moving a Devoir's cut-off, switching its cut-off off, switching file upload back on and deleting the activity outright each make the **audit fail** over a fake course that was published correctly and then edited by hand (`src/tests/devoir-audit.test.ts`). The same file asserts that a failing audit still leaves the course file and the manifest byte-for-byte as it found them — the property that makes it safe to run in the hour before a Freeze, which is the hour it exists for. Dropping a Deliverable from the front matter while its Devoir stays in the course fails it too, and stealthing a hidden Devoir is reported as off the page rather than as revealed.
 
 ## Development
 

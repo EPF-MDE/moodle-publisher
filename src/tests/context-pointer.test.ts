@@ -30,7 +30,6 @@ const TERMS = [
   "Instructor Material",
   "Manifest",
   "Section",
-  "Audit",
   "Wipe",
   "Deliverable",
   "Devoir",

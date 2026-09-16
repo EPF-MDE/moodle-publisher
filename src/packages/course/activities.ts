@@ -24,7 +24,7 @@ export interface ActivityVisibility {
   readonly visible: boolean;
   /**
    * "Available but not shown on the course page": off the page with a URL that
-   * still works. The audit refuses it on instructor material.
+   * still works. The publisher never creates an activity in this state.
    */
   readonly stealth: boolean;
 }

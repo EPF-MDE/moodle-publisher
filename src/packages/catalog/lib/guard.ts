@@ -1,6 +1,6 @@
 // The startup guard: every published document goes to a section the course
-// page has and is allowed to name, any reveal date it carries is one the audit
-// can read, and no two of them are published under one title.
+// page has and is allowed to name, any reveal date it carries is a real date,
+// and no two of them are published under one title.
 //
 // It guards every run. What a course publishes is read from its repository's
 // `publisher.json`, untyped by the time it gets here, so nothing a compiler
@@ -48,11 +48,12 @@ export class ReservedSection extends Error {
 }
 
 /**
- * A reveal date the audit cannot read.
+ * A reveal date that is not a date.
  *
- * There is no safe reading: a date this program cannot compare against
- * would leave the gate permanently open or permanently shut, and either one is
- * a silent answer to the question the entry was added to ask.
+ * There is no safe reading: a reviewer checking the course against a date
+ * nobody can read has no way to say whether the document should still be
+ * hidden, and a silent guess is an answer to the question the entry was added
+ * to ask.
  */
 export class InvalidRevealDate extends Error {
   constructor(source: string, revealedOn: string) {

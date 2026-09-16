@@ -14,7 +14,6 @@ import type {
   CourseDriver,
   CreatedDevoir,
   CreatedPage,
-  DevoirSettings,
   DevoirUpdate,
   NewDevoir,
   PageImage,
@@ -51,7 +50,7 @@ interface StoredCourse {
    *
    * Beside `items` rather than inside them, because a Devoir is two things at
    * once: an activity on the course page like any other — which is what `wipe`
-   * deletes and the audit reads — and a set of collection settings that only a
+   * deletes — and a set of collection settings that only a
    * Devoir has. Keeping the settings here means every test and every command
    * that treats a Devoir as an activity goes on working unchanged, and the one
    * test that asks whether file upload is off has somewhere to look.
@@ -123,7 +122,7 @@ interface StoredDevoir {
    *
    * Optional only for reading: every write here puts one in. A fixture leaves
    * it out to be the Devoir whose cut-off somebody switched off in Moodle,
-   * which accepts work for ever and is exactly the drift the audit is for.
+   * which accepts work for ever.
    */
   readonly due?: string;
   /** The same instant. There is no grace window. */
@@ -148,7 +147,7 @@ interface StoredSubmission {
  * The sections of a fixture written before sections were modelled: whatever
  * its items say they are in, in the order they first appear, under the top
  * section. Without this a fixture course would read as having no sections at
- * all, and an audit would report every activity as misplaced.
+ * all, and every activity in it would read as misplaced.
  */
 function inferSections(items: readonly StoredItem[]): StoredSection[] {
   const names = ["General"];
@@ -200,7 +199,7 @@ function read(path: string, courseId: string): StoredCourse {
   // without. Spreading first is what keeps every other field — the Devoirs,
   // the ids, the test knobs — exactly as the fixture wrote it, including the
   // ones it left out: reading a course must not change the file that holds it,
-  // which is what the audit's "writes nothing" test checks. Listing them
+  // which is what a plan's "writes nothing" relies on. Listing them
   // instead would be a line to remember per field, and the field somebody
   // forgot is one this fake would silently drop.
   return {
@@ -222,31 +221,6 @@ function read(path: string, courseId: string): StoredCourse {
  */
 function servedAt(moduleId: string, image: PageImage): string {
   return `/pluginfile.php/${moduleId}/mod_page/content/1/${encodeURIComponent(image.name)}`;
-}
-
-/**
- * One of a Devoir's stored dates as the instant it stands for.
- *
- * The file keeps the Freeze as the front matter wrote it, so this is where the
- * string becomes the instant a driver reports — the same reading the browser
- * driver does off five selects. A string that is not an instant is a fixture
- * mistake and says so: a fake that quietly reported no date would make a test
- * about a Devoir with no cut-off pass over a typo.
- */
-function instantOf(
-  moduleId: string,
-  what: string,
-  written: string | undefined
-): Date | undefined {
-  if (written === undefined) return undefined;
-  const instant = new Date(written);
-  if (Number.isNaN(instant.getTime())) {
-    throw new Error(
-      `Fake driver: the ${what} date of Devoir ${moduleId} is "${written}", which is not ` +
-        `an instant. A course cannot hold a date nobody could have typed.`
-    );
-  }
-  return instant;
 }
 
 /** What a file in the fake course's file area hashes to. */
@@ -498,8 +472,8 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
         section: nameOf(section),
         visible: devoir.visible,
         // The description a student reads on the activity, held where a page's
-        // body is held: what the audit reads is "the text of this activity",
-        // and a Devoir whose stub sat somewhere else would be invisible to it.
+        // body is held, so that "the text of this activity" means one thing
+        // whichever kind of activity it is.
         body: devoir.html,
       });
       course.devoirs = {
@@ -547,17 +521,6 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
         },
       };
       write(path, course);
-    },
-
-    async readDevoir(moduleId: string): Promise<DevoirSettings | undefined> {
-      const settings = course.devoirs?.[moduleId];
-      if (settings === undefined) return undefined;
-      return {
-        onlineText: settings.onlineText,
-        fileUpload: settings.fileUpload,
-        due: instantOf(moduleId, "due", settings.due),
-        cutOff: instantOf(moduleId, "cut-off", settings.cutOff),
-      };
     },
 
     async countSubmissions(moduleId: string): Promise<number> {

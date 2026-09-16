@@ -34,17 +34,13 @@ import {
   readsAsHoldingSubmissions,
 } from "../activities.ts";
 import {
-  DEVOIR_DATE_CONTROLS,
   DEVOIR_SUBMISSION_FIELDS,
   FREEZE_ZONE,
   devoirDateFields,
-  instantFromMoodleDateFields,
 } from "../devoir-form.ts";
 import type {
-  DevoirDateControls,
   DevoirDateField,
   DevoirSubmissionField,
-  MoodleDateFields,
 } from "../devoir-form.ts";
 import type {
   CourseDriver,
@@ -52,7 +48,6 @@ import type {
   CourseSnapshot,
   CreatedDevoir,
   CreatedPage,
-  DevoirSettings,
   DevoirUpdate,
   NewDevoir,
   NewPage,
@@ -158,7 +153,7 @@ export class MoodleErrorPage extends Error {
       `Aborting: ${what} — ${url} is Moodle's error page, not the form. ` +
         `Moodle says${code === undefined ? "" : ` (${code})`}: "${said}". ` +
         `An activity that is no longer in the course is the usual cause; ` +
-        `run \`npm run audit\` to see what the course actually holds.`
+        `open the course in Moodle to see what it actually holds.`
     );
     this.name = "MoodleErrorPage";
   }
@@ -620,8 +615,7 @@ async function readItems(
             "",
           url: link?.getAttribute("href") ?? "",
           // A label has no page of its own: its content is on the course page.
-          // Without this it would read as an activity with an empty body, and
-          // the audit matches instructor material on body text.
+          // Without this it would read as an activity with an empty body.
           inlineBody: (activity.textContent ?? "").replace(/\s+/g, " ").trim(),
         };
       })
@@ -652,11 +646,11 @@ async function readItems(
       continue;
     }
 
-    // The audit matches on body content as well as title, so each activity's
-    // rendered page is read rather than inferred from the course page. These
-    // pages are watched and checked like any other: a session that expires
-    // mid-snapshot would otherwise have the login page's text read as an
-    // activity body, and the audit would report on that as course content.
+    // Each activity's rendered page is read rather than inferred from the
+    // course page. The retired Audit was what matched on it, and no command
+    // reads the body now. These pages are watched and checked like any other:
+    // a session that expires mid-snapshot would otherwise have the login page's
+    // text read as an activity body.
     const view = await page.context().newPage();
     watch.watch(view);
     let body: string;
@@ -679,7 +673,7 @@ async function readItems(
       name: item.name,
       // Whatever the course calls this section, including a name the publisher
       // has never heard of. Inventing one here would make a misplaced activity
-      // look correctly placed to the audit.
+      // look correctly placed.
       section: sections[item.sectionIndex]?.name ?? "",
       visible,
       stealth,
@@ -740,9 +734,9 @@ export async function openBrowserCourse(
   await gotoCourse(page, options, watch);
 
   // The run directory and the editor preference both belong to mutating runs.
-  // An audit reads the course and writes nothing — not to the course, and not
+  // A plan reads the course and writes nothing — not to the course, and not
   // to the instructor's own account — so neither is touched until a mutation is
-  // actually about to happen. That also keeps an audit from aborting on an
+  // actually about to happen. That also keeps a plan from aborting on an
   // editor control it never needs.
   let recorder: RunRecorder | undefined;
   let previousEditor: string | undefined;
@@ -1229,27 +1223,6 @@ export async function openBrowserCourse(
   }
 
   /**
-   * The five numbers currently chosen in one of Moodle's date selectors.
-   *
-   * Read as the values the selects hold, not as the labels they show: the
-   * labels are in whatever language this Moodle is set to, and the values are
-   * the plain numbers {@link moodleDateFields} writes.
-   */
-  async function readDateParts(
-    selectors: MoodleDateFields
-  ): Promise<MoodleDateFields> {
-    const value = async (selector: string): Promise<string> =>
-      page.locator(selector).first().inputValue();
-    return {
-      day: await value(selectors.day),
-      month: await value(selectors.month),
-      year: await value(selectors.year),
-      hour: await value(selectors.hour),
-      minute: await value(selectors.minute),
-    };
-  }
-
-  /**
    * Ticks or unticks one of the submission plugins.
    *
    * Which ones there are, and what each is set to, is
@@ -1347,7 +1320,7 @@ export async function openBrowserCourse(
    * report a document republished — or a Devoir's Freeze moved — while
    * students carried on meeting last week's version. The two things the course
    * page can settle are that the activity is still there and that it is called
-   * what this run renamed it to; the rest is what the audit is for.
+   * what this run renamed it to; the rest is for a human review to check.
    */
   function updatedActivity(
     items: readonly CourseItem[],
@@ -1714,8 +1687,7 @@ export async function openBrowserCourse(
 
         // Read the course back, exactly as an update to a page does. What the
         // course page cannot say is what the two dates were saved as — that is
-        // the audit's job, and it is why the audit compares the live Devoir's
-        // dates against the front matter rather than trusting this.
+        // for a human review to check against the front matter.
         updatedActivity(await readItems(page, watch), devoir, "the Devoir");
       } catch (error) {
         noteAbort(mutation, error);
@@ -1723,76 +1695,6 @@ export async function openBrowserCourse(
       } finally {
         await after();
       }
-    },
-
-    async readDevoir(moduleId: string): Promise<DevoirSettings | undefined> {
-      // The same form an update is typed into, opened and never submitted.
-      // There is nowhere else to read this from: the course page says what an
-      // activity is called and who can see it, and what it collects and until
-      // when is only on its own settings.
-      const form = new URL(
-        `/course/modedit.php?update=${moduleId}`,
-        options.baseUrl
-      ).toString();
-      await page.goto(form, { waitUntil: "domcontentloaded" });
-      assertNotOnLoginHost(page, watch);
-      // An activity that is gone answers with Moodle's error page, and that is
-      // an answer rather than a failure: the audit is asking whether the
-      // Devoir is still there, and "it is not" is what it does with it. Every
-      // other way this page can fail — a session that wandered, a form this
-      // Moodle renders differently — is still a failure below.
-      if ((await page.locator(SELECTORS.moodleErrorPage).count()) > 0) {
-        return undefined;
-      }
-      await assertInConfiguredCourse(page, options);
-
-      const checked = async (selector: string): Promise<boolean> => {
-        const box = page.locator(selector).first();
-        if ((await box.count()) === 0) {
-          throw new Error(
-            `Aborting: reading the Devoir ${moduleId} — this form has no "${selector}" ` +
-              `field, so what it collects cannot be read. The audit reports nothing rather ` +
-              `than reporting a Devoir it could not see. Check the selectors against this ` +
-              `Moodle.`
-          );
-        }
-        return box.isChecked();
-      };
-
-      // Keyed by what each control is rather than by string, so that reading
-      // one back under a name no field writes is a compile error. It would
-      // otherwise be a `false` and an `undefined`, which are both settings a
-      // course really can have: the audit would report a Devoir collecting no
-      // online text and holding no cut-off, over a typo.
-      const submission: Partial<
-        Record<DevoirSubmissionField["what"], boolean>
-      > = {};
-      for (const field of DEVOIR_SUBMISSION_FIELDS) {
-        submission[field.what] = await checked(field.selector);
-      }
-
-      const dates: Partial<
-        Record<DevoirDateControls["what"], Date | undefined>
-      > = {};
-      for (const date of DEVOIR_DATE_CONTROLS) {
-        // A date Moodle has switched off is a date with no instant behind it,
-        // whatever the five selects happen to still be showing: the numbers
-        // are left at whatever was last chosen, and reading them would report
-        // a cut-off nobody is held to.
-        if (!(await checked(date.enabledSelector))) {
-          dates[date.what] = undefined;
-          continue;
-        }
-        const parts = await readDateParts(date.parts);
-        dates[date.what] = instantFromMoodleDateFields(parts);
-      }
-
-      return {
-        onlineText: submission.onlineText ?? false,
-        fileUpload: submission.fileUpload ?? false,
-        due: dates.due,
-        cutOff: dates.cutOff,
-      };
     },
 
     async countSubmissions(moduleId: string): Promise<number> {

@@ -28,27 +28,6 @@ export class UnreadableEnvFile extends Error {
   }
 }
 
-/**
- * `PUBLISHER_NOW` is set to something that is not a date.
- *
- * Falling back to the clock would be worse than stopping: whoever set it did
- * so to ask what the audit says on a particular day, and answering about today
- * instead would look exactly like an answer about that day.
- *
- * Only a fake-driver run can reach this. A real course ignores the variable
- * entirely, so a typo in it can never abort a publish.
- */
-export class UnreadableDate extends Error {
-  constructor(value: string) {
-    super(
-      `Aborting: PUBLISHER_NOW is set to "${value}", which is not a date. ` +
-        `Set it to an ISO date or timestamp, e.g. 2026-09-11 or 2026-09-11T14:00:00Z, ` +
-        `or unset it to use today's date.`
-    );
-    this.name = "UnreadableDate";
-  }
-}
-
 export class MissingConfiguration extends Error {
   readonly variable: string;
 
@@ -70,18 +49,6 @@ export interface Config {
   readonly runsRoot: string;
   readonly driver: DriverName;
   readonly fakeCoursePath: string | undefined;
-  /**
-   * The date the audit's reveal gate is measured against, when the environment
-   * names one; `undefined` means the clock.
-   *
-   * Honoured only for the fake driver: it is a test seam and must not be able
-   * to reach a live course however the environment is set. It writes nothing,
-   * but a stale value left in an `.env` would turn a real leak — the brief open
-   * a week early — into "Audit passed", and the one guard that matters most is
-   * not the place to accept that trade for the convenience of asking about a
-   * future date.
-   */
-  readonly now: Date | undefined;
 }
 
 /**
@@ -227,14 +194,5 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     ),
     runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,
-    now: driver === "fake" ? readNow(env["PUBLISHER_NOW"]) : undefined,
   };
-}
-
-/** The overriding date, or undefined for the clock. Never a fallback. */
-function readNow(raw: string | undefined): Date | undefined {
-  if (raw === undefined || raw.trim() === "") return undefined;
-  const parsed = new Date(raw.trim());
-  if (Number.isNaN(parsed.getTime())) throw new UnreadableDate(raw.trim());
-  return parsed;
 }

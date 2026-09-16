@@ -16,8 +16,6 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 **Section**: A named part of the Moodle course page — `Assessment`, `Deliverables`, `Lectures`, `Labs`, `Autonomy`, `Resources` — the same six in every EPF course, in that order, and not configurable. Most are named by the document that lands in them. One is not: `Deliverables` is filled from the grid's Deliverables, and a document naming it aborts the run (ADR-0005). Publishing adds Sections, all of them visible; it never reshuffles them.
 
-**Audit**: A read-only comparison of the live Course against the course repository. It writes nothing and exists to catch what a human did by hand — a revealed page of Instructor Material, a hand-edited Freeze.
-
 **Wipe**: Emptying the Course so it can be built again. The only destructive operation here, and it refuses outright to delete a Devoir that holds Submissions.
 
 ### Handing in
@@ -51,4 +49,5 @@ Do not reintroduce these.
 - **Publishable Document**, **Never-Publish** and **membership class** — there is one table of Published Documents, and the `--instructor` suffix says who each is for. A document nobody listed is simply not published.
 - **The `Instructors` Section** — Instructor Material is hidden per page and sits in the Section its Student counterpart is in (ADR-0004).
 - **Phase** — a batch of material a run published up to. Every Published Document publishes on every run; a document that must not appear yet carries a reveal date and ships hidden (ADR-0007).
+- **Audit** — the command that read the live Course and compared it against the course repository. A human now reviews the Course by eye instead, against the checklist in [docs/human-review-checklist.md](./docs/human-review-checklist.md), which covers what a human did by hand in Moodle: a revealed page of Instructor Material, a hand-edited Freeze.
 - **Probe Sheet**, **Probes**, **Grade Item** and **Enrolment** — the Oral's prefilled sheet, its yes/no questions, the hidden gradebook column it was imported into, and the enrolled Student it was prepared for. The Feedback Letter replaced all four. No tool writes a Band into Moodle, and the grid's Solid column is what a Student's work is read against (ADR-0011).
