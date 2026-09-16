@@ -69,13 +69,35 @@ export const CONTEXT_MAP_MARKDOWN = `# Context map
   [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/): publishing and grading.
 `;
 
+/** The skills the publisher ships, each linked into `.claude/skills/<name>`. */
+export const SKILLS = ["feedback-letter", "banding-anchors"] as const;
+
+/** Where a course repository links one of the publisher's skills. */
+export function skillLink(name: string): string {
+  return `.claude/skills/${name}`;
+}
+
 /**
- * The publisher installed, and the course repository's context pointer into
- * it: what `check` requires of every course repository before it passes.
+ * The publisher's skills linked into the course repository as `install-skills`
+ * links them: a relative symlink into the installed publisher.
+ */
+export function linkSkills(workspace: Workspace): void {
+  for (const name of SKILLS) {
+    const link = join(workspace.root, skillLink(name));
+    mkdirSync(dirname(link), { recursive: true });
+    symlinkSync(`../../${INSTALLED_PUBLISHER}/skills/${name}`, link, "dir");
+  }
+}
+
+/**
+ * The publisher installed, the course repository's context pointer into it and
+ * its skills linked: what `check` requires of every course repository before it
+ * passes.
  */
 export function pointContextAtPublisher(workspace: Workspace): void {
   installPublisher(workspace);
   workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  linkSkills(workspace);
 }
 
 /** The course every run in this suite is pointed at. */
