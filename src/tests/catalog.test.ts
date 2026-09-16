@@ -100,8 +100,8 @@ for (const [driver, run] of [
 /**
  * A `publisher.json` somebody got wrong, and what the refusal must name. Each
  * spoils a course that has already been published once, so that "nothing is
- * written" is checked against a course, a Manifest and a Probe Sheets file that
- * exist rather than against their absence.
+ * written" is checked against a course and a Manifest that exist rather than
+ * against their absence.
  */
 const MALFORMED: readonly (readonly [
   what: string,
@@ -126,7 +126,7 @@ const MALFORMED: readonly (readonly [
     /not a JSON object/,
   ],
   [
-    // No default: the Deliverables and the probes are read from the grid, and
+    // No default: the Competencies and the Deliverables are read from the grid, and
     // a catalog that forgot to name it must not have one guessed for it.
     "no grid",
     (workspace) => workspace.writeCatalog({ grid: undefined, published: [] }),
@@ -182,19 +182,18 @@ const MALFORMED: readonly (readonly [
 ];
 
 for (const [what, spoil, named] of MALFORMED) {
-  test(`${what} stops publish, probes and audit, naming the file and what is wrong, writing nothing`, async () => {
+  test(`${what} stops publish and audit, naming the file and what is wrong, writing nothing`, async () => {
     // Every command that reads the catalog reads it before anything opens, so
     // each refuses with the same message and leaves everything as it was.
     const workspace = makeWorkspace();
     writeDayOneSet(workspace);
     const published = await workspace.publisher(["publish", "--apply"]);
     assert.equal(published.code, 0, published.stderr);
-    workspace.write("probe-sheets.csv", "email,name\namina@epf.fr,Amina Diallo\n");
     const before = writtenState(workspace);
 
     spoil(workspace);
 
-    for (const args of [["publish", "--apply"], ["probes"], ["audit"]]) {
+    for (const args of [["publish", "--apply"], ["audit"]]) {
       const result = await workspace.publisher(args);
 
       assert.equal(result.code, 1, `${args.join(" ")}: ${result.stdout}`);
@@ -211,13 +210,9 @@ for (const [what, spoil, named] of MALFORMED) {
   });
 }
 
-/** What a refused run must leave byte for byte: the course, the Manifest, the Probe Sheets. */
+/** What a refused run must leave byte for byte: the course and the Manifest. */
 function writtenState(workspace: Workspace): readonly (string | undefined)[] {
-  return [
-    workspace.coursePath,
-    workspace.manifestPath,
-    workspace.probeSheetsPath,
-  ].map((path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined));
+  return [workspace.coursePath, workspace.manifestPath].map((path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined));
 }
 
 test("two documents sharing a title, once the prefix is derived, stop the run", async () => {

@@ -119,9 +119,8 @@ function missingDocuments(
   const byModuleId = new Map(
     snapshot.items.map((item) => [item.moduleId, item])
   );
-  // The pages, and not the whole record: a Grade Item is in the gradebook and
-  // not on the course page, so looking for one among the activities would
-  // report every Grade Item the Oral needs as missing from the course.
+  // The pages, and not the whole record: a Devoir is audited on its own, against
+  // the Freeze its Deliverable states.
   return pages(manifest).flatMap(([source, entry]): AuditFinding[] => {
     const item = byModuleId.get(entry.moduleId);
     const title = titleFor(catalog, source);

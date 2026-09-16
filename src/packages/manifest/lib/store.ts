@@ -20,7 +20,30 @@ export type Entries = Record<string, ManifestEntry>;
  * {@link load} holding an entry it had no honest way to read.
  */
 type StoredEntry =
-  ManifestEntry | (Omit<PageEntry, "kind"> & { readonly kind?: undefined });
+  | ManifestEntry
+  | (Omit<PageEntry, "kind"> & { readonly kind?: undefined })
+  | RetiredEntry;
+
+/**
+ * An entry of a kind this program no longer writes.
+ *
+ * Grade Items were recorded here while the publisher prepared the Oral in
+ * Moodle's gradebook (ADR-0002, superseded by ADR-0011). A manifest committed
+ * then still holds them, and it is read all the same: each is dropped as it is
+ * loaded, so the next write leaves it out. What it recorded stays in the
+ * course, where deleting it is the Instructor's decision.
+ */
+interface RetiredEntry {
+  readonly kind: (typeof RETIRED_KINDS)[number];
+}
+
+const RETIRED_KINDS = ["grade-item"] as const;
+
+function isRetired(entry: StoredEntry): entry is RetiredEntry {
+  return (RETIRED_KINDS as readonly (string | undefined)[]).includes(
+    entry.kind
+  );
+}
 
 interface ManifestFile {
   readonly version: 1;
@@ -34,6 +57,7 @@ export function load(path: string): Entries {
   ) as Partial<ManifestFile>;
   const entries: Entries = {};
   for (const [source, entry] of Object.entries(parsed.documents ?? {})) {
+    if (isRetired(entry)) continue;
     entries[source] = withKind(source, entry);
   }
   return entries;
@@ -46,8 +70,8 @@ export function load(path: string): Entries {
  * The default is what keeps a manifest committed before this program knew
  * about kinds working untouched: it is read as the pages it records, and says
  * so in the file the first time a run rewrites the entry. Only a kind the file
- * states can be anything else — there were no Grade Items and no Devoirs in a
- * manifest written before there were kinds, so an entry that names its kind is
+ * states can be anything else — there were no Devoirs in a manifest written
+ * before there were kinds, so an entry that names its kind is
  * taken at its word and nothing else is inferred about it.
  *
  * An entry that says neither what it is nor which activity it records is not
@@ -55,7 +79,10 @@ export function load(path: string): Entries {
  * an entry read as a page the course cannot be asked about is a document that
  * would be silently published a second time.
  */
-function withKind(source: string, stored: StoredEntry): ManifestEntry {
+function withKind(
+  source: string,
+  stored: Exclude<StoredEntry, RetiredEntry>
+): ManifestEntry {
   if (stored.kind !== undefined) return stored;
   if ("moduleId" in stored) return { ...stored, kind: "page" };
   throw new Error(

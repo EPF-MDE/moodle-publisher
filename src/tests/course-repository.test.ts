@@ -11,14 +11,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  BOTH_DELIVERABLES,
-  GRID_TITLE,
-  enrol,
-  gridDefining,
-  makeWorkspace,
-  probeSheetsText,
-} from "./harness.ts";
+import { makeWorkspace } from "./harness.ts";
 
 test("publishing reads documents from, and records the manifest in, the directory it is started in", async () => {
   const workspace = makeWorkspace();
@@ -33,25 +26,6 @@ test("publishing reads documents from, and records the manifest in, the director
     workspace.readManifest().documents["assessment-grid.md"],
     "the manifest is written under the course repository root"
   );
-});
-
-test("the Probe Sheets are written under the course repository root", async () => {
-  const workspace = gridDefining(
-    `${BOTH_DELIVERABLES}\nprobes:\n  C1:\n    - Three or more units of work?\n  C2:\n    - An instruction document?\n  C3:\n    - One command that goes red?`
-  );
-  workspace.writeCatalog({
-    published: [
-      { source: "assessment-grid.md", title: GRID_TITLE, section: "Assessment" },
-    ],
-  });
-  const published = await workspace.publisher(["publish", "--apply"]);
-  assert.equal(published.code, 0, published.stderr);
-  enrol(workspace, [{ email: "amina@epf.fr", name: "Amina Diallo" }]);
-
-  const result = await workspace.publisher(["probes"]);
-
-  assert.equal(result.code, 0, result.stderr);
-  assert.match(probeSheetsText(workspace) ?? "", /amina@epf\.fr/);
 });
 
 test("PUBLISHER_REPO_ROOT still names the repository, and its run state follows it", async () => {

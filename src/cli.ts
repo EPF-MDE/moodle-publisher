@@ -1,30 +1,20 @@
 #!/usr/bin/env node
-// The command line. Eight commands:
+// The command line. Five commands:
 //
 //   install-browser     install the Chromium the browser driver launches, once per machine
 //   check               check the course repository without Moodle; writes nothing
-//   setup [--apply]     configure the course's gradebook for the Oral, once
 //   publish [--apply]   report the plan; apply only when explicitly asked
-//   probes              write the Probe Sheets to a CSV; changes nothing
-//   import [--apply]    put that CSV through Moodle's own gradebook import
 //   audit               read the live course and check it, writing nothing
 //   wipe --course <id>  empty the course back to one section; --apply to do it
-//
-// `setup` is separate from `publish` because it is a different kind of work:
-// it configures the course once and is idempotent, where publishing runs every
-// time a document changes. Folding it into a routine run would mean opening
-// gradebook pages on every publish to conclude that there is nothing to do.
 //
 // This is the seam the tests drive: they run these commands against the fake
 // driver with the repository root pointed at a temporary directory of fixture
 // documents.
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { documentsToPublish, loadCatalog } from "./packages/catalog/index.ts";
 import { loadCompetencies } from "./packages/catalog/competencies.ts";
 import { loadDeliverables } from "./packages/catalog/deliverables.ts";
-import { loadProbes } from "./packages/catalog/probes.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
@@ -38,28 +28,6 @@ import {
   buildWipePlan,
   formatWipePlan,
 } from "./packages/publishing/wipe.ts";
-import {
-  buildProbeSheets,
-  formatProbeSheets,
-  formatProbeSheetsCsv,
-  readCourse,
-} from "./packages/publishing/probe-sheets.ts";
-import {
-  applyImport,
-  buildImportPlan,
-  EnrolmentHasMoved,
-  FileRewrittenDuringImport,
-  formatImportPlan,
-  ImportRefused,
-  MANUAL_FALLBACK,
-} from "./packages/publishing/probe-import.ts";
-import {
-  applySetup,
-  buildSetupPlan,
-  CourseNotConfigurable,
-  formatSetupPlan,
-  isConfigured,
-} from "./packages/publishing/setup.ts";
 import { checkRepository, formatCheck } from "./packages/publishing/check.ts";
 import {
   MissingConfiguration,
@@ -79,31 +47,12 @@ const USAGE = `Usage:
   publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
-  publisher setup [--apply]                Configure the course's gradebook for the Oral. Changes nothing unless --apply is given.
   publisher publish [--apply]              Report the plan for every document publisher.json names. Applies nothing unless --apply is given.
-  publisher probes                         Write one Probe Sheet per enrolled Student per Competency to a CSV,
-                                           ready to be read and then imported. Changes nothing in the course.
-  publisher import [--apply]               Put that CSV through Moodle's own gradebook import, so every Probe Sheet
-                                           field is waiting before the first Oral. Imports nothing unless --apply is given.
   publisher audit                          Check the live course against this repository: everything published present,
                                            every instructor page hidden, no instructor material where a student can reach it,
                                            and every Devoir closing at the Freeze the front matter states. Writes nothing.
   publisher wipe --course <id> [--apply]   Empty the course back to its top section. Deletes nothing unless --apply is given.
 `;
-
-/**
- * An error as an abort line, said once.
- *
- * Most refusals below the CLI already open with "Aborting:", because they are
- * written to be read as the last line of a run. A catch-all that prefixed one
- * anyway printed "Aborting: Aborting:" — which is what the run that could not
- * find the import's file picker said, and it reads like the program stuttering
- * at the moment the Instructor most needs to trust it.
- */
-function aborting(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.startsWith("Aborting:") ? message : `Aborting: ${message}`;
-}
 
 /** `2026-09-01T14-32-08Z`: one directory per run, sorting chronologically. */
 function runStamp(): string {
@@ -211,219 +160,6 @@ async function publish(apply: boolean): Promise<number> {
     process.stdout.write(`\nManifest: ${config.manifestPath}\n`);
     return 0;
   });
-}
-
-/**
- * Configures the gradebook, and reports what it would do when not asked to.
- *
- * The report-first shape is the same as `publish`'s, and it is worth as much
- * here: a gradebook is the one part of a Moodle course this program cannot
- * take anything back out of, so the first run of a new command shows the scale
- * and the grade items it is about to add before it adds them.
- *
- * One handler covers reading the gradebook and writing to it. A course a human
- * has to correct reads the same either way — instructions rather than a stack —
- * and the two moments differ only in what is true when the message is printed,
- * which the messages themselves say.
- */
-async function setup(apply: boolean): Promise<number> {
-  const config = readConfig();
-  // Read before the driver is opened, like `publish` reads the Deliverables: a
-  // grid declaring no Competencies, or an untitled one, is a mistake in the
-  // repository, and one Grade Item per Competency is what this run makes.
-  const competencies = loadCompetencies(
-    config.repoRoot,
-    loadCatalog(config.repoRoot)
-  );
-
-  process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
-
-  return withDriver(config, async (driver) => {
-    try {
-      const plan = buildSetupPlan(
-        config.courseId,
-        competencies,
-        await driver.gradebook(),
-        readManifest(config.manifestPath)
-      );
-      process.stdout.write(`${formatSetupPlan(plan)}\n`);
-
-      if (isConfigured(plan)) {
-        process.stdout.write(
-          `\nCourse ${config.courseId} is already configured for the Oral. Nothing to do.\n`
-        );
-        return 0;
-      }
-      if (!apply) {
-        process.stdout.write(
-          "\nNothing has been configured. Re-run with --apply to configure the course.\n"
-        );
-        return 0;
-      }
-
-      process.stdout.write("\nConfiguring:\n");
-      await applySetup(plan, {
-        manifestPath: config.manifestPath,
-        driver,
-        report: (line) => process.stdout.write(`  ${line}\n`),
-      });
-      process.stdout.write(
-        `\nCourse ${config.courseId} is configured for the Oral.\n` +
-          `Manifest: ${config.manifestPath}\n`
-      );
-      return 0;
-    } catch (error) {
-      if (error instanceof CourseNotConfigurable) {
-        process.stderr.write(`${error.message}\n`);
-        return 2;
-      }
-      // Anything else is Moodle or the browser refusing partway: the run says
-      // where it got to rather than only what broke, because setup is
-      // idempotent and "run it again" is the whole remedy. What was created is
-      // in the manifest, so the second run makes the rest and nothing twice.
-      process.stderr.write(
-        `${aborting(error)}\n\n` +
-          `Whatever was created before this is in the course and in the manifest ` +
-          `(${config.manifestPath}). Run setup again to make the rest: it adds only ` +
-          `what is missing. If it stops here again, make the scale and one grade item ` +
-          `per Competency by hand in the gradebook — hidden, weight 0, valued on the Bands.\n`
-      );
-      return 2;
-    }
-  });
-}
-
-/**
- * Writes the Probe Sheets, and writes nothing else.
- *
- * There is no `--apply` here, and that is not an omission: this command's whole
- * output is a file on disk, and the course it read is exactly as it was. What
- * puts the sheets in the gradebook is a separate step, so that the Instructor
- * reads what is about to enter the gradebook before any of it does.
- *
- * The repository is read first and before the driver is opened, like `publish`:
- * a probe that names a Band, a Competency with no probes and a Deliverable with
- * no Freeze are all mistakes in the repository, and none is worth finding out
- * with a browser sitting in the course the evening before the Orals.
- */
-async function probes(): Promise<number> {
-  const config = readConfig();
-  const catalog = loadCatalog(config.repoRoot);
-  const competencies = loadCompetencies(config.repoRoot, catalog);
-  const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
-  const probeQuestions = loadProbes(config.repoRoot, catalog, competencies);
-  const manifest = readManifest(config.manifestPath);
-
-  process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
-
-  return withDriver(config, async (driver) => {
-    const { enrolments, handedIn } = await readCourse(
-      driver,
-      deliverables,
-      competencies,
-      manifest
-    );
-    const sheets = buildProbeSheets({
-      enrolments,
-      handedIn,
-      probes: probeQuestions,
-      courseId: config.courseId,
-    });
-    // Rendered before the file is opened. The last guard on ADR-0002 lives in
-    // here, and a run it stops must leave whatever was generated last time
-    // exactly where it was rather than half-overwritten.
-    const csv = formatProbeSheetsCsv(sheets);
-    writeFileSync(config.probeSheetPath, csv, "utf8");
-
-    process.stdout.write(
-      `${formatProbeSheets(sheets, config.probeSheetPath)}\n`
-    );
-    return 0;
-  });
-}
-
-/**
- * Puts the generated Probe Sheets into the gradebook, and reports what it
- * would put there when not asked to.
- *
- * Opt-in twice over, and both are the same principle at different distances.
- * Generating is a separate command, so nothing enters the gradebook as a side
- * effect of preparing it; and `--apply` is asked for here, so the last thing
- * between a file and thirty Students' gradebook rows is a sentence the
- * Instructor reads first.
- *
- * The file and the manifest are read before the driver is opened. Sheets that
- * were never generated, a gradebook `setup` has not configured and a file that
- * is not the one this program writes are all knowable without Moodle, and none
- * of them is worth finding out with a browser sitting in the course on the
- * evening before the Orals.
- */
-async function importProbeSheets(apply: boolean): Promise<number> {
-  const config = readConfig();
-  // Outside the handler below, whose remedy is importing the file by hand: a
-  // grid declaring no Competencies is not answered by that, and which columns
-  // the file has depends on what it declares.
-  const competencies = loadCompetencies(
-    config.repoRoot,
-    loadCatalog(config.repoRoot)
-  );
-
-  process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
-
-  try {
-    const plan = buildImportPlan({
-      courseId: config.courseId,
-      path: config.probeSheetPath,
-      competencies,
-      manifest: readManifest(config.manifestPath),
-    });
-    process.stdout.write(`${formatImportPlan(plan)}\n`);
-
-    if (!apply) {
-      process.stdout.write(
-        "\nNothing has been imported. Re-run with --apply to put the sheets in the gradebook.\n" +
-          "That run reads the course first, and refuses if anyone has enrolled or left\n" +
-          "since the file was written: who is enrolled is not knowable from here.\n"
-      );
-      return 0;
-    }
-
-    return await withDriver(config, async (driver) => {
-      process.stdout.write("\nImporting:\n");
-      await applyImport(plan, {
-        driver,
-        report: (line) => process.stdout.write(`  ${line}\n`),
-      });
-      process.stdout.write(
-        `\nEvery Student enrolled in the course now has a Probe Sheet waiting in every\n` +
-          `grade item. The bands are empty: you fill them in at the Oral. A Student\n` +
-          `who enrols from here on is in neither the file nor the gradebook — run probes\n` +
-          `again, and this again, and the Bands already entered are untouched.\n`
-      );
-      return 0;
-    });
-  } catch (error) {
-    // Each carries the whole message, and they differ in what that message
-    // says: a refusal names the manual fallback, while the two that would be
-    // answered by importing this file by hand — the enrolment has moved, and
-    // the file changed after the sheets had gone in — deliberately do not.
-    if (
-      error instanceof ImportRefused ||
-      error instanceof EnrolmentHasMoved ||
-      error instanceof FileRewrittenDuringImport
-    ) {
-      process.stderr.write(`${error.message}\n`);
-      return 2;
-    }
-    // Anything else is Moodle, the browser or the form refusing partway. The
-    // file is where it was — nothing on this path writes it — so the remedy is
-    // the same one either way, and it is printed rather than described.
-    process.stderr.write(
-      `${aborting(error)}\n\n` +
-        `The CSV is unchanged at ${config.probeSheetPath}.\n${MANUAL_FALLBACK}\n`
-    );
-    return 2;
-  }
 }
 
 async function audit(): Promise<number> {
@@ -644,12 +380,6 @@ async function main(argv: readonly string[]): Promise<number> {
         return 2;
       }
       return check();
-    case "setup":
-      return setup(rest.includes("--apply"));
-    case "probes":
-      return probes();
-    case "import":
-      return importProbeSheets(rest.includes("--apply"));
     case "audit":
       return audit();
     case "wipe":

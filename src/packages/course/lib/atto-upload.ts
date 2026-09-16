@@ -82,13 +82,8 @@ export async function required(
  * The pane is found by what it holds — a file input — rather than by the
  * repository's name in the list beside it, because that name is in whatever
  * language the site is set to, and this one is French.
- *
- * Exported because a picture is not the only thing this program uploads: the
- * gradebook import puts a CSV through the same picker, and it is the same
- * dialogue with the same repositories in the same language. What differs is
- * only which button opened it.
  */
-export async function openUploadPane(
+async function openUploadPane(
   page: Page,
   what: string
 ): Promise<Locator> {

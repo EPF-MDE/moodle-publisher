@@ -7,7 +7,7 @@
 // definitions.
 import { readDeliverables } from "./lib/deliverable.ts";
 
-import type { Competency } from "../course/gradebook.ts";
+import type { Competency } from "./competencies.ts";
 import type { Catalog } from "./index.ts";
 import type { Deliverable } from "./lib/deliverable.ts";
 

@@ -10,23 +10,9 @@ import {
   pluginfileReference,
 } from "../index.ts";
 
-import { readCsv } from "./csv.ts";
-
-import { identityColumnOf } from "../gradebook.ts";
-
-import type {
-  CourseGradeItem,
-  CourseScale,
-  SheetImport,
-  Gradebook,
-  NewGradeItem,
-  NewScale,
-} from "../gradebook.ts";
 import type {
   CourseDriver,
   CreatedDevoir,
-  Enrolment,
-  Submission,
   CreatedPage,
   DevoirSettings,
   DevoirUpdate,
@@ -61,29 +47,6 @@ interface StoredCourse {
   sections: StoredSection[];
   items: StoredItem[];
   /**
-   * The course's scales and Grade Items. Absent in every fixture that is
-   * about the course page, which is most of them: a course with no gradebook
-   * configured is exactly what `setup` is run against the first time.
-   */
-  scales?: CourseScale[];
-  gradeItems?: CourseGradeItem[];
-  /** Ids for scales and Grade Items. Moodle keeps each in its own namespace. */
-  nextScaleId?: number;
-  nextGradeItemId?: number;
-  /**
-   * What the gradebook holds for each Student in each Grade Item, keyed by
-   * grade item id.
-   *
-   * Absent until something has been imported, because a Grade Item nobody has
-   * a row in is what `setup` leaves behind. What a row is for is the pair of
-   * cells the Instructor works in at the Oral: the Band, and the Probe Sheet
-   * beside it. The Band is stored as a string that no import can write into —
-   * a fixture may put one there, which is a human having graded — so that
-   * "nothing this program does lands a verdict" is a thing a test reads back
-   * rather than a thing the fake makes impossible.
-   */
-  gradebookRows?: Record<string, GradebookRow[]>;
-  /**
    * The Devoir settings of the activities that are Devoirs, by module id.
    *
    * Beside `items` rather than inside them, because a Devoir is two things at
@@ -98,24 +61,14 @@ interface StoredCourse {
    * What Students have handed in, by the module id of the Devoir they handed
    * it into.
    *
-   * Nothing in this program writes one — no tool here hands work in, and none
-   * reads it — so this exists for one reason: an activity deleted takes the
-   * Submissions on it with it, exactly as Moodle would. That is what makes
+   * Nothing in this program writes one — no tool here hands work in, and only
+   * `wipe` counts them — so this exists for one more reason: an activity
+   * deleted takes the Submissions on it with it, exactly as Moodle would. That is what makes
    * "the edit kept the module id" a claim a test can check rather than a claim
    * about a number, because a run that deleted the Devoir and made another one
    * beside it comes out of this fake with a student's URL gone.
    */
   submissions?: Record<string, StoredSubmission[]>;
-  /**
-   * Who is enrolled in the course.
-   *
-   * Absent from every fixture that is about the course page, which is most of
-   * them: enrolment is mirrored and nothing in this program writes one, so a
-   * course with nobody in it is exactly what publishing runs against. A fixture
-   * writes this when it is about the Oral, because the Probe Sheets are
-   * generated from whoever is in here at the moment they are asked for.
-   */
-  enrolments?: Enrolment[];
   /**
    * Test knob: the module ids whose Submission count cannot be read.
    *
@@ -130,49 +83,6 @@ interface StoredCourse {
   failCreateAfter?: number;
   /** The same, for updates: the interrupted run on the re-publishing path. */
   failUpdateAfter?: number;
-  /** Test knob: the gradebook the course refuses to let anything be added to. */
-  failCreateScale?: boolean;
-  /** Test knob: raise on the Grade Item after this many have been created. */
-  failCreateGradeItemAfter?: number;
-  /**
-   * Test knobs: a Moodle that takes the form and saves the Grade Item
-   * without the setting.
-   *
-   * Not a state this driver can be asked for — there is no way to ask for a
-   * visible Grade Item — but one the course can put itself into, and the
-   * reason `setup` reads back what it created rather than believing what it
-   * typed. A field silently dropped by a theme, a version, or a locked-down
-   * gradebook is the failure that would otherwise be found out by a Student
-   * reading their Band.
-   */
-  moodleIgnoresGradeItemHidden?: boolean;
-  moodleIgnoresGradeItemWeight?: boolean;
-  /**
-   * Test knob: the gradebook import that will not go through.
-   *
-   * A broken selector, a form Moodle moved, a session that expired between the
-   * upload and the mapping — from above the seam they are one thing, an import
-   * that did not happen, and what has to follow it is an abort that leaves the
-   * file exactly where it is so it can be imported by hand.
-   */
-  failGradeImport?: boolean;
-}
-
-/**
- * One Student's pair of cells in one Grade Item, as the file stores them.
- *
- * `band` is what the gradebook shows in the graded column and `sheet` is the
- * feedback beside it. Both are stored whether or not they hold anything: a
- * Probe Sheet field "waiting" is a row that exists with an empty verdict, and
- * a fake that stored only what was filled in could not tell that apart from a
- * Student the import missed.
- */
-export interface GradebookRow {
-  readonly email: string;
-  /** The verdict. Written by a human in Moodle, never by anything here. */
-  readonly band: string;
-  /** The Probe Sheet: the probes, the URL, and the line to write on. */
-  readonly sheet: string;
 }
 
 /**
@@ -225,12 +135,14 @@ interface StoredDevoir {
  * crosses the seam, so that a fixture cannot describe a Submission this program
  * could not be handed by a real course.
  *
- * Whose it is is an email and not a name, because the email is the identity
- * everywhere else here: it is what a Probe Sheet is matched to an enrolment by,
- * and a fixture that recorded a name would let a test pass over a match that
- * cannot be made against the live course.
+ * Whose it is is an email and not a name, because the email is the only
+ * identity this Moodle populates.
  */
-type StoredSubmission = Submission;
+interface StoredSubmission {
+  readonly email: string;
+  /** The online text, which is one URL. */
+  readonly url: string;
+}
 
 /**
  * The sections of a fixture written before sections were modelled: whatever
@@ -285,7 +197,7 @@ function read(path: string, courseId: string): StoredCourse {
   ) as Partial<StoredCourse>;
   const items = stored.items ?? [];
   // Whatever the file said, and then the four fields a course cannot be read
-  // without. Spreading first is what keeps every other field — the gradebook,
+  // without. Spreading first is what keeps every other field — the Devoirs,
   // the ids, the test knobs — exactly as the fixture wrote it, including the
   // ones it left out: reading a course must not change the file that holds it,
   // which is what the audit's "writes nothing" test checks. Listing them
@@ -429,7 +341,6 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
   }
   let created = 0;
   let updated = 0;
-  let gradeItemsCreated = 0;
 
   function sections(): CourseSection[] {
     return course.sections.map((section, number) => ({
@@ -479,147 +390,6 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
           devoir: isDevoir(course, item.moduleId),
         })),
       };
-    },
-
-    async gradebook(): Promise<Gradebook> {
-      return {
-        scales: course.scales ?? [],
-        items: course.gradeItems ?? [],
-      };
-    },
-
-    async createScale(scale: NewScale): Promise<CourseScale> {
-      if (course.failCreateScale === true) {
-        throw new Error(
-          `Fake driver: refusing to create the scale "${scale.name}" (simulated failure).`
-        );
-      }
-      const created: CourseScale = {
-        id: String(course.nextScaleId ?? 1),
-        name: scale.name,
-        // Copied out of the request rather than referenced: what the course
-        // holds afterwards is its own, and a caller that later edited the list
-        // it sent must not be able to change what it is checked against.
-        values: [...scale.values],
-      };
-      course.nextScaleId = Number(created.id) + 1;
-      course.scales = [...(course.scales ?? []), created];
-      write(path, course);
-      return created;
-    },
-
-    async createGradeItem(item: NewGradeItem): Promise<CourseGradeItem> {
-      if (
-        course.failCreateGradeItemAfter !== undefined &&
-        gradeItemsCreated >= course.failCreateGradeItemAfter
-      ) {
-        throw new Error(
-          `Fake driver: refusing to create the grade item "${item.name}" (simulated failure).`
-        );
-      }
-      if (!(course.scales ?? []).some((scale) => scale.id === item.scaleId)) {
-        throw new Error(
-          `Fake driver: no scale with id ${item.scaleId} for "${item.name}" to be valued on.`
-        );
-      }
-      // Hidden and weightless unless the course is set to drop the field:
-      // nothing here can ask for a visible Grade Item, but a Moodle can save
-      // one, and what it saved is what this reports back.
-      const created: CourseGradeItem = {
-        id: String(course.nextGradeItemId ?? 1),
-        name: item.name,
-        scaleId: item.scaleId,
-        hidden: course.moodleIgnoresGradeItemHidden !== true,
-        excludedFromTotal: course.moodleIgnoresGradeItemWeight !== true,
-      };
-      course.nextGradeItemId = Number(created.id) + 1;
-      course.gradeItems = [...(course.gradeItems ?? []), created];
-      gradeItemsCreated += 1;
-      write(path, course);
-      return created;
-    },
-
-    /**
-     * Reads the file at `request.path` and writes what it holds into the
-     * gradebook, as Moodle's own import would.
-     *
-     * The file is read and never written: what is on disk after an import is
-     * byte for byte what the Instructor read before it, which is what makes
-     * importing it again by hand a fallback rather than a second generation.
-     *
-     * Everything it refuses over is something Moodle refuses over too — a file
-     * that is not there, columns that are not the ones the import was mapped
-     * from, a Grade Item that has gone, an email nobody is enrolled under. A
-     * fake that quietly skipped any of them would let a run report an import
-     * that landed nothing.
-     */
-    async importSheets(request: SheetImport): Promise<void> {
-      if (course.failGradeImport === true) {
-        throw new Error(
-          `Fake driver: refusing to import "${request.path}" (simulated failure).`
-        );
-      }
-      if (!existsSync(request.path)) {
-        throw new Error(
-          `Fake driver: there is no file at ${request.path} to import.`
-        );
-      }
-      const [header = [], ...rows] = readCsv(
-        readFileSync(request.path, "utf8")
-      );
-      const headings = request.columns.map((column) => column.heading);
-      if (
-        header.length !== headings.length ||
-        header.some((heading, at) => heading !== headings[at])
-      ) {
-        throw new Error(
-          `Fake driver: the file at ${request.path} has the columns ` +
-            `${header.join(", ")}, and the import was mapped from ` +
-            `${headings.join(", ")}.`
-        );
-      }
-      const identityAt = identityColumnOf(
-        request.columns,
-        `importing ${request.path}`
-      );
-      const enrolled = new Set(
-        (course.enrolments ?? []).map((student) => student.email)
-      );
-
-      const gradebookRows = { ...(course.gradebookRows ?? {}) };
-      for (const row of rows) {
-        const email = row[identityAt] ?? "";
-        if (!enrolled.has(email)) {
-          throw new Error(
-            `Fake driver: "${email}" is not enrolled in course ${course.courseId}, ` +
-              `so there is no gradebook row to import into.`
-          );
-        }
-        request.columns.forEach((column, at) => {
-          if (column.target.kind !== "sheet") return;
-          const { gradeItemId } = column.target;
-          if (
-            !(course.gradeItems ?? []).some((one) => one.id === gradeItemId)
-          ) {
-            throw new Error(
-              `Fake driver: course ${course.courseId} has no grade item ` +
-                `${gradeItemId} for "${column.heading}" to be imported into.`
-            );
-          }
-          // The Band already in the cell survives an import that carries none,
-          // which is the whole reason the sheets may be re-imported at all: a
-          // Student examined at the first sitting keeps their verdict when a
-          // late enrolment sends the file through again.
-          const existing = gradebookRows[gradeItemId] ?? [];
-          const before = existing.find((one) => one.email === email);
-          gradebookRows[gradeItemId] = [
-            ...existing.filter((one) => one.email !== email),
-            { email, band: before?.band ?? "", sheet: row[at] ?? "" },
-          ];
-        });
-      }
-      course.gradebookRows = gradebookRows;
-      write(path, course);
     },
 
     async ensureSection(name: SectionName): Promise<SectionOutcome> {
@@ -798,18 +568,6 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
         );
       }
       return course.submissions?.[moduleId]?.length ?? 0;
-    },
-
-    async enrolments(): Promise<readonly Enrolment[]> {
-      return course.enrolments ?? [];
-    },
-
-    async submissions(moduleId: string): Promise<readonly Submission[]> {
-      // A Devoir nobody has handed into is an empty list and not a failure,
-      // which is the difference between this and the count above: the count
-      // guards a delete and refuses over anything it is unsure of, and this
-      // reads work that may simply not be there yet.
-      return course.submissions?.[moduleId] ?? [];
     },
 
     async deleteItem(moduleId: string): Promise<void> {

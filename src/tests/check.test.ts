@@ -195,7 +195,9 @@ const REFUSALS: readonly Refusal[] = [
     message: /"c1-1"/,
   },
   {
-    what: "a grid whose probes name a Band",
+    // The block a grid kept from before the Probe Sheet was retired: refused,
+    // pointing at the decision, rather than silently ignored.
+    what: "a grid that still has a probes block",
     broken: () =>
       gridDefining(`deliverables:
   - id: c1-1
@@ -204,15 +206,8 @@ const REFUSALS: readonly Refusal[] = [
     due: 2026-09-10T20:00:00+02:00
 probes:
   C1:
-    - Solid?
-  C2:
-    - An instruction document?
-  C3:
-    - One command that goes red?`),
-    message: /Solid/,
-    // The probes are read by the command that writes the Probe Sheets, and by
-    // no publish.
-    command: "probes",
+    - Three or more units of work?`),
+    message: /"probes:" block[\s\S]*ADR-0011[\s\S]*Delete the "probes:" block/,
   },
 ];
 

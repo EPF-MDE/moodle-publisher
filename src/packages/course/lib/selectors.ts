@@ -14,11 +14,18 @@
 /**
  * A link to another page of a Moodle table, with the initials bar left out.
  *
- * Written once and used by both paged tables — the grading table and the
- * participants table — because both render the two bars the same way and a
- * walk that told them apart on one page and not the other would be worse than
- * one that did neither. What is wrong with following the letters is at
- * {@link SELECTORS.participantsPaging}.
+ * Moodle renders "Filtrer par nom: Tout A B C …" with the same
+ * `pagination`/`page-link` markup as the paging bar, so a walk that followed
+ * every `.pagination a` followed twenty-six letters of first name and
+ * twenty-six of surname as if they were pages. Two things went wrong at once:
+ * it read the table fifty-four times over, and a letter nobody is enrolled
+ * under renders no table at all — which a walk cannot tell from a page it
+ * failed to understand, so the run aborted having read every row already.
+ *
+ * Excluded by what the bar is called rather than by what its links look like:
+ * `initialbar` is core's own class for it, on the element around the letters,
+ * and a `tifirst=` in the href is a query parameter this program would be
+ * constructing an opinion about.
  */
 const NOT_THE_INITIALS_BAR =
   ".pagination a[href]:not(.initialbar a), .paging a[href]:not(.initialbar a)";
@@ -138,52 +145,11 @@ export const SELECTORS = {
   /**
    * The grading table's paging bar, followed so a count is of every page.
    *
-   * The initials bar is cut out of it, for the reason {@link participantsPaging}
+   * The initials bar is cut out of it, for the reason {@link NOT_THE_INITIALS_BAR}
    * gives — it is built from the same Bootstrap `pagination` markup as the real
    * paging bar, and it filters rather than pages.
    */
   assignGradingPaging: NOT_THE_INITIALS_BAR,
-  /**
-   * A page of a Moodle table, and never a letter of its initials bar.
-   *
-   * Moodle renders "Filtrer par nom: Tout A B C …" with the same
-   * `pagination`/`page-link` markup as the paging bar, so a walk that followed
-   * every `.pagination a` followed twenty-six letters of first name and
-   * twenty-six of surname as if they were pages. Two things went wrong at
-   * once: it read the course fifty-four times over, and a letter nobody is
-   * enrolled under renders no table at all — which this cannot tell from a
-   * page it failed to understand, so the Probe Sheets aborted on
-   * `?id=14707&tifirst=D` having read every Student already.
-   *
-   * Excluded by what the bar is called rather than by what its links look
-   * like: `initialbar` is core's own class for it, on the element around the
-   * letters, and a `tifirst=` in the href is a query parameter this program
-   * would be constructing an opinion about.
-   */
-  participantsPaging: NOT_THE_INITIALS_BAR,
-  /**
-   * The participants table, at /user/index.php — core's own id for it, chosen
-   * over `table.generaltable` for the reason {@link assignGradingTable} is not
-   * `table.flexible`: a selector that can match some other table and answer
-   * "nobody is enrolled" is a set of Probe Sheets with Students missing from
-   * it, found out at an Oral.
-   */
-  participantsTable: "#participants",
-  /**
-   * The roles a participants row carries, read so that a Probe Sheet is
-   * prepared for the people who sit an Oral and for nobody else.
-   *
-   * Core's own inline-editable hook, `data-itemtype="user_roles"`, and no
-   * fallback to a column position: the identity fields a course shows are a
-   * setting, so the roles cell moves left and right between courses while what
-   * core calls it does not — and a `td.c3` that matched the wrong cell would
-   * have a "Last access" read as a role and that Student dropped in silence. A
-   * page this cannot find the roles on refuses instead, naming who.
-   *
-   * What the text in it *means* is decided by `enrolsAsStudent`, out where a
-   * test can reach it.
-   */
-  participantsRoles: '[data-itemtype="user_roles"], td[data-region="roles"]',
   /** The profile form at /user/edit.php, read for the timezone and nothing else. */
   userTimezone: "#id_timezone",
   /** The section settings form at /course/editsection.php. */
@@ -207,8 +173,8 @@ export const SELECTORS = {
    * One collapsed fieldset's own toggle, on any Moodle form.
    *
    * Preferred over {@link SELECTORS.formExpandAll}, which is a *toggle*: on a
-   * form Moodle already serves expanded — the grade item form is one — a
-   * click on "expand all" collapses every section instead, and the field that
+   * form Moodle already serves expanded, a click on "expand all" collapses
+   * every section instead, and the field that
    * was about to be set becomes an element that is in the DOM and not
    * visible. This addresses only the sections that are actually shut, so
    * clicking it twice is the same as clicking it once.
@@ -217,14 +183,21 @@ export const SELECTORS = {
    * collapsibles that are nothing to do with the form: the nav drawer's
    * drop-downs and the message drawer's three lists are all
    * `data-toggle='collapse'` and all `aria-expanded='false'`, because the
-   * drawers holding them are shut. Unscoped, this matched five of those on the
-   * grade item form and none of the form's own two, and clicking an element
-   * inside a closed drawer is a wait for it to become clickable that ends
-   * thirty seconds later — five times, on every item read and every item
-   * created. That is a `setup` that sits on the item page for minutes and
-   * looks hung, because it is.
+   * drawers holding them are shut. Unscoped, this matched five of those on a
+   * form and none of the form's own two, and clicking an element inside a
+   * closed drawer is a wait for it to become clickable that ends thirty seconds
+   * later — five times, on every form opened. That is a run that sits on one
+   * page for minutes and looks hung, because it is.
    */
   formCollapsedSection: "form [data-toggle='collapse'][aria-expanded='false']",
+  /**
+   * "Show more…", which hides the advanced fields inside a fieldset.
+   *
+   * Not the same control as {@link SELECTORS.formExpandAll}: that expands
+   * collapsed fieldsets, and this reveals the advanced fields inside one. A
+   * form can need both, so both are clicked when they are there.
+   */
+  formShowMore: "a.moreless-toggler, .moreless-actions",
   /**
    * Moodle's "are you sure?" button, on the delete confirmations.
    *
@@ -322,129 +295,6 @@ export const SELECTORS = {
    */
   openDialogue: ".moodle-dialogue:visible",
 
-  // --- the gradebook, written once by `setup` -----------------------------
-  //
-  // Core Moodle URLs again, and core ids: `/grade/edit/scale/edit.php` and
-  // `/grade/edit/tree/item.php` are the forms behind "Add a scale" and "Add
-  // grade item", and going straight to them skips the gradebook's own menus,
-  // which are theme surface.
-  //
-  // There is no selector here for the links *to* those forms. A gradebook
-  // page writes some of its links relative (`edit.php?courseid=…&id=77`) and
-  // some absolute, and an `[href*='/grade/edit/scale/edit.php']` matches the
-  // attribute rather than where it leads, so it misses every relative one —
-  // which is a course's own scales, all of them. Which links name a row is
-  // decided in `gradebook.ts`, against the resolved URL, where it is tested.
-
-  /**
-   * "Standard scale", on the scale form: a scale of the whole site rather
-   * than of this course.
-   *
-   * The scales page lists the site's standard scales beside the course's own,
-   * so a site scale called `Bands` would otherwise be adopted as the one this
-   * course's Grade Items are valued on — a scale nobody teaching this course
-   * can correct, and one an administrator can change under it. Read on every
-   * scale, and unchecked on the one this program creates.
-   */
-  scaleStandard: "#id_standard",
-  /** The scale form: its name, and its values as one comma-separated line. */
-  scaleName: "#id_name",
-  scaleValues: "#id_scale",
-  scaleSubmit: "#id_submitbutton",
-  /**
-   * One row of the gradebook setup table, carrying its Grade Item's id.
-   *
-   * This is how a Grade Item is found at all now: Moodle 4.5 opens the item
-   * settings form in a modal, so the row's menu links nowhere and the page
-   * lists every Grade Item without linking to one. The attribute is read
-   * here; what it means is decided in `gradebook.ts`.
-   */
-  gradeItemRow: "[data-itemid]",
-  /** The grade item form. */
-  gradeItemName: "#id_itemname",
-  /** Moodle's grade types: 1 value, 2 scale, 3 text, 0 none. */
-  gradeItemType: "#id_gradetype",
-  gradeItemScale: "#id_scaleid",
-  /** Hidden from Students — the whole point of a Grade Item in this course. */
-  gradeItemHidden: "#id_hidden",
-  /**
-   * "Hidden until", the date Moodle would reveal the Grade Item on.
-   *
-   * Read, and never set. A Grade Item hidden until a date is hidden for now
-   * and readable afterwards, and "afterwards" is a Band a Student sees
-   * without anyone deciding to show it — which is the same failure as a
-   * visible one, arriving later. An enabled date reads as not hidden.
-   */
-  gradeItemHiddenUntilEnabled: "#id_hiddenuntil_enabled",
-  /**
-   * "Weight adjusted", and the weight beside it.
-   *
-   * This is how a Grade Item is kept out of the course total: Moodle has no
-   * "exclude from total" switch, and an overridden weight of 0 under Natural
-   * aggregation is what makes it contribute nothing. Both controls are
-   * set, and both are read back — an override checked with a weight left at
-   * its default is a Grade Item that still counts.
-   */
-  gradeItemWeightOverride: "#id_weightoverride",
-  gradeItemWeight: "#id_aggregationcoef2",
-  gradeItemSubmit: "#id_submitbutton",
-  /**
-   * "Show more…", which is what hides the availability and weight fields on
-   * this form.
-   *
-   * Not the same control as {@link SELECTORS.formExpandAll}: that expands
-   * collapsed fieldsets, and this reveals the advanced fields inside one. A
-   * form can need both, so both are clicked when they are there.
-   */
-  formShowMore: "a.moreless-toggler, .moreless-actions",
-
-  // --- the gradebook import, run once before the Orals --------------------
-  //
-  // Core Moodle again: `/grade/import/csv/index.php` is the screen a human
-  // uses, in three steps — upload the file, say what its columns are, import.
-  // The driver fills in the form the Instructor would fill in, which is what
-  // makes doing it by hand a real fallback rather than a different procedure
-  // nobody has tried.
-  //
-  // What is deliberately not read here is the page's prose. This site is in
-  // French, so every option below is chosen by the **value** Moodle gives it —
-  // `useremail`, `feedback_<id>`, `0` for ignore — and never by its label. A
-  // driver that matched an English string would map nothing on this course.
-
-  /**
-   * "Choose a file", which opens the same picker a picture goes through.
-   *
-   * The picker is the same dialogue Atto opens; the button that opens it is
-   * not. Atto wraps its control — `<div class="fp-btn-choose"><a>` — while
-   * this screen's `filepicker` form element puts the class on the control
-   * itself: `<input type="button" class="btn btn-secondary fp-btn-choose">`.
-   * A selector written for the wrapper matches nothing here, which is what
-   * stopped the import on the evening of 9 September.
-   *
-   * So both shapes are named, and the wrapper never is: every alternative
-   * either carries the class on a control or asks for a control under it, so
-   * what this resolves to is something clickable rather than a div around it.
-   */
-  gradeImportChooseFile:
-    "input.fp-btn-choose, button.fp-btn-choose, a.fp-btn-choose, " +
-    ".fp-btn-choose a, .fp-btn-choose button",
-  /** What the picker shows once a file is in the form's draft area. */
-  gradeImportChosenFile: ".filepicker-filename, .fp-filename",
-  /** The submit button of each of the import's three forms. */
-  gradeImportSubmit: "#id_submitbutton",
-  /** Which column of the file names the user, and which user field it holds. */
-  gradeImportMapFrom: "#id_mapfrom",
-  gradeImportMapTo: "#id_mapto",
-  /**
-   * A problem Moodle reports about the import, in whatever language the site
-   * is set to.
-   *
-   * Read for its text and never matched against one: what it says is quoted
-   * into the abort so that a human can act on it, and the run stops because
-   * the notification is there at all.
-   */
-  gradeImportProblem: ".alert-danger, .alert-error, .notifyproblem",
-
   // --- Moodle's own error page -------------------------------------------
 
   /**
@@ -464,34 +314,6 @@ export const SELECTORS = {
    */
   moodleErrorCode: ".errorcode a[href*='/error/']",
 } as const;
-
-/**
- * The select that says what the file's column at `at` is imported as.
- *
- * A function rather than an entry in {@link SELECTORS} because the form has
- * one of these per column of the uploaded file, numbered in the file's own
- * order — which is the order the mapping is stated in, so the two cannot drift.
- */
-export function gradeImportMapping(at: number): string {
-  return `#id_mapping_${at}`;
-}
-
-/**
- * The option value that maps a column onto the feedback of one Grade Item.
- *
- * Moodle's own key, and the reason the mapping is done by value: on a French
- * site the option beside it reads "Rétroaction pour C1 — …", and a driver
- * matching an English label would map nothing at all.
- */
-export function feedbackOptionValue(gradeItemId: string): string {
-  return `feedback_${gradeItemId}`;
-}
-
-/** The option value that leaves a column out of the import. */
-export const IGNORE_OPTION_VALUE = "0";
-
-/** The option value that matches a row to a user by their email address. */
-export const EMAIL_OPTION_VALUE = "useremail";
 
 /** The host we must never be sitting on when we are about to write. */
 export const MICROSOFT_LOGIN_HOST = "login.microsoftonline.com";

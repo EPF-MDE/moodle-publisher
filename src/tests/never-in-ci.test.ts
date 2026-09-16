@@ -13,7 +13,7 @@ import { makeWorkspace } from "./harness.ts";
 test("the browser driver refuses to run when CI is set", async () => {
   const workspace = makeWorkspace();
 
-  const result = await workspace.publisher(["setup"], {
+  const result = await workspace.publisher(["audit"], {
     PUBLISHER_DRIVER: undefined,
     CI: "true",
     MOODLE_SESSION_STATE: join(workspace.root, "session.json"),

@@ -215,7 +215,7 @@ test("a bare submissionstatus is a Student who has never touched the Devoir", ()
   // the class as `'submissionstatus' . $displaystatus` after blanking a status
   // of `new`, so `submissionstatusnew` never appears and the bare token carries
   // "Pas de travail remis" on every row of a Devoir nobody has handed into.
-  // Counting it made the Probe Sheets abort over every Student at once.
+  // Counting it made a course nobody had handed into unrebuildable.
   assert.equal(readsAsHoldingSubmissions(["cell c4 submissionstatus"]), false);
 });
 

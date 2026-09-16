@@ -66,6 +66,63 @@ test("an entry written before entries had a kind is read as a page and skipped",
   assert.equal(workspace.readCourse().items.length, 3);
 });
 
+/**
+ * The manifest as a publisher that still configured the gradebook left it: a
+ * Grade Item recorded under each Competency's id, beside the pages and Devoirs.
+ */
+function addGradeItems(workspace: Workspace): void {
+  const file = workspace.readManifest();
+  const documents: Record<string, Record<string, string>> = {
+    ...file.documents,
+  };
+  for (const [id, itemId] of [
+    ["C1", "101"],
+    ["C2", "102"],
+  ] as const) {
+    documents[id] = {
+      kind: "grade-item",
+      itemId,
+      name: `${id} — a Competency`,
+      scaleId: "77",
+      createdAt: "2026-09-01T10:00:00.000Z",
+    };
+  }
+  workspace.write(
+    MANIFEST_FILE,
+    `${JSON.stringify({ ...file, documents }, null, 2)}\n`
+  );
+}
+
+test("a manifest holding Grade Items still reads, and the next write drops them", async () => {
+  const workspace = makeWorkspace();
+  await workspace.publisher(["publish", "--apply"]);
+  const published = workspace.readManifest().documents;
+  addGradeItems(workspace);
+
+  // Read, by a plan and by an audit, and not refused.
+  const plan = await workspace.publisher(["publish"]);
+  assert.equal(plan.code, 0, plan.stderr);
+  assert.match(plan.stdout, /0 to create, 0 to update, 1 to skip/);
+  const audit = await workspace.publisher(["audit"]);
+  assert.equal(audit.code, 0, audit.stderr);
+  assert.ok(workspace.readManifest().documents["C1"], "reading wrote nothing");
+
+  // Written, by the next run that changes something.
+  writeGrid(
+    workspace,
+    GRID_FRONT_MATTER,
+    `${GRID_MARKDOWN}\n| Strong | Rare. |\n`
+  );
+  const applied = await workspace.publisher(["publish", "--apply"]);
+  assert.equal(applied.code, 0, applied.stderr);
+
+  const after = workspace.readManifest().documents;
+  assert.equal(after["C1"], undefined);
+  assert.equal(after["C2"], undefined);
+  assert.deepEqual(Object.keys(after).sort(), Object.keys(published).sort());
+  assert.equal(workspace.readCourse().items.length, 3);
+});
+
 test("updating an entry written before kinds keeps its module and names it a page", async () => {
   const workspace = makeWorkspace();
   await workspace.publisher(["publish", "--apply"]);

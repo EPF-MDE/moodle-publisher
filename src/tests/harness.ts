@@ -18,7 +18,6 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import type { PublishedEntry } from "../packages/catalog/index.ts";
-import type { GradebookRow } from "../packages/course/fake.ts";
 
 export type { PublishedEntry } from "../packages/catalog/index.ts";
 
@@ -93,8 +92,6 @@ export interface Workspace {
   readonly coursePath: string;
   readonly catalogPath: string;
   readonly envPath: string;
-  /** Where `probes` writes the generated Probe Sheets. */
-  readonly probeSheetsPath: string;
   write(relative: string, contents: string): void;
   remove(relative: string): void;
   writeCatalog(catalog: unknown): void;
@@ -120,15 +117,6 @@ export interface Workspace {
       stealth?: boolean;
       body: string;
     }[];
-    /** The gradebook, absent until `setup` has configured the course. */
-    scales?: { id: string; name: string; values: string[] }[];
-    gradeItems?: {
-      id: string;
-      name: string;
-      scaleId?: string;
-      hidden: boolean;
-      excludedFromTotal: boolean;
-    }[];
     /**
      * The collection settings of the activities that are Devoirs, by module
      * id. Absent from a course that has none, which is most fixtures.
@@ -145,21 +133,9 @@ export interface Workspace {
     /**
      * What Students have handed in, by the module id of the Devoir it was
      * handed into. Absent from every course no test has handed anything into,
-     * which is all but one of them: nothing in this program ever writes one.
+     * which is most of them: nothing in this program ever writes one.
      */
     submissions?: Record<string, { email: string; url: string }[]>;
-    /**
-     * What the gradebook holds for each Student in each Grade Item, by grade
-     * item id: the Band, and the Probe Sheet in the feedback beside it. Absent
-     * until something has been imported, which is what `setup` leaves behind.
-     */
-    gradebookRows?: Record<string, GradebookRow[]>;
-    /**
-     * Who is enrolled, absent from every fixture that is not about the Oral.
-     * Enrolment is mirrored: a test writes this the way Moodle would hold it,
-     * and nothing in this program ever changes it.
-     */
-    enrolments?: { email: string; name: string }[];
   };
   publisher(
     args: readonly string[],
@@ -195,7 +171,6 @@ export function makeWorkspace(): Workspace {
   // the suite must never read — or be changed by — the .env the developer
   // keeps in their own course repository.
   const envPath = join(root, ".env");
-  const probeSheetsPath = join(root, "probe-sheets.csv");
 
   const workspace: Workspace = {
     root,
@@ -203,7 +178,6 @@ export function makeWorkspace(): Workspace {
     coursePath,
     catalogPath,
     envPath,
-    probeSheetsPath,
 
     write(relative, contents) {
       const path = join(root, relative);
@@ -252,7 +226,6 @@ export function makeWorkspace(): Workspace {
         PUBLISHER_REPO_ROOT: undefined,
         PUBLISHER_MANIFEST: undefined,
         PUBLISHER_ENV_FILE: undefined,
-        PUBLISHER_PROBE_SHEETS: undefined,
         MOODLE_RUN_DIR: undefined,
         ...env,
       };
@@ -287,8 +260,8 @@ export function makeWorkspace(): Workspace {
   // confused with. Both exist in every fixture repository, as they do in the
   // real one; only the first is in the catalog until a test says otherwise.
   //
-  // The grid defines the Deliverables and the probes, as the real one does: it
-  // is where every run reads them from, and a grid defining none aborts.
+  // The grid defines the Deliverables, as the real one does: it is where every
+  // run reads them from, and a grid defining none aborts.
   workspace.writeEnv("");
   writeGrid(workspace);
   workspace.write(ORAL_SCRIPT_SOURCE, INTERVIEW_MARKDOWN);
@@ -314,15 +287,6 @@ export const THREE_COMPETENCIES = `competencies:
   - Extending and constraining an agent
   - Recovering from failure`;
 
-/** One probe per Competency, the least a grid can define and still be read. */
-export const ALL_PROBES = `probes:
-  C1:
-    - Three or more units of work?
-  C2:
-    - An instruction document?
-  C3:
-    - One command that goes red?`;
-
 /** The two Deliverables of this course, as the real grid's front matter defines them. */
 export const BOTH_DELIVERABLES = `deliverables:
   - id: c1-1
@@ -335,8 +299,8 @@ export const BOTH_DELIVERABLES = `deliverables:
     due: 2026-09-11T09:30:00+02:00
     visible: false`;
 
-/** The front matter of the fixture grid: both Deliverables, and the probes. */
-export const GRID_FRONT_MATTER = `${BOTH_DELIVERABLES}\n${ALL_PROBES}`;
+/** The front matter of the fixture grid: both Deliverables. */
+export const GRID_FRONT_MATTER = BOTH_DELIVERABLES;
 
 /** The title the fixture catalog publishes the grid under. */
 export const GRID_TITLE = "Assessment Grid — how you are graded";
@@ -601,139 +565,6 @@ export function submissionsOn(
   const course = workspace.readCourse();
   const item = course.items.find((candidate) => candidate.name === title);
   return item === undefined ? [] : (course.submissions?.[item.moduleId] ?? []);
-}
-
-/**
- * Enrols Students in the fake course, the only way anyone is ever enrolled
- * here: by the course, with no tool in this repository involved.
- *
- * Adds to whoever is already enrolled rather than replacing them, so that a
- * test can enrol somebody *after* a run — which is what "generated from the
- * live enrolment at generation time" is checked by.
- */
-export function enrol(
-  workspace: Workspace,
-  students: readonly { readonly email: string; readonly name: string }[]
-): void {
-  const course = workspace.readCourse();
-  workspace.writeCourse({
-    ...course,
-    // A course nothing has been published into yet has no file, and the empty
-    // one read back carries no course id. Enrolling into it is a real case —
-    // Students are enrolled long before a Devoir exists — so the id the run
-    // will be pointed at is written in rather than left blank, which the fake
-    // refuses to open.
-    courseId: course.courseId === "" ? COURSE_ID : course.courseId,
-    enrolments: [...(course.enrolments ?? []), ...students],
-  });
-}
-
-/**
- * What the gradebook holds for one Student in the Grade Item named `item`, or
- * undefined where there is no row for them.
- *
- * The pair of cells the Instructor works in at the Oral, read back the way the
- * course holds them: a sheet waiting is a row that exists with an empty Band.
- */
-export function gradebookRow(
-  workspace: Workspace,
-  item: string,
-  email: string
-): GradebookRow | undefined {
-  const course = workspace.readCourse();
-  const gradeItem = (course.gradeItems ?? []).find(
-    (candidate) => candidate.name === item
-  );
-  if (gradeItem === undefined) return undefined;
-  return (course.gradebookRows?.[gradeItem.id] ?? []).find(
-    (row) => row.email === email
-  );
-}
-
-/** The generated Probe Sheets file, byte for byte, or undefined if there is none. */
-export function probeSheetsText(workspace: Workspace): string | undefined {
-  return existsSync(workspace.probeSheetsPath)
-    ? readFileSync(workspace.probeSheetsPath, "utf8")
-    : undefined;
-}
-
-/**
- * The generated CSV, parsed. A parser here rather than a split on commas
- * because a Probe Sheet is several lines inside one field, and a test that
- * could not read one back could not check what is on it.
- */
-export function probeSheets(workspace: Workspace): {
-  readonly header: readonly string[];
-  readonly rows: readonly (readonly string[])[];
-} {
-  const [header = [], ...rows] = parseCsv(probeSheetsText(workspace) ?? "");
-  return { header, rows };
-}
-
-/** One Student's cell in one column of the generated CSV. */
-export function cellFor(
-  workspace: Workspace,
-  email: string,
-  column: string
-): string | undefined {
-  const { header, rows } = probeSheets(workspace);
-  const at = header.indexOf(column);
-  const emailAt = header.indexOf("email");
-  const row = rows.find((candidate) => candidate[emailAt] === email);
-  return at === -1 || row === undefined ? undefined : row[at];
-}
-
-/** RFC 4180, which is what `toCsv` writes: quotes, doubled quotes, newlines. */
-function parseCsv(text: string): readonly (readonly string[])[] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-  let at = 0;
-  while (at < text.length) {
-    const character = text[at] as string;
-    if (quoted) {
-      if (character === '"') {
-        if (text[at + 1] === '"') {
-          field += '"';
-          at += 2;
-          continue;
-        }
-        quoted = false;
-        at += 1;
-        continue;
-      }
-      field += character;
-      at += 1;
-      continue;
-    }
-    if (character === '"') {
-      quoted = true;
-      at += 1;
-      continue;
-    }
-    if (character === ",") {
-      row.push(field);
-      field = "";
-      at += 1;
-      continue;
-    }
-    if (character === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-      at += 1;
-      continue;
-    }
-    field += character;
-    at += 1;
-  }
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
 }
 
 /** One activity of the course, by the title it was published under. */

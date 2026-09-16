@@ -6,29 +6,26 @@
 // review shows what publishing did. It is written as each item succeeds, never
 // at the end of a run, so an interrupted run still leaves an accurate record.
 //
-// One file holds every kind of thing the publisher creates. Keeping gradebook
-// state in a second file would recreate the failure `clearManifest` warns
-// about below, one file behind the other: a course wiped with a full manifest
-// beside it is a course the next publish declines to fill.
+// One file holds every kind of thing the publisher creates. Keeping any of it
+// in a second file would recreate the failure `clearManifest` warns about
+// below, one file behind the other: a course wiped with a full manifest beside
+// it is a course the next publish declines to fill.
 import { load, save } from "./lib/store.ts";
 
-import type { Competency } from "../course/gradebook.ts";
 import type { PublishedAsset, SectionName } from "../course/index.ts";
 
 /**
  * What the publisher has put in the course, one entry per key.
  *
  * The key is a repository-relative source path for everything that comes from
- * a file, a `deliverable:` id for a Devoir, and a {@link Competency}'s id for a
- * Grade Item, which comes from no file at all. `kind` is what keeps them
- * apart: a Devoir carries a module id with different settings behind it, a
- * Grade Item has no module id at all, and an entry that had to be asked "are
- * you a page?" by looking for absent fields would be an entry every reader
- * guesses about. Each arrives as a new member here rather than as optional
+ * a file, and a `deliverable:` id for a Devoir. `kind` is what keeps them
+ * apart: a Devoir carries a module id with different settings behind it, and
+ * an entry that had to be asked "are you a page?" by looking for absent fields
+ * would be an entry every reader guesses about. Each arrives as a new member here rather than as optional
  * fields on `PageEntry`, so that reading an entry never means guessing which
  * fields its neighbours left empty.
  */
-export type ManifestEntry = PageEntry | DevoirEntry | GradeItemEntry;
+export type ManifestEntry = PageEntry | DevoirEntry;
 
 /**
  * A Deliverable published as a Moodle Devoir.
@@ -139,25 +136,6 @@ export interface PageEntry {
 }
 
 /**
- * A Grade Item, created once by `setup` and thereafter only read.
- *
- * There is no module id: a Grade Item is not an activity and does not sit in a
- * section. There is no content hash and no `updatedAt` either, because nothing
- * in this program ever rewrites one — a Grade Item is configuration, and what
- * changes in it afterwards are the Bands a human enters.
- */
-export interface GradeItemEntry {
-  readonly kind: "grade-item";
-  /** Moodle's grade item id. */
-  readonly itemId: string;
-  /** Its name in the gradebook, as `setup` created it. */
-  readonly name: string;
-  /** The Bands scale it is valued on. */
-  readonly scaleId: string;
-  readonly createdAt: string;
-}
-
-/**
  * A picture as an entry on disk records it.
  *
  * The same thing a driver reports, except that its hash may be missing: this
@@ -210,38 +188,10 @@ export function clearManifest(path: string): Manifest {
 }
 
 /**
- * Records one Grade Item, keyed by the id of the Competency it grades.
- *
- * Keyed by Competency and not by a path because a Grade Item comes from no file:
- * the Competency's id is the only name it has that outlives the run. It goes in the
- * one manifest file, beside the pages, for the reason this file's own comment
- * gives — gradebook state kept in a second file is a wiped course the next
- * publish declines to fill.
- */
-export function recordGradeItem(
-  path: string,
-  competency: Competency,
-  entry: GradeItemEntry
-): Manifest {
-  const entries = { ...load(path), [competency.id]: entry };
-  save(path, entries);
-  return { entries };
-}
-
-/** The Grade Item recorded for `competency`, if `setup` has made it. */
-export function gradeItemFor(
-  manifest: Manifest,
-  competency: Competency
-): GradeItemEntry | undefined {
-  const entry = manifest.entries[competency.id];
-  return entry?.kind === "grade-item" ? entry : undefined;
-}
-
-/**
  * The page `source` was published as, if it was published at all.
  *
  * What `publish` and `audit` ask, and they ask it this way because they are
- * about documents: an entry recording a Grade Item or a Devoir is not one.
+ * about documents: an entry recording a Devoir is not one.
  * Narrowing here, once, is what saves every caller from remembering that the
  * record holds more than pages. The counterpart of {@link devoirEntryFor},
  * and it reads a non-page entry the same way: as nothing recorded. A document
