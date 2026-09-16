@@ -18,6 +18,7 @@ import {
   INSTALLED_PUBLISHER,
   installPublisher,
   installedPublisher,
+  linkSkills,
   makeWorkspace,
 } from "./harness.ts";
 
@@ -101,6 +102,7 @@ test("check passes on the context map the README shows", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  linkSkills(workspace);
   const readme = readFileSync(join(installedPublisher(), "README.md"), "utf8");
   assert.ok(readme.includes(CONTEXT_MAP_MARKDOWN), "the README shows this map");
 
@@ -205,6 +207,7 @@ test("check counts the links however they are written: reference-style, bare, wi
 [glossary]: ./${INSTALLED_PUBLISHER}/CONTEXT.md#language
 `
   );
+  linkSkills(workspace);
 
   const result = await check(workspace);
 

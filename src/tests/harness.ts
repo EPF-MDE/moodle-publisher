@@ -18,8 +18,10 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import type { PublishedEntry } from "../packages/catalog/index.ts";
+import { SKILLS } from "../packages/skills/installed.ts";
 
 export type { PublishedEntry } from "../packages/catalog/index.ts";
+export { SKILLS } from "../packages/skills/installed.ts";
 
 const run = promisify(execFile);
 
@@ -69,12 +71,35 @@ export const CONTEXT_MAP_MARKDOWN = `# Context map
 `;
 
 /**
- * The publisher installed, and the course repository's context pointer into
- * it: what `check` requires of every course repository before it passes.
+ * Where a course repository links one of the publisher's skills. Written out
+ * here rather than taken from the skills package, whose layout is private and
+ * is what the tests hold it to.
+ */
+export function skillLink(name: string): string {
+  return `.claude/skills/${name}`;
+}
+
+/**
+ * The publisher's skills linked into the course repository as `install-skills`
+ * links them: a relative symlink into the installed publisher.
+ */
+export function linkSkills(workspace: Workspace): void {
+  for (const name of SKILLS) {
+    const link = join(workspace.root, skillLink(name));
+    mkdirSync(dirname(link), { recursive: true });
+    symlinkSync(`../../${INSTALLED_PUBLISHER}/skills/${name}`, link, "dir");
+  }
+}
+
+/**
+ * The publisher installed, the course repository's context pointer into it and
+ * its skills linked: what `check` requires of every course repository before it
+ * passes.
  */
 export function pointContextAtPublisher(workspace: Workspace): void {
   installPublisher(workspace);
   workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  linkSkills(workspace);
 }
 
 /** The course every run in this suite is pointed at. */
