@@ -97,6 +97,8 @@ interface StoredCourse {
  */
 type StoredItem = Omit<CourseItem, "stealth" | "devoir"> & {
   stealth?: boolean;
+  /** What a student reads on the activity, kept for the tests to read back. */
+  body: string;
   files?: Record<string, string>;
 };
 
@@ -358,7 +360,7 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
       return {
         courseId: course.courseId,
         sections: sections(),
-        items: course.items.map(({ files: _files, ...item }) => ({
+        items: course.items.map(({ files: _files, body: _body, ...item }) => ({
           ...item,
           stealth: item.stealth ?? false,
           devoir: isDevoir(course, item.moduleId),

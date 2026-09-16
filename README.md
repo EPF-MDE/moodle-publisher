@@ -29,7 +29,7 @@ npx moodle-publisher install-skills   # once per course repository: links the pu
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
 
 npm run plan            # reports what would happen; applies nothing
-npm run apply           # publishes; opens a visible browser
+npm run apply           # publishes
                         # both open a visible browser and need a signed-in session
 
 npm run check:upload    # sends pictures into an activity form on the live course
@@ -102,7 +102,7 @@ EPF's Moodle authenticates exclusively through Office 365, and a web service tok
 
 - The browser is **visible**, always. It never runs headless and refuses to run when `CI` is set.
 - The instructor logs in to Microsoft **by hand, once**. This tool never reads, stores or transmits the EPF password; only Playwright's session state is persisted, to `~/.config/epf-moodle-publisher/session.json` by default — outside git, and revocable by logging out of Office 365. The run waits for `MOODLE_BASE_URL` itself and for a signed-in page, not merely for the browser to leave the Microsoft host: a real sign-in may hop through an intermediate identity host on its way back.
-- If a run is ever bounced to `login.microsoftonline.com` it **aborts immediately** rather than half-writing content. The check starts once the hand login is done, so the login you were asked to perform is not itself mistaken for a bounce; every page the driver opens after that is watched, including the per-activity pages a snapshot reads.
+- If a run is ever bounced to `login.microsoftonline.com` it **aborts immediately** rather than half-writing content. The check starts once the hand login is done, so the login you were asked to perform is not itself mistaken for a bounce; every page the driver opens after that is watched.
 - If the course in the browser is not `MOODLE_COURSE_ID`, it aborts. The course id is read from the page, not assumed from the URL requested.
 - HTML goes in through the editor's **source view**: the driver switches the instructor's editor preference to the plain text area, fills the field, and restores the previous preference when the run ends. A document that shows a picture is written through Atto's source view instead, because the file picker is the only way a file gets into this Moodle — see [Pictures](#pictures). Nothing is typed character by character. If the preference cannot be set the run aborts, because filling a rich editor's hidden textarea produces an activity whose body is quietly wrong. The switch happens only when a run is about to write something — a plan never touches the preference, and so can never abort on it. If the restore fails the run still finishes, with a warning naming the value to set back by hand.
 - An update opens **the same form on the existing activity** (`/course/modedit.php?update=<module id>`) and fills the name and the content and nothing else. Moodle keeps the module id, the section and the visibility, and the driver reads the course back afterwards: an update form a future Moodle stops honouring fails loudly instead of reporting a document republished while students carry on reading last week's version.

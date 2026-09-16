@@ -2,7 +2,7 @@
 
 The publisher writes the course; it does not check it afterwards. What a human did by hand in Moodle — a page of Instructor Material revealed, a Freeze moved, file upload switched back on, a Devoir deleted — shows up nowhere in a run's output. This checklist is how it is found: read the live course against the course repository, by eye, and fix what disagrees.
 
-It replaces the retired `audit` command. Nothing here writes to the course, so it is safe to go through at any time. The times it matters most are after a publish, before a document's reveal date, and in the hour before each Freeze.
+It replaces the retired `audit` command ([ADR-0012](./adr/0012-the-course-is-reviewed-by-eye.md)). Nothing here writes to the course, so it is safe to go through at any time. The times it matters most are after a publish, before a document's reveal date, and in the hour before each Freeze.
 
 ## What to have open
 
@@ -36,7 +36,7 @@ Every Devoir is in the `Deliverables` Section. Open each one's **Settings** to c
   - **Due date** and **Cut-off date** are both enabled, and both are the Deliverable's `due`, to the minute, read in `Europe/Paris`;
   - under **Submission types**, **Online text** is ticked and **File submissions** is not.
 
-  A date somebody moved, a cut-off switched off or file submissions switched back on is put right by `publish --apply`, which writes all of them again. A Devoir that is gone is created again by the same command. The Submissions it held are not coming back, so find out why it went.
+  A date somebody moved, a cut-off switched off or file submissions switched back on has to be put right **by hand**, in the Devoir's settings. `publish --apply` skips a Devoir whose Deliverable has not changed in the repository, so it does not see the edit. A Devoir that is gone is created again by `publish --apply`. The Submissions it held are not coming back, so find out why it went.
 
   Whether a Devoir is shown is not checked here. A Deliverable with `visible: false` is created hidden and revealed by hand. Just note which Devoirs are open, and make sure the Devoir students must hand in to is not hidden or stealthed.
 

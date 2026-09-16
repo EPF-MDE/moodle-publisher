@@ -74,11 +74,6 @@ export interface CourseItem {
    * `readsAsDevoir` in `activities.ts`.
    */
   readonly devoir: boolean;
-  /**
-   * The activity's rendered text. The retired Audit was what matched it against
-   * Instructor Material; no command reads it now.
-   */
-  readonly body: string;
 }
 
 /** One section of the course page, as the course itself numbers and names it. */

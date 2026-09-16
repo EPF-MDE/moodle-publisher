@@ -530,10 +530,7 @@ async function sessionKey(page: Page): Promise<string> {
   return key;
 }
 
-async function readItems(
-  page: Page,
-  watch: LoginWatch
-): Promise<readonly CourseItem[]> {
+async function readItems(page: Page): Promise<readonly CourseItem[]> {
   const sections = await readSections(page);
   const raw = await page.evaluate((selector) => {
     /**
@@ -614,9 +611,6 @@ async function readItems(
             activity.querySelector(".activity-item")?.getAttribute("class") ??
             "",
           url: link?.getAttribute("href") ?? "",
-          // A label has no page of its own: its content is on the course page.
-          // Without this it would read as an activity with an empty body.
-          inlineBody: (activity.textContent ?? "").replace(/\s+/g, " ").trim(),
         };
       })
     );
@@ -632,42 +626,6 @@ async function readItems(
     const { visible, stealth } = readActivityVisibility(item);
     const devoir = readsAsDevoir(item, item.url);
 
-    // A label: no page to open, its content already read from the course page.
-    if (item.url === "") {
-      items.push({
-        moduleId: item.moduleId,
-        name: item.name,
-        section: sections[item.sectionIndex]?.name ?? "",
-        visible,
-        stealth,
-        devoir,
-        body: item.inlineBody,
-      });
-      continue;
-    }
-
-    // Each activity's rendered page is read rather than inferred from the
-    // course page. The retired Audit was what matched on it, and no command
-    // reads the body now. These pages are watched and checked like any other:
-    // a session that expires mid-snapshot would otherwise have the login page's
-    // text read as an activity body.
-    const view = await page.context().newPage();
-    watch.watch(view);
-    let body: string;
-    try {
-      await view.goto(new URL(item.url, page.url()).toString(), {
-        waitUntil: "domcontentloaded",
-      });
-      assertNotOnLoginHost(view, watch);
-      body = await view.evaluate(
-        () =>
-          document.querySelector("#region-main")?.textContent ??
-          document.body.textContent ??
-          ""
-      );
-    } finally {
-      await view.close();
-    }
     items.push({
       moduleId: item.moduleId,
       name: item.name,
@@ -678,7 +636,6 @@ async function readItems(
       visible,
       stealth,
       devoir,
-      body,
     });
   }
   return items;
@@ -1456,14 +1413,14 @@ export async function openBrowserCourse(
     assertNotOnLoginHost(page, watch);
     await assertInConfiguredCourse(page, options);
 
-    return readItems(page, watch);
+    return readItems(page);
   }
 
   return {
     async snapshot(): Promise<CourseSnapshot> {
       await gotoCourse(page, options, watch);
       const sections = await readSections(page);
-      const items = await readItems(page, watch);
+      const items = await readItems(page);
       return {
         courseId: options.courseId,
         sections: sections.map(({ number, name, visible }) => ({
@@ -1502,7 +1459,7 @@ export async function openBrowserCourse(
         // program has seen happen: it is a question it could not get an answer
         // to, and the safe reading of "I cannot find the answer key" is not
         // "the answer key is hidden".
-        const confirmed = (await readItems(page, watch)).find(
+        const confirmed = (await readItems(page)).find(
           (item) => item.moduleId === moduleId
         );
         if (confirmed === undefined) {
@@ -1546,7 +1503,7 @@ export async function openBrowserCourse(
         // the ones that were already there. What identifies it is the module
         // id that was not on the page a moment ago; the name cannot, because
         // two activities are allowed to share one.
-        const before = await readItems(page, watch);
+        const before = await readItems(page);
         const form = new URL(
           `/course/modedit.php?add=page&course=${options.courseId}&section=${section}`,
           options.baseUrl
@@ -1638,14 +1595,14 @@ export async function openBrowserCourse(
       try {
         // As for a page: what identifies the activity this call made is the
         // module id that was not on the course page a moment ago.
-        const before = await readItems(page, watch);
+        const before = await readItems(page);
         const form = new URL(
           `/course/modedit.php?add=assign&course=${options.courseId}&section=${section}`,
           options.baseUrl
         ).toString();
         await submitDevoirForm(form, { kind: "create", ...devoir }, what);
 
-        const created = createdActivity(before, await readItems(page, watch), {
+        const created = createdActivity(before, await readItems(page), {
           named: `the Devoir "${devoir.name}"`,
           section: DELIVERABLE_SECTION,
           visible: devoir.visible,
@@ -1688,7 +1645,7 @@ export async function openBrowserCourse(
         // Read the course back, exactly as an update to a page does. What the
         // course page cannot say is what the two dates were saved as — that is
         // for a human review to check against the front matter.
-        updatedActivity(await readItems(page, watch), devoir, "the Devoir");
+        updatedActivity(await readItems(page), devoir, "the Devoir");
       } catch (error) {
         noteAbort(mutation, error);
         throw error;
@@ -1781,7 +1738,7 @@ export async function openBrowserCourse(
         // reported a clean course — the failure that would send the instructor
         // to build on a course they believe is empty.
         await gotoCourse(page, options, watch);
-        const remaining = await readItems(page, watch);
+        const remaining = await readItems(page);
         if (remaining.some((item) => item.moduleId === moduleId)) {
           throw new Error(
             `Aborting: activity ${moduleId} is still in course ${options.courseId} after deleting it.`
