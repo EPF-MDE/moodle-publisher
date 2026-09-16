@@ -26,15 +26,15 @@ export class SkillLinkRefused extends Error {
   }
 }
 
-/** A course repository whose skill link is missing, or leads somewhere else. */
-export class MissingSkillLink extends Error {
+/** A course repository whose skill link is missing, dangling, or leads somewhere else. */
+export class BrokenSkillLink extends Error {
   constructor(path: string, problem: string) {
     super(
       `Refusing to pass: ${path} ${problem}. The publisher's skills are linked ` +
         `into the course repository, not copied: run \`${INSTALL_SKILLS_COMMAND}\` ` +
         `(after npm install, if the publisher is not installed).`
     );
-    this.name = "MissingSkillLink";
+    this.name = "BrokenSkillLink";
   }
 }
 
@@ -63,7 +63,8 @@ export function installSkills(
     );
   }
 
-  const foreign = links.filter((link) => linkState(repoRoot, link) === "foreign");
+  const states = links.map((link) => ({ link, state: linkState(repoRoot, link) }));
+  const foreign = states.filter(({ state }) => state === "foreign").map(({ link }) => link);
   if (foreign.length > 0) {
     throw new SkillLinkRefused(
       `${foreign.map((link) => link.path).join(" and ")} already ` +
@@ -73,8 +74,8 @@ export function installSkills(
     );
   }
 
-  for (const link of links) {
-    if (linkState(repoRoot, link) === "linked") {
+  for (const { link, state } of states) {
+    if (state === "linked") {
       options.report(`${link.path} is already linked.`);
     } else if (options.dryRun) {
       options.report(`Would link ${link.path} → ${link.target}`);
@@ -86,7 +87,7 @@ export function installSkills(
 }
 
 /**
- * Throws {@link MissingSkillLink} for the first skill whose link in `repoRoot`
+ * Throws {@link BrokenSkillLink} for the first skill whose link in `repoRoot`
  * is missing, leads nowhere, or leads anywhere but the installed skill. Writes
  * nothing.
  */
@@ -96,11 +97,11 @@ export function assertSkillLinks(repoRoot: string): void {
       case "linked":
         continue;
       case "absent":
-        throw new MissingSkillLink(link.path, "is missing");
+        throw new BrokenSkillLink(link.path, "is missing");
       case "dangling":
-        throw new MissingSkillLink(link.path, `leads nowhere, where it should lead to ${link.installed}`);
+        throw new BrokenSkillLink(link.path, `leads nowhere, where it should lead to ${link.installed}`);
       case "foreign":
-        throw new MissingSkillLink(link.path, `is not a link to ${link.installed}`);
+        throw new BrokenSkillLink(link.path, `is not a link to ${link.installed}`);
     }
   }
 }

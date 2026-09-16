@@ -19,8 +19,10 @@ import { promisify } from "node:util";
 
 import type { PublishedEntry } from "../packages/catalog/index.ts";
 import type { GradebookRow } from "../packages/course/fake.ts";
+import { SKILLS } from "../packages/skills/installed.ts";
 
 export type { PublishedEntry } from "../packages/catalog/index.ts";
+export { SKILLS } from "../packages/skills/installed.ts";
 
 const run = promisify(execFile);
 
@@ -69,10 +71,11 @@ export const CONTEXT_MAP_MARKDOWN = `# Context map
   [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/): publishing and grading.
 `;
 
-/** The skills the publisher ships, each linked into `.claude/skills/<name>`. */
-export const SKILLS = ["feedback-letter", "banding-anchors"] as const;
-
-/** Where a course repository links one of the publisher's skills. */
+/**
+ * Where a course repository links one of the publisher's skills. Written out
+ * here rather than taken from the skills package, whose layout is private and
+ * is what the tests hold it to.
+ */
 export function skillLink(name: string): string {
   return `.claude/skills/${name}`;
 }

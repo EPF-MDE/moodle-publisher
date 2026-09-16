@@ -12,7 +12,7 @@ The letter is drafted before the Oral and revised after it, in the same gist, so
 
 ## 0. Read the course
 
-- **`publisher.json`**, for its `feedbackLetter` block: `course`, `prefix` and `signature`. If there is no block, stop and ask the Instructor to add one; `moodle-publisher check` validates it:
+- **`publisher.json`**, for its `feedbackLetter` block: `course`, `prefix` and `signature`. If there is no block, ask the Instructor for the three values in chat and use them, then suggest adding the block so the next letter need not ask; `moodle-publisher check` validates it:
 
   ```json
   "feedbackLetter": { "course": "<course name>", "prefix": "<kebab-case-prefix>", "signature": "<first name>" }

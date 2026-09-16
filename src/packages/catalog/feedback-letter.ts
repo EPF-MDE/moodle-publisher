@@ -36,7 +36,7 @@ export class InvalidFeedbackLetter extends Error {
  * course repository has none.
  *
  * Throws {@link InvalidFeedbackLetter} when the block is not an object, when
- * `course`, `prefix` or `signature` is not a non-empty string, or when `prefix`
+ * `course`, `prefix` or `signature` is not a non-blank string, or when `prefix`
  * is not lower-case kebab-case, the shape a filename takes it in.
  */
 export function loadFeedbackLetter(catalog: Catalog): FeedbackLetterSettings | undefined {
@@ -49,8 +49,9 @@ export function loadFeedbackLetter(catalog: Catalog): FeedbackLetterSettings | u
   for (const field of ["course", "prefix", "signature"]) {
     const value = fields[field];
     if (typeof value !== "string" || value.trim() === "") {
+      const problem = field in fields ? `has a "${field}" that is blank or not a string` : `has no "${field}"`;
       throw new InvalidFeedbackLetter(
-        `has no "${field}": it needs a non-empty string for each of "course", "prefix" and "signature".`
+        `${problem}: it needs a non-blank string for each of "course", "prefix" and "signature".`
       );
     }
   }

@@ -186,6 +186,23 @@ test("install-skills replaces a link of its own that leads nowhere, as a renamed
   );
 });
 
+test("install-skills replaces a link of its own that leads nowhere, however its target is written", async () => {
+  const workspace = installedRepository();
+  workspace.write(".claude/skills/.keep", "");
+  symlinkSync(
+    join(workspace.root, ".", INSTALLED_PUBLISHER, "skills", "student-feedback"),
+    join(workspace.root, skillLink("feedback-letter"))
+  );
+
+  const result = await offline(workspace, ["install-skills"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(
+    readlinkSync(join(workspace.root, skillLink("feedback-letter"))),
+    `../../${INSTALLED_PUBLISHER}/skills/feedback-letter`
+  );
+});
+
 test("install-skills --dry-run says what it would link and writes nothing", async () => {
   const workspace = installedRepository();
 

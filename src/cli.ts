@@ -630,55 +630,47 @@ const INSTALL_BROWSER_FLAGS: readonly string[] = ["--dry-run"];
 /** The flags `install-skills` takes, and the whole of them. */
 const INSTALL_SKILLS_FLAGS: readonly string[] = ["--dry-run"];
 
+/**
+ * Exit status 2, with the usage, when `argv` holds anything but `flags`;
+ * `undefined` when the command may run.
+ *
+ * The arguments are echoed as they were typed rather than described, because a
+ * flag and the value after it are both unrecognised and only the person who
+ * typed them knows which was meant to be which.
+ */
+function refuseUnrecognised(
+  command: string,
+  argv: readonly string[],
+  flags: readonly string[]
+): number | undefined {
+  const unrecognised = argv.filter((argument) => !flags.includes(argument));
+  if (unrecognised.length === 0) return undefined;
+  process.stderr.write(
+    `Aborting: ${command} takes ${flags.join(" ")} and nothing else. ` +
+      `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
+  );
+  return 2;
+}
+
 async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
-    case "install-browser": {
-      const unrecognised = rest.filter(
-        (argument) => !INSTALL_BROWSER_FLAGS.includes(argument)
+    case "install-browser":
+      // A browser name is the likeliest thing typed here, and this command
+      // installs Chromium and nothing else: said, rather than ignored.
+      return (
+        refuseUnrecognised(command, rest, INSTALL_BROWSER_FLAGS) ??
+        installBrowser({ dryRun: rest.includes("--dry-run") })
       );
-      if (unrecognised.length > 0) {
-        // A browser name is the likeliest thing typed here, and this command
-        // installs Chromium and nothing else: said, rather than ignored.
-        process.stderr.write(
-          `Aborting: install-browser takes ${INSTALL_BROWSER_FLAGS.join(" ")} and nothing else. ` +
-            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
-        );
-        return 2;
-      }
-      return installBrowser({ dryRun: rest.includes("--dry-run") });
-    }
-    case "install-skills": {
-      const unrecognised = rest.filter(
-        (argument) => !INSTALL_SKILLS_FLAGS.includes(argument)
+    case "install-skills":
+      // A skill name is the likeliest thing typed here, and this command
+      // links every skill the publisher ships or none: said, not ignored.
+      return (
+        refuseUnrecognised(command, rest, INSTALL_SKILLS_FLAGS) ??
+        linkSkills(rest.includes("--dry-run"))
       );
-      if (unrecognised.length > 0) {
-        // A skill name is the likeliest thing typed here, and this command
-        // links every skill the publisher ships or none: said, not ignored.
-        process.stderr.write(
-          `Aborting: install-skills takes ${INSTALL_SKILLS_FLAGS.join(" ")} and nothing else. ` +
-            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
-        );
-        return 2;
-      }
-      return linkSkills(rest.includes("--dry-run"));
-    }
-    case "publish": {
-      const unrecognised = rest.filter(
-        (argument) => !PUBLISH_FLAGS.includes(argument)
-      );
-      if (unrecognised.length > 0) {
-        // The arguments are echoed as they were typed rather than described,
-        // because a flag and the value after it are both unrecognised and only
-        // the person who typed them knows which was meant to be which.
-        process.stderr.write(
-          `Aborting: publish takes ${PUBLISH_FLAGS.join(" ")} and nothing else. ` +
-            `It was given: ${unrecognised.join(" ")}.\n\n${USAGE}`
-        );
-        return 2;
-      }
-      return publish(rest.includes("--apply"));
-    }
+    case "publish":
+      return refuseUnrecognised(command, rest, PUBLISH_FLAGS) ?? publish(rest.includes("--apply"));
     case "check":
       if (rest.length > 0) {
         process.stderr.write(

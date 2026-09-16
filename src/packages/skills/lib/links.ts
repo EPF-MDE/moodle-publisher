@@ -8,51 +8,37 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readFileSync,
   readlinkSync,
   realpathSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
-import { dirname, join, posix } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
-/** The skills this package ships, in the order they are linked. */
-export const SKILLS: readonly string[] = ["feedback-letter", "banding-anchors"];
+import { installedPublisher, SKILLS } from "../installed.ts";
 
 /** What a course repository runs to link the skills. */
 export const INSTALL_SKILLS_COMMAND = "npx moodle-publisher install-skills";
 
-/**
- * The name this package is installed under, read from its own `package.json`
- * so that a link is made to where `npm install` actually puts it.
- */
-function packageName(): string {
-  const manifest = new URL("../../../../package.json", import.meta.url);
-  const { name } = JSON.parse(readFileSync(manifest, "utf8")) as { name: string };
-  return name;
-}
+/** Repository-relative: where the installed publisher keeps its skills. */
+const INSTALLED_SKILLS = `${installedPublisher()}/skills`;
 
 /** One skill's link, as a course repository holds it. */
 export interface SkillLink {
-  readonly name: string;
   /** Repository-relative: `.claude/skills/<name>`. */
   readonly path: string;
-  /** What the symlink holds, relative to the directory it sits in. */
+  /** What the symlink holds, relative to the `.claude/skills/` it sits in. */
   readonly target: string;
   /** Repository-relative: where the installed publisher keeps the skill. */
   readonly installed: string;
-  /** What every link into the installed publisher's skills starts with. */
-  readonly targetRoot: string;
 }
 
+/** Every skill's link, in the order {@link SKILLS} lists them. */
 export function skillLinks(): readonly SkillLink[] {
-  const installed = `node_modules/${packageName()}/skills`;
   return SKILLS.map((name) => ({
-    name,
     path: `.claude/skills/${name}`,
-    target: `../../${installed}/${name}`,
-    installed: `${installed}/${name}`,
-    targetRoot: `../../${installed}/`,
+    target: `../../${INSTALLED_SKILLS}/${name}`,
+    installed: `${INSTALLED_SKILLS}/${name}`,
   }));
 }
 
@@ -75,7 +61,7 @@ export function linkState(repoRoot: string, link: SkillLink): LinkState {
   }
   if (!symlink) return "foreign";
   if (!existsSync(path)) {
-    return isOurTarget(readlinkSync(path), link) ? "dangling" : "foreign";
+    return isOurTarget(repoRoot, path, link) ? "dangling" : "foreign";
   }
   const installed = join(repoRoot, link.installed);
   return existsSync(installed) && realpathSync(path) === realpathSync(installed)
@@ -83,9 +69,22 @@ export function linkState(repoRoot: string, link: SkillLink): LinkState {
     : "foreign";
 }
 
-/** Whether `target`, however it is written, leads into the publisher's skills. */
-function isOurTarget(target: string, link: SkillLink): boolean {
-  return posix.normalize(target).startsWith(link.targetRoot);
+/**
+ * Whether the symlink at `path`, however its target is written (relative,
+ * absolute, with `./` or `..` segments, through a symlinked directory), leads
+ * into the publisher's skills.
+ */
+function isOurTarget(repoRoot: string, path: string, link: SkillLink): boolean {
+  const skillsRoot = canonical(join(repoRoot, dirname(link.installed))) + sep;
+  const target = canonical(resolve(dirname(path), readlinkSync(path)));
+  return target.startsWith(skillsRoot);
+}
+
+/** `path` with its deepest existing ancestor resolved, the rest kept as written. */
+function canonical(path: string): string {
+  const parent = dirname(path);
+  if (existsSync(path)) return realpathSync(path);
+  return parent === path ? path : join(canonical(parent), basename(path));
 }
 
 /**

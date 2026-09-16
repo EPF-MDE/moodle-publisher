@@ -66,6 +66,7 @@ export function checkRepository(repoRoot: string): CheckReport {
     snapshot: { courseId: "", sections: [], items: [] },
   });
   // Last, because no run reads them: what a run would refuse is named first.
+  // Called only to validate the block: a check has no letter to write.
   loadFeedbackLetter(catalog);
   assertContextPointer(repoRoot);
   assertSkillLinks(repoRoot);

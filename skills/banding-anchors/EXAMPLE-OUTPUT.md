@@ -1,20 +1,20 @@
 # C1 — Banding Anchors
 
-_Reference output for the `banding-anchors` skill: one finished file from another EPF course, about agent-assisted software work. Its links have been flattened, since the repository it belongs to is not this one. Read it for register and length; the shape in `SKILL.md` is authoritative._
+_Reference output for the `banding-anchors` skill: one finished file, with its links flattened and its course left unnamed. Read it for register and length; the shape in `SKILL.md` is authoritative._
 
 **Instructor notes. Not for Students:** these are worked answers about a repository students can read. Shown to students, they become a script to imitate rather than a standard to meet.
 
-Use them for calibration — mine against the band you provisionally assigned — and as the source of the follow-up when an answer stalls. Criteria live in `assessment-grid.md`; discriminators in `interview-script.md`. Neither is restated here.
+Use them for calibration — mine against the band you provisionally assigned — and as the source of the follow-up when an answer stalls. Criteria live in `assessment-grid.md`; discriminators in the course's interview notes. Neither is restated here.
 
 **Question:** _"Walk me through how you framed this work. Show me one unit you would hand to a fresh agent session, and tell me what it blocks."_
 
-**Subject used below:** the Moodle publisher (`publisher/`) — publishing a course from git to Moodle, repeatably. A real change with a real blocking edge.
+**Subject used below:** a docs publisher — syncing a handbook from git into a team wiki, repeatably. A real change with a real blocking edge.
 
 ---
 
 ## Basic — what falls short
 
-> "The request was to publish my course to Moodle. I wrote a spec describing the publisher: it reads a manifest, creates the sections, uploads the documents. Then I split it into three issues — parse the manifest, create sections, upload documents — and did them in that order, because you need sections before you can put documents in them. For context I started a fresh session for each issue so it wouldn't get confused."
+> "The request was to publish our handbook to the wiki. I wrote a spec describing the publisher: it reads a manifest, creates the sections, uploads the documents. Then I split it into three issues — parse the manifest, create sections, upload documents — and did them in that order, because you need sections before you can put documents in them. For context I started a fresh session for each issue so it wouldn't get confused."
 
 Everything asked for is present, and nothing is justified. The tells, in the order they appear:
 
@@ -30,7 +30,7 @@ Everything asked for is present, and nothing is justified. The tells, in the ord
 ## Solid
 
 > **The framing.**
-> The request I started from was "publish my course to Moodle." I interviewed it, and the thing it never answered was: **what does a second publish do to a section that exists in Moodle but is no longer in my manifest?** The request only imagined the first run. There are three defensible answers — leave it, delete it, or refuse and make the human decide — and they produce completely different code, so I could not write a single ticket until I picked one.
+> The request I started from was "publish our handbook to the wiki." I interviewed it, and the thing it never answered was: **what does a second publish do to a section that exists in the wiki but is no longer in my manifest?** The request only imagined the first run. There are three defensible answers — leave it, delete it, or refuse and make the human decide — and they produce completely different code, so I could not write a single ticket until I picked one.
 >
 > I picked **delete, but only sections the publisher created itself**, tracked by an ID we write at creation. That line is in the spec and not in the request. It is why the spec is two pages rather than a restatement.
 >
@@ -51,7 +51,7 @@ The move doing the most work is the **last two beats**: a preferred edge held ne
 
 Same answer, plus one of these, volunteered:
 
-> "The cost: three tickets took about forty minutes to write, and #8 was not worth its ticket — it is a two-line rename I could have folded into #7. I deliberately did **not** decompose the Moodle client itself, even though it is the biggest file, because there is no seam in it that a fresh session could hold on its own; splitting it would have produced two tickets that each needed the other's context to make sense. Decomposition buys independent execution and it costs you the ability to see the whole shape at once. Below about half a day of work it does not pay."
+> "The cost: three tickets took about forty minutes to write, and #8 was not worth its ticket — it is a two-line rename I could have folded into #7. I deliberately did **not** decompose the wiki client itself, even though it is the biggest file, because there is no seam in it that a fresh session could hold on its own; splitting it would have produced two tickets that each needed the other's context to make sense. Decomposition buys independent execution and it costs you the ability to see the whole shape at once. Below about half a day of work it does not pay."
 
 Two things are being demonstrated: a **place the method does not apply**, and its **price**. Either alone is enough.
 

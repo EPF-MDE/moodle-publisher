@@ -47,7 +47,7 @@ Done when every Solid clause has a Basic-says / Solid-says line.
 
 ## 4. Write the file
 
-Name it `<id>-banding-anchors--instructor.md` (for example `c2-banding-anchors--instructor.md`), unless the course already names its Banding Anchors otherwise. The name is a default, not a rule: `publisher.json` gives each published file its title. The `--instructor` suffix is not optional, because it is what makes the publisher publish the file hidden, as Instructor Material. Keep the file beside the grid unless the course keeps its Banding Anchors elsewhere, and tell the Instructor to list it in `publisher.json` if they want it in Moodle.
+Name it `<id>-banding-anchors--instructor.md` (for example `c2-banding-anchors--instructor.md`), unless the course already names its Banding Anchors otherwise. The name is a default, not a rule: `publisher.json` gives each published file its title. Whatever name the Instructor chooses, keep the `--instructor` suffix: it is what makes the publisher publish the file hidden, as Instructor Material (publisher ADR-0004). Keep the file beside the grid unless the course keeps its Banding Anchors elsewhere, and tell the Instructor to list it in `publisher.json` if they want it in Moodle.
 
 Follow [the shape](#the-shape) below, in order. Write the spoken answers in the student's voice, out loud, at a length the clock allows.
 

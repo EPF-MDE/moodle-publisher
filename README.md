@@ -65,7 +65,7 @@ The map is required, as `publisher.json` is. `check` fails when the course repos
 
 `check` also requires the publisher's **agent skills** to be linked, and fails, naming the link and saying to run `npx moodle-publisher install-skills`, when either is missing or leads anywhere but the installed skill. See [Agent skills](#agent-skills).
 
-When `publisher.json` has a `feedbackLetter` block, `check` fails on one whose `course`, `prefix` or `signature` is not a non-empty string, or whose `prefix` is not lower-case kebab-case. See [Agent skills](#agent-skills).
+When `publisher.json` has a `feedbackLetter` block, `check` fails on one whose `course`, `prefix` or `signature` is not a non-blank string, or whose `prefix` is not lower-case kebab-case. See [Agent skills](#agent-skills).
 
 What it leaves out is only what depends on the live course: a document whose section was changed after it was published, and instructor material already in the course that the manifest has no record of. `npm run plan` still says those.
 
