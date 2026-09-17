@@ -25,3 +25,4 @@ Instructor Material is a hidden PDF, decided by the `--instructor` suffix exactl
 - **Pictures cost bytes in each PDF.** A diagram shown by two documents is inside both.
 - **ADR-0004's title** (*Instructor material is hidden per page*) stays as recorded history. Its decision holds per PDF.
 - **How a PDF looks, the add-resource form and whether a hidden PDF is unreachable by a Student** are checked by hand against a Moodle test course, never by the suite. The fake course keeps the HTML it was handed, and the tests read that.
+- **Every page of a PDF has a footer** naming the Course (the `course` of `publisher.json`), the page number and the day of the run in `Europe/Paris`, and every PDF is laid out portrait on A4 by a print stylesheet embedded in the HTML it is printed from (#26).

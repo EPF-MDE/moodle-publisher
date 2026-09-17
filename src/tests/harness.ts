@@ -113,6 +113,9 @@ export const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
 /** The course every run in this suite is pointed at. */
 export const COURSE_ID = "4242";
 
+/** What the fixture repository's `publisher.json` calls its Course. */
+export const COURSE_NAME = "Coding Agents Management 2026";
+
 export interface CommandResult {
   readonly code: number;
   readonly stdout: string;
@@ -225,9 +228,14 @@ export function makeWorkspace(): Workspace {
     },
 
     writeCatalog(catalog) {
-      // The grid is the fixture's own unless a test names another: every
-      // repository has one, and a catalog is about what it publishes.
-      const withGrid = { grid: GRID_SOURCE, ...(catalog as object) };
+      // The grid and the Course name are the fixture's own unless a test
+      // names others: every repository has both, and a catalog is about what
+      // it publishes.
+      const withGrid = {
+        course: COURSE_NAME,
+        grid: GRID_SOURCE,
+        ...(catalog as object),
+      };
       writeFileSync(catalogPath, JSON.stringify(withGrid, null, 2), "utf8");
     },
 

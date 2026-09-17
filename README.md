@@ -202,6 +202,7 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 
 ```json
 {
+  "course": "Coding Agents Management 2026",
   "grid": "assessment-grid.md",
   "published": [
     { "source": "assessment-grid.md", "title": "Assessment Grid — how you are graded", "section": "Assessment" },
@@ -210,9 +211,9 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 }
 ```
 
-`grid` is the repository-relative path of the assessment grid, which the Competencies and the Deliverables are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
+`course` is the Course's name as its Students know it, printed at the foot of every page of every PDF. `grid` is the repository-relative path of the assessment grid, which the Competencies and the Deliverables are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
 
-**A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
+**A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `course`, `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
 
 Membership is by explicit entry; nothing is discovered by walking a directory. **A document the table does not name is not published** — in the 2026 course, the C3 fixture generator under `script/`, notes nobody meant anyone to read — and a link to one of them is published as its link text alone. There is no list of things that must never be published, because there is nothing a document has to be taken off.
 

@@ -9,7 +9,10 @@ import { browserMissing } from "./browser-install.ts";
 
 /**
  * Prints one self-contained HTML document to PDF bytes: A4, portrait and
- * backgrounds printed, whatever the document's own `@page` rule asks for.
+ * backgrounds printed. Chromium still lets the document's own `@page` rule
+ * turn or resize the page, and draws its margin boxes, so the layout and the
+ * footer are the document's to state; the publishing package's print
+ * stylesheet states both.
  *
  * In a browser of its own, headless and closed straight afterwards, rather
  * than in a tab of the visible one holding the Moodle session. Printing reads

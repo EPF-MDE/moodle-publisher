@@ -137,6 +137,14 @@ function linkSkills(dryRun: boolean): number {
  */
 async function publish(apply: boolean): Promise<number> {
   const config = readConfig();
+  // Every PDF this run makes is dated, so a run handed a date says so before
+  // it says anything else: its footers are about that day, not this one.
+  const now = config.now ?? new Date();
+  if (config.now !== undefined) {
+    process.stdout.write(
+      `PUBLISHER_NOW is set: publishing as of ${now.toISOString()}, not now.\n`
+    );
+  }
   const catalog = loadCatalog(config.repoRoot);
   // Read here, with the tables and before the driver is opened, because every
   // refusal it can raise is about the repository: a duplicated id, a Freeze
@@ -173,6 +181,7 @@ async function publish(apply: boolean): Promise<number> {
     await applyPlan(plan, {
       manifestPath: config.manifestPath,
       driver,
+      footer: { course: catalog.course, publishedOn: now },
       report: (line) => process.stdout.write(`  ${line}\n`),
     });
     process.stdout.write(`\nManifest: ${config.manifestPath}\n`);

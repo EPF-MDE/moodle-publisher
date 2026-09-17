@@ -15,6 +15,7 @@ import { sectionsToCreate } from "./plan.ts";
 
 import type { CourseDriver } from "../course/index.ts";
 import type { DocumentActivity } from "./lib/devoirs.ts";
+import type { Footer } from "./lib/print-ready.ts";
 import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
 
 /**
@@ -39,6 +40,8 @@ function knownActivities(plan: Plan): DocumentActivityBySource {
 export interface ApplyOptions {
   readonly manifestPath: string;
   readonly driver: CourseDriver;
+  /** What the foot of every page of every PDF this run makes says. */
+  readonly footer: Footer;
   /** Where progress goes: one line per item, as it happens. */
   readonly report: (line: string) => void;
 }
@@ -82,7 +85,7 @@ async function create(
     name: document.title,
     section: document.section,
     fileName: item.fileName,
-    html: printReady(document, item.rendered.html),
+    html: printReady(document, item.rendered.html, options.footer),
     // The one place visibility is *written* for a document that is not being
     // re-hidden. Which value it is was decided by the catalog, which owns the
     // policies; this passes it on and has no opinion, so there is no second

@@ -19,6 +19,7 @@ export {
 } from "./lib/guard.ts";
 export {
   MissingPublisherFile,
+  NoCourse,
   NoGrid,
   UnreadablePublisherFile,
 } from "./lib/publisher-file.ts";
@@ -28,6 +29,11 @@ import type { SectionName } from "../course/index.ts";
 import type { PublishedEntry } from "./lib/entry.ts";
 
 export interface Catalog {
+  /**
+   * What the Course is called, as its Students know it. Printed at the foot of
+   * every page of every PDF, so that a printout says which course it is from.
+   */
+  readonly course: string;
   /**
    * The repository-relative path of the assessment grid, whose front matter
    * declares the Competencies and defines the Deliverables. Read by
