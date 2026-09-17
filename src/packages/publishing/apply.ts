@@ -116,13 +116,12 @@ async function create(
 }
 
 /**
- * Replaces the file of one changed document's PDF where it stands, and records
- * the hash it now holds.
+ * Replaces the file of one changed or retitled document's PDF where it stands,
+ * names it by its current title, and records the hash and title it now holds.
  *
- * The manifest keeps the module id, the Section, the title and the day the
- * PDF was first published: only the file changed. The call carries no
- * visibility, so a PDF the Instructor opened by hand stays open and a hidden
- * one stays hidden.
+ * The manifest keeps the module id, the Section and the day the PDF was first
+ * published. The call carries no visibility, so a PDF the Instructor opened by
+ * hand stays open and a hidden one stays hidden.
  */
 async function replace(
   item: Extract<PlanItem, { verb: "replace" }>,
@@ -131,17 +130,22 @@ async function replace(
   const { document, published } = item;
   await options.driver.replaceFile({
     moduleId: published.moduleId,
+    name: document.title,
     fileName: item.fileName,
     html: printReady(document, item.rendered.html, options.footer),
   });
 
   recordPublished(options.manifestPath, document.source, {
     ...published,
+    title: document.title,
     contentHash: item.printedHash,
     updatedAt: new Date().toISOString(),
   });
   options.report(
-    `replaced ${document.title} as ${item.fileName} (module ${published.moduleId})`
+    `replaced ${document.title} as ${item.fileName} (module ${published.moduleId})` +
+      (item.retitledFrom === undefined
+        ? ""
+        : `, retitled from "${item.retitledFrom}"`)
   );
 }
 

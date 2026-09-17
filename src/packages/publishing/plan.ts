@@ -39,7 +39,8 @@ export { LinkToInstructorOnly } from "./lib/cross-references.ts";
 
 /**
  * What a run would do to one document: create its PDF, replace the file of the
- * one the manifest records because the document changed, or leave it alone.
+ * one the manifest records because the document changed or was retitled, or
+ * leave it alone.
  */
 export type PlanVerb = "create" | "replace" | "skip";
 
@@ -80,6 +81,12 @@ export type PlanItem =
       readonly verb: "replace";
       /** The file resource whose file is replaced, and the record of it. */
       readonly published: FileResourceEntry;
+      /**
+       * The title the resource was published under, when the table now
+       * gives it another one. The replace renames it, and the plan says so
+       * before anything is applied.
+       */
+      readonly retitledFrom?: string;
     })
   | (PlannedDocument & {
       readonly verb: "skip";
@@ -308,10 +315,15 @@ export function buildPlan(input: PlanInput): Plan {
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
     // Changed is decided by the hash of the markdown, the pictures it shows
-    // and the print layout, never by the render. A changed PDF has its file
-    // replaced in the same module, so its place in the Section, Moodle's logs
-    // and Students' bookmarks survive.
-    if (published.contentHash !== printedHash) {
+    // and the print layout, never by the render, or by the title. The title
+    // comes from the table, so the hash cannot see it, and it is printed at
+    // the top of the PDF, so a retitle needs a new file. The title compared is
+    // the published one, `Instructor — ` prefix and all, because that is what
+    // the manifest records. A changed PDF has its file replaced in the same
+    // module, so its place in the Section, Moodle's logs and Students'
+    // bookmarks survive.
+    const retitled = published.title !== document.title;
+    if (retitled || published.contentHash !== printedHash) {
       return {
         document,
         rendered,
@@ -320,6 +332,7 @@ export function buildPlan(input: PlanInput): Plan {
         hide,
         verb: "replace",
         published,
+        ...(retitled ? { retitledFrom: published.title } : {}),
       };
     }
     return {
@@ -569,6 +582,16 @@ function formatDeliverables(plan: Plan): readonly string[] {
   ];
 }
 
+/**
+ * The title a replace renames the resource from, so a retitle is read before it
+ * is applied. Anything else says nothing.
+ */
+function retitleOf(item: PlanItem): string {
+  return item.verb === "replace" && item.retitledFrom !== undefined
+    ? `   retitled from "${item.retitledFrom}"`
+    : "";
+}
+
 /** The plan as the instructor reads it, one line per document and its PDF. */
 export function formatPlan(plan: Plan): string {
   const heading = "Plan:";
@@ -579,7 +602,8 @@ export function formatPlan(plan: Plan): string {
     (item) =>
       `  ${verbOf(item).padEnd(11)} ${item.document.title}\n` +
       `              ${placementOf(item)}   source: ${item.document.source}` +
-      pdfOf(item)
+      pdfOf(item) +
+      retitleOf(item)
   );
   return [
     heading,

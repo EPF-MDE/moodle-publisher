@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 
 import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
-  AWAITS_RENAME,
   makeWorkspace,
   writeDayOneSet,
   writeGrid,
@@ -210,20 +209,27 @@ const RENAMED_LECTURE = DAY_ONE_ENTRIES.map((entry) =>
     : entry
 );
 
-test("retitling an entry in the table renames the activity, leaving its body alone", AWAITS_RENAME, async () => {
+test("retitling an entry in the table renames its PDF where it stands and reprints it", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
-  const before = workspace.readCourse().items;
+  const before = workspace.readCourse();
+  const recorded = workspace.readManifest();
 
   // Only the title changes. The document on disk is untouched, so its hash is
-  // unchanged — which is exactly the change a manifest comparison cannot see,
-  // and why the plan reads the name off the course instead.
+  // unchanged: what the plan sees is the title the manifest recorded.
   workspace.writeCatalog({ published: RENAMED_LECTURE });
 
   const plan = await workspace.publisher(["publish"]);
   assert.equal(plan.code, 0, plan.stderr);
   assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
+  assert.match(
+    plan.stdout,
+    /replace\s+Framing and decomposing\n.*retitled from "Lecture 1 — Framing and decomposing"/
+  );
+  // A dry run shows the rename and does not make it.
+  assert.deepEqual(workspace.readCourse(), before);
+  assert.deepEqual(workspace.readManifest(), recorded);
 
   const second = await workspace.publisher(["publish", "--apply"]);
   assert.equal(second.code, 0, second.stderr);
@@ -233,7 +239,7 @@ test("retitling an entry in the table renames the activity, leaving its body alo
   // history rather than being deleted and made again under the new name.
   assert.deepEqual(
     after.map((item) => item.moduleId),
-    before.map((item) => item.moduleId)
+    before.items.map((item) => item.moduleId)
   );
   const renamed = after.find((item) => item.name === "Framing and decomposing");
   assert.ok(
@@ -242,9 +248,15 @@ test("retitling an entry in the table renames the activity, leaving its body alo
       .map((item) => item.name)
       .join(", ")}`
   );
-  assert.equal(
+  const was = before.items.find((item) => item.moduleId === renamed.moduleId);
+  assert.equal(renamed.section, was?.section);
+  assert.equal(renamed.visible, was?.visible);
+  assert.equal(renamed.fileName, was?.fileName);
+  // The title printed at the top of the PDF is the new one.
+  assert.match(renamed.body, /<title>Framing and decomposing<\/title>/);
+  assert.match(
     renamed.body,
-    before.find((item) => item.moduleId === renamed.moduleId)?.body
+    /<h1 class="document-title">Framing and decomposing<\/h1>/
   );
   assert.equal(
     after.filter((item) => item.name.startsWith("Lecture 1")).length,
@@ -252,7 +264,7 @@ test("retitling an entry in the table renames the activity, leaving its body alo
   );
 });
 
-test("a run after a rename has nothing left to do", AWAITS_RENAME, async () => {
+test("a run after a rename has nothing left to do", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
