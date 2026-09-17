@@ -214,6 +214,7 @@ test("retitling an entry in the table renames its PDF where it stands and reprin
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
   const before = workspace.readCourse();
+  const recorded = workspace.readManifest();
 
   // Only the title changes. The document on disk is untouched, so its hash is
   // unchanged: what the plan sees is the title the manifest recorded.
@@ -228,6 +229,7 @@ test("retitling an entry in the table renames its PDF where it stands and reprin
   );
   // A dry run shows the rename and does not make it.
   assert.deepEqual(workspace.readCourse(), before);
+  assert.deepEqual(workspace.readManifest(), recorded);
 
   const second = await workspace.publisher(["publish", "--apply"]);
   assert.equal(second.code, 0, second.stderr);

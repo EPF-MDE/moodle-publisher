@@ -124,6 +124,10 @@ test("retitling a banding anchor renames its PDF, keeping the prefix and the hid
   assert.equal(after?.moduleId, before?.moduleId);
   assert.equal(after?.visible, false);
   assert.match(after?.body ?? "", new RegExp(`<title>${renamed}</title>`));
+  assert.match(
+    after?.body ?? "",
+    new RegExp(`<h1 class="document-title">${renamed}</h1>`)
+  );
   assert.equal(itemNamed(workspace, ANCHORS), undefined);
 });
 

@@ -160,8 +160,6 @@ A `replace` **swaps the file inside the existing file resource**: same course mo
               section: Lectures   source: lectures/lecture-1-framing.md   pdf: lecture-1-framing.pdf   retitled from "Lecture 1 — Framing"
 ```
 
-Adding or dropping the `--instructor` suffix changes the published title the same way, and goes down the same path.
-
 **A document whose activity the course no longer holds is planned as a `create`, not a `replace`.** The manifest records a module id, and a PDF deleted in Moodle — by hand, or by a rebuild the publisher was not part of — leaves that id naming nothing. The plan reads the course before it decides, so the record that outlived what it recorded is settled there, where the course is already in hand. The recreated PDF is uploaded afresh, and the manifest follows the document to its new module id. Examiner-only material is the one thing this cannot do quietly: an activity of the same name already standing in the section the table names aborts the run rather than putting a second copy of an answer key in the course.
 
 The driver keeps its own guard for an activity deleted between the snapshot and a write: Moodle's error page is recognised by `data-rel="fatalerror"` — the attribute, not its French prose — and the abort quotes Moodle's own message and error code.

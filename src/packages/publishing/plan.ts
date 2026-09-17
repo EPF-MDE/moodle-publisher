@@ -264,9 +264,10 @@ export function buildPlan(input: PlanInput): Plan {
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
     // Changed is decided by the hash of the markdown and the pictures it
-    // shows, never by the render, and by the title: the table gives it, the
-    // hash cannot see it, and it is printed at the top of the PDF. The title
-    // compared is the published one, `Instructor — ` prefix and all, because
+    // shows, never by the render, or by the title. The title comes from the
+    // table, so the hash cannot see it, and it is printed at the top of the
+    // PDF, so a retitle needs a new file. The title compared is the published
+    // one, `Instructor — ` prefix and all, because
     // that is what the manifest records. A changed PDF has its file replaced
     // in the same module, so its place in the Section, Moodle's logs and
     // Students' bookmarks survive. A page an earlier publisher made is left

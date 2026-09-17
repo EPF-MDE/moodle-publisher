@@ -136,11 +136,21 @@ test("replacing the file of an activity that is not a file resource fails", asyn
   const course = createFakeDriver(workspace.coursePath, COURSE_ID);
 
   await assert.rejects(
-    course.replaceFile({ moduleId: "1", name: "Lab 1", fileName: "lab-1.pdf", html: PRINTED }),
+    course.replaceFile({
+      moduleId: "1",
+      name: "Lab 1",
+      fileName: "lab-1.pdf",
+      html: PRINTED,
+    }),
     /no file resource with module id 1/
   );
   await assert.rejects(
-    course.replaceFile({ moduleId: "9", name: "Lab 1", fileName: "lab-1.pdf", html: PRINTED }),
+    course.replaceFile({
+      moduleId: "9",
+      name: "Lab 1",
+      fileName: "lab-1.pdf",
+      html: PRINTED,
+    }),
     /no file resource with module id 9/
   );
   assert.equal(itemNamed(workspace, "Lab 1 — Setup")?.body, "<p>A page.</p>");

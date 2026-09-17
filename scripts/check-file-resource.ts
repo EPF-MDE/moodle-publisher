@@ -2,10 +2,11 @@
 // the browser driver itself, and leaves the result there for a human to look
 // at.
 //
-// Nothing publishes a file resource yet, so this is the only way to run them.
-// It creates one hidden resource in the Resources section, replaces its file
-// under a new file name and renames it, and reads the course back after each step. What it cannot
-// check is what a Student sees; it prints what to check by hand instead.
+// The suite runs them against the fake course only, so this is the one way to
+// run them against Moodle. It creates one hidden resource in the Resources
+// section, replaces its file under a new file name and a new name, and reads
+// the course back after each step. What it cannot check is what a Student
+// sees; it prints what to check by hand instead.
 //
 //     npm run check:file-resource
 //
