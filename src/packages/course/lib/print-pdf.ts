@@ -8,8 +8,8 @@ import { chromium } from "playwright";
 import { browserMissing } from "./browser-install.ts";
 
 /**
- * Prints one self-contained HTML document to PDF bytes: portrait, A4 unless
- * the document's own `@page` rule says otherwise, backgrounds printed.
+ * Prints one self-contained HTML document to PDF bytes: A4, portrait and
+ * backgrounds printed, whatever the document's own `@page` rule asks for.
  *
  * In a browser of its own, headless and closed straight afterwards, rather
  * than in a tab of the visible one holding the Moodle session. Printing reads
@@ -31,7 +31,6 @@ export async function printPdf(html: string): Promise<Buffer> {
       format: "A4",
       landscape: false,
       printBackground: true,
-      preferCSSPageSize: true,
     });
   } finally {
     await browser.close();

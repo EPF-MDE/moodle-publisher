@@ -98,8 +98,9 @@ export const SELECTORS = {
   /** The form's file manager: the one place the PDF goes in. */
   resourceFiles: "#fitem_id_files",
   /**
-   * The file manager once it has listed what it holds: core marks it
-   * `fm-loaded` when the listing it fetches after the form has arrived.
+   * The file manager once it has listed what it holds: core fetches the
+   * listing after the form has rendered, and marks the manager `fm-loaded`
+   * once it has arrived.
    */
   fileManagerLoaded: ".filemanager.fm-loaded",
   /** "Ajouter…", which opens the file picker onto the file manager. */
