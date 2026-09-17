@@ -93,16 +93,18 @@ export const SELECTORS = {
   //
   // Recorded with codegen against course 14707 (issue #28). Name, visibility
   // and submit are the ids above; the file manager's own controls are core
-  // Moodle markup still to be confirmed on this theme in the attended run.
+  // Moodle markup, confirmed on this theme by `npm run check:file-resource`.
 
   /** The form's file manager: the one place the PDF goes in. */
   resourceFiles: "#fitem_id_files",
   /**
-   * The file manager once it has listed what it holds: core fetches the
-   * listing after the form has rendered, and marks the manager `fm-loaded`
-   * once it has arrived.
+   * The file manager once it has listed what it holds. Core marks it
+   * `fm-loaded` as soon as it is set up, before the listing it fetches has
+   * arrived, and `fm-updating` for as long as a fetch is out, so it is the
+   * two together that mean "listed". `fm-loaded` alone was read as an empty
+   * manager on the attended run, and a replace kept the old file.
    */
-  fileManagerLoaded: ".filemanager.fm-loaded",
+  fileManagerIdle: ".filemanager.fm-loaded:not(.fm-updating)",
   /** "Ajouter…", which opens the file picker onto the file manager. */
   fileManagerAdd: ".fp-btn-add",
   /**
@@ -110,13 +112,16 @@ export const SELECTORS = {
    * open its own dialogue. A file manager left in another view lists nothing
    * here, and then the check that it holds only the new file stops the run.
    */
-  fileManagerFile: ".fp-content .fp-file",
+  fileManagerFile: ".fp-content .fp-file:visible",
   /** The name shown for each file the file manager holds. */
-  fileManagerFileName: ".fp-content .fp-filename",
+  fileManagerFileName: ".fp-content .fp-filename:visible",
   /** "Supprimer", in the dialogue a clicked file opens. */
   fileManagerDelete: ".fp-file-delete:visible",
-  /** "Oui", on the "are you sure?" that follows it. */
-  fileManagerConfirm: ".fp-dlg-butconfirm:visible",
+  /**
+   * "Oui", on the "are you sure?" that follows it: a core modal on this
+   * site, not the file picker's own `.fp-dlg-butconfirm`, which is absent.
+   */
+  fileManagerConfirm: '.modal.show [data-action="save"]:visible',
   /**
    * How the resource is shown: "Ouvrir", "Intégrer", "Forcer le
    * téléchargement"… inside the collapsed "Apparence" fieldset.

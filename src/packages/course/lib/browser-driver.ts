@@ -1402,11 +1402,33 @@ export async function openBrowserCourse(
     const manager = await required(page, SELECTORS.resourceFiles, what);
     await required(
       manager,
-      SELECTORS.fileManagerLoaded,
+      SELECTORS.fileManagerIdle,
       what,
       FILE_MANAGER_TIMEOUT_MS
     );
     return manager;
+  }
+
+  /**
+   * Waits until the file manager has finished a fetch and lists fewer than
+   * `held` files. Neither alone will do: a redraw empties the listing before
+   * it refills it, and the manager is idle for a moment before the fetch a
+   * delete starts.
+   */
+  async function listsFewerThan(
+    manager: Locator,
+    held: number
+  ): Promise<boolean> {
+    const idle = manager.locator(SELECTORS.fileManagerIdle);
+    const files = manager.locator(SELECTORS.fileManagerFile);
+    const deadline = Date.now() + FILE_MANAGER_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if ((await idle.count()) > 0 && (await files.count()) < held) {
+        return true;
+      }
+      await page.waitForTimeout(250);
+    }
+    return false;
   }
 
   /**
@@ -1426,14 +1448,7 @@ export async function openBrowserCourse(
       await files.first().click();
       await (await required(page, SELECTORS.fileManagerDelete, what)).click();
       await (await required(page, SELECTORS.fileManagerConfirm, what)).click();
-      // Gone when there is no longer a file in the last place: the listing is
-      // redrawn from the site, so the count is what can be waited on.
-      const gone = await files
-        .nth(held - 1)
-        .waitFor({ state: "detached", timeout: FILE_MANAGER_TIMEOUT_MS })
-        .then(() => true)
-        .catch(() => false);
-      if (!gone) {
+      if (!(await listsFewerThan(manager, held))) {
         throw new Error(
           `Aborting: ${what} — deleted a file from the resource form and the file ` +
             `manager still lists ${held}. Nothing was submitted. Confirm the file ` +
