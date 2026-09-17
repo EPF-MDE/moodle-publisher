@@ -139,25 +139,29 @@ Adding a section, deleting an activity and deleting a section are the newest and
 
 ## Re-running
 
-Re-running is the normal case, not the exceptional one, so it is built to be dull. The plan compares the publishable table against the manifest **and the current content of each document**, and says `create`, `update` or `skip` per document before anything is applied:
+Re-running is the normal case, not the exceptional one, so it is built to be dull. The plan compares the publishable table against the manifest **and the current content of each document**, and says, per PDF, `create`, `replace` or `skip` before anything is applied:
 
 ```
 Plan:
-  skip   Assessment Grid — how you are graded
-         section: Assessment   source: assessment-grid.md
-  update Lecture 1 — Framing and decomposing work for a coding agent
-         section: Lectures   source: lectures/lecture-1-framing.md
+  skip        Assessment Grid — how you are graded
+              section: Assessment   source: assessment-grid.md
+  replace     Lecture 1 — Framing and decomposing work for a coding agent
+              section: Lectures   source: lectures/lecture-1-framing.md   pdf: lecture-1-framing.pdf
 
-0 to create, 1 to update, 1 to skip.
+0 PDFs to create, 1 to replace, 1 to skip, 0 to hide.
 ```
 
-An `update` **rewrites the existing activity in place**: same course module id, same section, same visibility. It is not a delete and a recreate, because the module id is what student bookmarks, links from elsewhere in the course and completion tracking are hung on. Editing one lecture and re-running therefore touches exactly one activity, and running again immediately afterwards reports zero changes.
+A document has changed when the hash of its markdown and the pictures it shows differs from the one in its manifest entry. The rendered PDF never decides this, because a render is free to vary. A picture redrawn on its own is a change to every document that shows it, and to no other. An unchanged document uploads nothing.
+
+A `replace` **swaps the file inside the existing file resource**: same course module id, same place in its section, same name, same visibility. It is not a delete and a recreate, because the module id is what student bookmarks, Moodle's logs and completion tracking are hung on. Editing one lecture and re-running therefore touches exactly one PDF, and running again immediately afterwards reports zero changes.
+
+**Retitling an entry in the table is not picked up yet.** The title is not in the hash, and a replace keeps the resource's name, so a retitled document whose markdown is unchanged is planned as a `skip`. Rename it in Moodle by hand, or delete its PDF and run again.
 
 **A document whose activity the course no longer holds is planned as a `create`, not an `update`.** The manifest records a module id, and a page deleted in Moodle — by hand, or by a rebuild the publisher was not part of — leaves that id naming nothing. Opening the update form on it gets Moodle's error page, which renders outside any course and so used to fail the course check with the wrong story: it reported the browser as being in course 1. The plan reads the course before it decides, so the record that outlived what it recorded is settled there, where the course is already in hand. The recreated activity sends every picture it shows again, because the files went with the activity that is gone, and the manifest follows it to the new module id. Examiner-only material is the one thing this cannot do quietly: an activity of the same name already standing in the section the table names aborts the run rather than putting a second copy of an answer key in the course.
 
 The driver keeps its own guard for the same page, because an activity can be deleted between the snapshot and the write: Moodle's error page is recognised by `data-rel="fatalerror"` — the attribute, not its French prose — and the abort quotes Moodle's own message and error code.
 
-Visibility is set **only on create**, for everything students see. Revealing a document is a human decision, and a publisher that reasserted visibility every run would quietly undo it the next time a typo was fixed. The update path has no way to express visibility at all.
+Visibility is set **only on create**, for everything students see. Revealing a document is a human decision, and a publisher that reasserted visibility every run would quietly undo it the next time a typo was fixed. The replace path has no way to express visibility at all: a PDF created hidden stays hidden, and one the Instructor opened by hand stays open.
 
 Created visible is the default, not the rule. An entry may carry a **`revealedOn` date**, and the presence of that date is what makes the document ship **hidden**: it goes to Moodle with everything else and the instructor opens it by hand on the day — see [A document with a reveal date](#a-document-with-a-reveal-date). Nothing in this program reveals it on that date or any other. The date is what a [review of the course](#reviewing-the-course) measures it against; no code path that writes to the course reads it, and there is **no command-line flag anywhere that changes visibility**.
 
@@ -360,9 +364,9 @@ Instructor material is published from the first run, wherever it sits — includ
 
 Each picture published with a document is recorded too — its repository path, the URL the course served it at, and what the file hashes to — so a picture nobody can see is something the manifest can be asked about afterwards, and a picture that has not been redrawn is something a later run can leave where it is. A document that shows none records no such field at all, rather than an empty list, so its entry is byte-for-byte what it always was.
 
-An update keeps the module id, the section and the first publication date, and refreshes the content hash and `updatedAt`. The hash answers "has this changed?" for what a reader reads — the markdown and the pictures it shows — so a run that changes nothing in the repository reports nothing to do.
+A replace keeps the module id, the section, the title and the first publication date, and refreshes the content hash and `updatedAt`. The hash answers "has this changed?" for what a reader reads — the markdown and the pictures it shows — so a run that changes nothing in the repository reports nothing to do.
 
-**A retitle is the one change the hash cannot see.** Titles come from the table, not from the file, so renaming an entry leaves the hash identical. The plan compares the table's title against the name the activity carries in the course and plans an `update` when they differ; the activity is renamed where it stands, keeping its module id and its history. Without that, a title could only ever be corrected by deleting the activity and making it again.
+**A retitle is the one change the hash cannot see.** Titles come from the table, not from the file, so renaming an entry leaves the hash identical, and a run leaves the PDF alone. See [Re-running](#re-running).
 
 **What the manifest records for a new activity is the module id that appeared**, never the one whose name matches. Two activities are allowed to share a name — a copy left behind in the section a document has just been moved out of is exactly that case — and the course page lists the older one first. Creating a page therefore reads the course before it writes and takes the id that was not there a moment ago, aborting if none appeared or more than one did. Matching by name recorded the older copy instead, which pointed the manifest at an activity the run had not created, and made the read-back that proves a page was created hidden prove it of the wrong page. It is the same reasoning as the section-add check, for the same reason.
 

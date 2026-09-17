@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 
 import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
-  AWAITS_REPLACE,
+  AWAITS_RENAME,
   makeWorkspace,
   writeDayOneSet,
   writeGrid,
@@ -25,12 +25,12 @@ test("a second consecutive run reports zero changes", async () => {
   const second = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
   // Three documents and two Devoirs, none of them made twice.
   assert.equal(workspace.readCourse().items.length, 5);
 });
 
-test("a changed document is planned as an update before anything is applied", AWAITS_REPLACE, async () => {
+test("a changed document is planned as an update before anything is applied", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -42,8 +42,8 @@ test("a changed document is planned as an update before anything is applied", AW
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /update .*Lecture 1/);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /replace .*Lecture 1/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
   // Reporting still applies nothing: the update path is opt-in like the rest.
   const bodies = workspace.readCourse().items.map((item) => item.body);
   assert.equal(
@@ -52,7 +52,7 @@ test("a changed document is planned as an update before anything is applied", AW
   );
 });
 
-test("editing one document updates exactly that activity, keeping its module id", AWAITS_REPLACE, async () => {
+test("editing one document updates exactly that activity, keeping its module id", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -86,7 +86,7 @@ test("editing one document updates exactly that activity, keeping its module id"
   assert.equal(untouched.length, 4);
 });
 
-test("an update refreshes the hash and keeps the first publication date", AWAITS_REPLACE, async () => {
+test("an update refreshes the hash and keeps the first publication date", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -104,7 +104,7 @@ test("an update refreshes the hash and keeps the first publication date", AWAITS
   assert.notEqual(second["updatedAt"], first["updatedAt"]);
 });
 
-test("an interrupted run of updates leaves an accurate manifest, and re-running finishes it", AWAITS_REPLACE, async () => {
+test("an interrupted run of updates leaves an accurate manifest, and re-running finishes it", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -143,7 +143,7 @@ test("an interrupted run of updates leaves an accurate manifest, and re-running 
   const resumed = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(resumed.code, 0, resumed.stderr);
-  assert.match(resumed.stdout, /0 to create, 2 to update, 1 to skip/);
+  assert.match(resumed.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
   // The three documents, each carrying its edit. The Devoirs beside them were
   // never part of the change.
   const after = workspace
@@ -179,7 +179,7 @@ test("a document moved to another section in the table aborts rather than report
   assert.deepEqual(workspace.readCourse().items, before.items);
 });
 
-test("an update leaves visibility alone: revealing is the instructor's call", AWAITS_REPLACE, async () => {
+test("an update leaves visibility alone: revealing is the instructor's call", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -210,7 +210,7 @@ const RENAMED_LECTURE = DAY_ONE_ENTRIES.map((entry) =>
     : entry
 );
 
-test("retitling an entry in the table renames the activity, leaving its body alone", AWAITS_REPLACE, async () => {
+test("retitling an entry in the table renames the activity, leaving its body alone", AWAITS_RENAME, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -223,7 +223,7 @@ test("retitling an entry in the table renames the activity, leaving its body alo
 
   const plan = await workspace.publisher(["publish"]);
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
 
   const second = await workspace.publisher(["publish", "--apply"]);
   assert.equal(second.code, 0, second.stderr);
@@ -252,7 +252,7 @@ test("retitling an entry in the table renames the activity, leaving its body alo
   );
 });
 
-test("a run after a rename has nothing left to do", AWAITS_REPLACE, async () => {
+test("a run after a rename has nothing left to do", AWAITS_RENAME, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -262,5 +262,5 @@ test("a run after a rename has nothing left to do", AWAITS_REPLACE, async () => 
   const third = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(third.code, 0, third.stderr);
-  assert.match(third.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(third.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
 });

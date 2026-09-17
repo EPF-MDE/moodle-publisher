@@ -26,6 +26,7 @@ import type { RenderedDocument } from "../documents/index.ts";
 import type {
   DevoirEntry,
   DocumentEntry,
+  FileResourceEntry,
   Manifest,
 } from "../manifest/index.ts";
 import type { CrossReferenceInput } from "./lib/cross-references.ts";
@@ -34,10 +35,10 @@ export { DevoirBriefNotPublished } from "./lib/devoirs.ts";
 export { LinkToInstructorOnly } from "./lib/cross-references.ts";
 
 /**
- * What a run would do to one document: create its PDF, or leave alone the one
- * the manifest already records.
+ * What a run would do to one document: create its PDF, replace the file of the
+ * one the manifest records because the document changed, or leave it alone.
  */
-export type PlanVerb = "create" | "skip";
+export type PlanVerb = "create" | "replace" | "skip";
 
 interface PlannedDocument {
   readonly document: PublishedDocument;
@@ -64,11 +65,16 @@ interface PlannedDocument {
  * with it, so the activity a skip leaves standing is on the item that says
  * `skip` and nowhere else.
  *
- * The entry may still be a page an earlier publisher made: it is in the
- * course all the same, and is left there.
+ * A skip's entry may still be a page an earlier publisher made: it is in the
+ * course all the same, and is left there. Only a PDF is ever replaced.
  */
 export type PlanItem =
   | (PlannedDocument & { readonly verb: "create" })
+  | (PlannedDocument & {
+      readonly verb: "replace";
+      /** The file resource whose file is replaced, and the record of it. */
+      readonly published: FileResourceEntry;
+    })
   | (PlannedDocument & {
       readonly verb: "skip";
       readonly published: DocumentEntry;
@@ -250,8 +256,17 @@ export function buildPlan(input: PlanInput): Plan {
     }
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
-    // A document already in the course is left as it stands, changed or not:
-    // this run creates PDFs and never rewrites one.
+    // Changed is decided by the hash of the markdown and the pictures it
+    // shows, never by the render. A changed PDF has its file replaced in the
+    // same module, so its place in the Section, Moodle's logs and Students'
+    // bookmarks survive. A page an earlier publisher made is left standing:
+    // it has no file to replace.
+    if (
+      published.kind === "file-resource" &&
+      published.contentHash !== rendered.contentHash
+    ) {
+      return { document, rendered, fileName, hide, verb: "replace", published };
+    }
     return { document, rendered, fileName, hide, verb: "skip", published };
   });
 
@@ -372,7 +387,8 @@ function assertNotAlreadyInCourse(
  * The sections this plan needs made, in the order students read the page in
  * rather than the order the table happens to list its documents in.
  *
- * Only what a `create` needs: a skip does nothing at all.
+ * Only what a `create` needs: a replace works in the Section its PDF is
+ * already in, and a skip does nothing at all.
  */
 export function sectionsToCreate(plan: Plan): readonly SectionName[] {
   return SECTION_ORDER.filter((name: SectionName) => {
@@ -416,10 +432,11 @@ function hides(plan: Plan): number {
 
 /**
  * The verb as the instructor reads it. A document that is only being re-hidden
- * says `hide`: that is the whole of what this run does to it.
+ * says `hide`: that is the whole of what this run does to it. One being
+ * replaced says `replace`, and its line says it will be re-hidden too.
  */
 function verbOf(item: PlanItem): string {
-  return item.hide ? "hide" : item.verb;
+  return item.hide && item.verb === "skip" ? "hide" : item.verb;
 }
 
 /**
@@ -451,11 +468,11 @@ function placementOf(item: PlanItem): string {
 }
 
 /**
- * The PDF a create would upload, by the name a Student's download will have.
- * A skip uploads nothing, and says nothing.
+ * The PDF a create or a replace would upload, by the name a Student's download
+ * will have. A skip uploads nothing, and says nothing.
  */
 function pdfOf(item: PlanItem): string {
-  return item.verb === "create" ? `   pdf: ${item.fileName}` : "";
+  return item.verb === "skip" ? "" : `   pdf: ${item.fileName}`;
 }
 
 /**
@@ -505,8 +522,8 @@ export function formatPlan(plan: Plan): string {
     heading,
     ...lines,
     "",
-    `${pdfs(count(plan, "create"))} to create, ${skips(plan)} to skip, ` +
-      `${hides(plan)} to hide.`,
+    `${pdfs(count(plan, "create"))} to create, ${count(plan, "replace")} to replace, ` +
+      `${skips(plan)} to skip, ${hides(plan)} to hide.`,
     ...formatDeliverables(plan),
   ].join("\n");
 }

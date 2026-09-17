@@ -8,7 +8,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AWAITS_REPLACE,
   ANCHORS_SOURCE,
   DAY_ONE_ENTRIES,
   INSTRUCTOR_ENTRIES,
@@ -75,11 +74,11 @@ test("a second run reports zero changes for instructor material too", async () =
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /0 PDFs to create, 5 to skip, 0 to hide/);
+  assert.match(result.stdout, /0 PDFs to create, 0 to replace, 5 to skip, 0 to hide/);
   assert.doesNotMatch(result.stdout, /re-hid/);
 });
 
-test("editing a banding anchor updates the activity in place and leaves it hidden", AWAITS_REPLACE, async () => {
+test("editing a banding anchor updates the activity in place and leaves it hidden", async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -91,7 +90,7 @@ test("editing a banding anchor updates the activity in place and leaves it hidde
 
   const result = await workspace.publisher(["publish", "--apply"]);
 
-  assert.match(result.stdout, new RegExp(`updated\\s+${ANCHORS}`));
+  assert.match(result.stdout, new RegExp(`replaced\\s+${ANCHORS}`));
   const after = itemNamed(workspace, ANCHORS);
   assert.equal(after?.moduleId, before?.moduleId);
   assert.equal(after?.visible, false);

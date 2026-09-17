@@ -63,7 +63,7 @@ test("an entry written before entries had a kind is read as a page and skipped",
   const second = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 PDFs to create, 1 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 1 to skip/);
   // The grid and its two Devoirs, and nothing made a second time.
   assert.equal(workspace.readCourse().items.length, 3);
 });
@@ -105,7 +105,7 @@ test("a manifest holding Grade Items still reads, and the next write drops them"
   // Read, by a plan, and not refused.
   const plan = await workspace.publisher(["publish"]);
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 PDFs to create, 1 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 0 to replace, 1 to skip/);
   assert.ok(workspace.readManifest().documents["C1"], "reading wrote nothing");
 
   // Written, by the next run that changes something: a Deliverable retitled.

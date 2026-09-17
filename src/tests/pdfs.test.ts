@@ -174,24 +174,118 @@ test("the plan lists the PDFs a run would create", async () => {
     result.stdout,
     /create\s+Lecture 1 — Framing and decomposing\n\s+section: Lectures\s+source: lectures\/lecture-1\.md\s+pdf: lecture-1\.pdf/
   );
-  assert.match(result.stdout, /5 PDFs to create, 0 to skip, 0 to hide\./);
+  assert.match(result.stdout, /5 PDFs to create, 0 to replace, 0 to skip, 0 to hide\./);
   assert.deepEqual(workspace.readCourse().items, []);
 });
 
-test("a re-run leaves a document that already has an entry alone, even when it changed", async () => {
+test("a re-run with nothing changed uploads nothing, and the plan says so", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
   const before = workspace.readCourse();
   const manifest = workspace.readManifest();
 
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /skip\s+Lecture 1 — Framing and decomposing\n\s+section: Lectures\s+source: lectures\/lecture-1\.md\n/);
+  assert.match(result.stdout, /0 PDFs to create, 0 to replace, 3 to skip, 0 to hide\./);
+  assert.doesNotMatch(result.stdout, /replaced|created {2}Lecture/);
+  assert.deepEqual(workspace.readCourse(), before);
+  assert.deepEqual(workspace.readManifest(), manifest);
+});
+
+test("a changed markdown replaces the file under the same module id", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const before = itemNamed(workspace, LECTURE);
+
+  workspace.write("lectures/lecture-1.md", `${LECTURE_MARKDOWN}\nA new line.\n`);
+  const plan = await workspace.publisher(["publish"]);
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(plan.code, 0, plan.stderr);
+  assert.match(
+    plan.stdout,
+    /replace\s+Lecture 1 — Framing and decomposing\n\s+section: Lectures\s+source: lectures\/lecture-1\.md\s+pdf: lecture-1\.pdf/
+  );
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip, 0 to hide\./);
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(
+    result.stdout,
+    new RegExp(`replaced ${LECTURE} as lecture-1\\.pdf \\(module ${before?.moduleId}\\)`)
+  );
+  const after = itemNamed(workspace, LECTURE);
+  assert.equal(after?.moduleId, before?.moduleId);
+  assert.equal(after?.fileName, "lecture-1.pdf");
+  assert.match(after?.body ?? "", /^<!doctype html>/i);
+  assert.match(after?.body ?? "", /A new line\./);
+});
+
+/** The day-one set with the lecture held back until its reveal date. */
+function writeRevealDatedLecture(workspace: ReturnType<typeof makeWorkspace>): void {
+  writeDayOneSet(
+    workspace,
+    DAY_ONE_ENTRIES.map((entry) =>
+      entry.title === LECTURE ? { ...entry, revealedOn: "2026-09-11" } : entry
+    )
+  );
+}
+
+test("a replace leaves a PDF created hidden hidden", async () => {
+  const workspace = makeWorkspace();
+  writeRevealDatedLecture(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+
   workspace.write("lectures/lecture-1.md", `${LECTURE_MARKDOWN}\nA new line.\n`);
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /0 PDFs to create, 3 to skip, 0 to hide\./);
+  const lecture = itemNamed(workspace, LECTURE);
+  assert.equal(lecture?.visible, false);
+  assert.match(lecture?.body ?? "", /A new line\./);
+});
+
+test("a replace leaves a PDF the Instructor revealed by hand revealed", async () => {
+  const workspace = makeWorkspace();
+  writeRevealDatedLecture(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const course = workspace.readCourse();
+  workspace.writeCourse({
+    ...course,
+    items: course.items.map((item) =>
+      item.name === LECTURE ? { ...item, visible: true } : item
+    ),
+  });
+
+  workspace.write("lectures/lecture-1.md", `${LECTURE_MARKDOWN}\nA new line.\n`);
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  const lecture = itemNamed(workspace, LECTURE);
+  assert.equal(lecture?.visible, true);
+  assert.match(lecture?.body ?? "", /A new line\./);
+});
+
+// The footer a PDF prints will carry the run's date (#26), so two runs on
+// different days will render different HTML from the same markdown. That is
+// not a change: "changed" is read off the markdown, never off the render.
+test("a run on another day replaces nothing", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"], {
+    PUBLISHER_NOW: "2026-09-01T09:00:00+02:00",
+  });
+  const before = workspace.readCourse();
+
+  const result = await workspace.publisher(["publish", "--apply"], {
+    PUBLISHER_NOW: "2026-10-15T09:00:00+02:00",
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
   assert.deepEqual(workspace.readCourse(), before);
-  assert.deepEqual(workspace.readManifest(), manifest);
 });
 
 test("publishing creates no page", async () => {

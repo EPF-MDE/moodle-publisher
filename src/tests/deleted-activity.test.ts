@@ -43,7 +43,7 @@ test("an activity deleted from the course is planned as a create", async () => {
 
   assert.equal(plan.code, 0, plan.stderr);
   assert.match(plan.stdout, /create .*Lecture 1/);
-  assert.match(plan.stdout, /1 PDF to create, 2 to skip/);
+  assert.match(plan.stdout, /1 PDF to create, 0 to replace, 2 to skip/);
 });
 
 test("the deleted activity is created again, and the manifest follows it", async () => {
