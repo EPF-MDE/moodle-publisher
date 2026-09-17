@@ -141,6 +141,8 @@ export interface Workspace {
       visible: boolean;
       stealth?: boolean;
       body: string;
+      /** The name of the file a file resource holds; absent on any other activity. */
+      fileName?: string;
     }[];
     /**
      * The collection settings of the activities that are Devoirs, by module

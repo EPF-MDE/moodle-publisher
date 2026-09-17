@@ -89,6 +89,38 @@ export const SELECTORS = {
    */
   assignDueDateEnabled: "#id_duedate_enabled",
   assignCutOffDateEnabled: "#id_cutoffdate_enabled",
+  // --- the file resource form (mod_resource), at /course/modedit.php?add=resource
+  //
+  // Recorded with codegen against course 14707 (issue #28). Name, visibility
+  // and submit are the ids above; the file manager's own controls are core
+  // Moodle markup still to be confirmed on this theme in the attended run.
+
+  /** The form's file manager: the one place the PDF goes in. */
+  resourceFiles: "#fitem_id_files",
+  /**
+   * The file manager once it has listed what it holds: core marks it
+   * `fm-loaded` when the listing it fetches after the form has arrived.
+   */
+  fileManagerLoaded: ".filemanager.fm-loaded",
+  /** "Ajouter…", which opens the file picker onto the file manager. */
+  fileManagerAdd: ".fp-btn-add",
+  /**
+   * One file the file manager holds, in its default icon view, clicked to
+   * open its own dialogue. A file manager left in another view lists nothing
+   * here, and then the check that it holds only the new file stops the run.
+   */
+  fileManagerFile: ".fp-content .fp-file",
+  /** The name shown for each file the file manager holds. */
+  fileManagerFileName: ".fp-content .fp-filename",
+  /** "Supprimer", in the dialogue a clicked file opens. */
+  fileManagerDelete: ".fp-file-delete:visible",
+  /** "Oui", on the "are you sure?" that follows it. */
+  fileManagerConfirm: ".fp-dlg-butconfirm:visible",
+  /**
+   * How the resource is shown: "Ouvrir", "Intégrer", "Forcer le
+   * téléchargement"… inside the collapsed "Apparence" fieldset.
+   */
+  resourceDisplay: "#id_display",
   // --- counting what a Devoir holds, at /mod/assign/view.php?action=grading -
   //
   // Read before `wipe` deletes anything, through the session the driver
@@ -330,3 +362,11 @@ export const PLAIN_TEXT_EDITOR = "textarea";
  * not take the longer way round for the documents that do not need it.
  */
 export const RICH_EDITOR = "atto";
+
+/**
+ * The value of {@link SELECTORS.resourceDisplay} that opens the file in the
+ * browser: core's `RESOURCELIB_DISPLAY_OPEN`, "Ouvrir". The PDF then fills the
+ * page in the browser's own viewer rather than sitting in a frame of the
+ * theme's ("Intégrer", 1) or arriving as a download.
+ */
+export const RESOURCE_DISPLAY_OPEN = "5";

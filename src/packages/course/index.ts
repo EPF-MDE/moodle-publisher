@@ -240,6 +240,53 @@ export interface PageUpdate {
 }
 
 /**
+ * A Published Document to create as a file resource: one PDF in a Section,
+ * opened in the browser. Visibility is set only here, never on a replace, as
+ * it is for a page.
+ *
+ * What crosses the seam is the HTML, not the PDF. Printing it is the driver's
+ * business, so nothing above this seam knows a browser is involved, and the
+ * fake course can record exactly what would have been printed.
+ */
+export interface NewFileResource {
+  /** What Students read on the course page. */
+  readonly name: string;
+  readonly section: SectionName;
+  readonly visible: boolean;
+  /** The name the PDF is stored under: what a Student's download is called. */
+  readonly fileName: string;
+  /**
+   * One self-contained, print-ready HTML document: its styles and pictures
+   * inline, because nothing beside it is uploaded.
+   */
+  readonly html: string;
+}
+
+/**
+ * A new file for an existing file resource, swapped in place: same module id,
+ * so bookmarks and links to the resource survive, and the old file goes rather
+ * than sitting beside the new one.
+ *
+ * There is deliberately no visibility here, and no name or Section either: a
+ * replace changes what the resource holds and nothing about where it is or who
+ * can see it. Revealing a document is a human decision, and the guarantee is
+ * the interface's — there is no field to write it into.
+ */
+export interface FileReplacement {
+  readonly moduleId: string;
+  /** As {@link NewFileResource.fileName}; it may differ from the old file's. */
+  readonly fileName: string;
+  /** As {@link NewFileResource.html}. */
+  readonly html: string;
+}
+
+/** What creating a file resource left in the course. */
+export interface CreatedFileResource {
+  /** Moodle's course module id for the new activity. */
+  readonly moduleId: string;
+}
+
+/**
  * The instant a Devoir stops accepting work, as this seam carries it.
  *
  * It is the catalog's `Freeze` in everything but name, and it is redeclared
@@ -375,6 +422,25 @@ export interface CourseDriver {
    * now fetch rather than what the last run saw.
    */
   updatePage(page: PageUpdate): Promise<readonly PublishedAsset[]>;
+  /**
+   * Creates a file resource in a Section, holding `resource.html` printed to
+   * a PDF and set to open in the browser, and reports its course module id.
+   *
+   * Visibility is written here and nowhere else. A resource created hidden is
+   * read back hidden, or the call fails; after this, {@link hideItem} is the
+   * only thing that touches its visibility, and it can only conceal.
+   */
+  createFileResource(resource: NewFileResource): Promise<CreatedFileResource>;
+  /**
+   * Replaces the file an existing file resource holds with `replacement.html`
+   * printed to a PDF: same module id, same name, same Section, same
+   * visibility, and the old file removed rather than kept beside the new one.
+   *
+   * It cannot write visibility, because {@link FileReplacement} has none: no
+   * run and no later edit above this seam can reveal a resource the
+   * Instructor is holding back, or re-hide one they have revealed.
+   */
+  replaceFile(replacement: FileReplacement): Promise<void>;
   /**
    * Creates a Devoir in {@link DELIVERABLE_SECTION} and reports the course
    * module id Moodle gave it.

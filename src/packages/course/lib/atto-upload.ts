@@ -1,8 +1,9 @@
 // Implementation: private to the course package, and to the browser driver
 // within it.
 //
-// Getting a picture into Moodle: Atto's image dialogue, the file picker behind
-// it, and the two things that go wrong there. Both are the same mistake made
+// Getting a file into Moodle: a picture through Atto's image dialogue, a file
+// resource's PDF through the form's file manager, the file picker behind both,
+// and the two things that go wrong there. Both are the same mistake made
 // twice — asking the page a question before it can have an answer, and asking
 // it of the whole page when the form carries two rich editors.
 //
@@ -36,7 +37,7 @@ const PANE_TIMEOUT_MS = 10 * 1000;
 /** How many times a dialogue is asked to close before the run gives up. */
 const DISMISS_ATTEMPTS = 10;
 
-/** How many times "Browse repositories…" is pressed before the run gives up. */
+/** How many times the picker's button is pressed before the run gives up. */
 const BROWSE_ATTEMPTS = 5;
 
 /**
@@ -124,7 +125,7 @@ async function openUploadPane(
 }
 
 /**
- * Presses "Browse repositories…" until Moodle's file picker is on screen.
+ * Presses `button` until Moodle's file picker is on screen.
  *
  * Pressed more than once because the first press of a run can land on a
  * button that does not do anything yet: the picker is a JavaScript module the
@@ -137,13 +138,18 @@ async function openUploadPane(
  *
  * Pressing again is safe: the button is behind the picker once the picker is
  * up, so there is no second press to make once the wait has been satisfied.
+ * The button is looked up afresh on each press, because it is Atto's
+ * "Browse repositories…" for a picture and the file manager's "Ajouter…" for
+ * a file resource.
  */
-async function openPicker(page: Page, what: string): Promise<void> {
+async function openPicker(
+  page: Page,
+  button: () => Promise<Locator>,
+  what: string
+): Promise<void> {
   const picker = page.locator(SELECTORS.filePicker);
   for (let attempt = 0; attempt < BROWSE_ATTEMPTS; attempt += 1) {
-    await (
-      await required(page, SELECTORS.attoBrowseRepositories, what)
-    ).click();
+    await (await button()).click();
     const opened = await picker
       .first()
       .waitFor({ state: "visible", timeout: PANE_TIMEOUT_MS })
@@ -152,8 +158,8 @@ async function openPicker(page: Page, what: string): Promise<void> {
     if (opened) return;
   }
   throw new Error(
-    `Aborting: ${what} — Moodle's file picker did not open after pressing ` +
-      `"${SELECTORS.attoBrowseRepositories}" ${BROWSE_ATTEMPTS} times, ` +
+    `Aborting: ${what} — Moodle's file picker did not open after pressing its ` +
+      `button ${BROWSE_ATTEMPTS} times, ` +
       `${(BROWSE_ATTEMPTS * PANE_TIMEOUT_MS) / 1000} seconds apart in all. ` +
       `Confirm the picker in an attended codegen session ` +
       `(see docs/uploading-images.md).`
@@ -174,10 +180,48 @@ export async function uploadImage(page: Page, image: PageImage): Promise<void> {
   const what = `uploading "${image.path}" for "${image.name}"`;
   const editor = await required(page, SELECTORS.attoBodyEditor, what);
   await (await required(editor, SELECTORS.attoImageButton, what)).click();
-  await openPicker(page, what);
+  await openPicker(
+    page,
+    () => required(page, SELECTORS.attoBrowseRepositories, what),
+    what
+  );
+  await sendThroughPicker(page, image.absolutePath, image.name, what);
+}
 
+/**
+ * Uploads one file into the file manager of the activity form on screen —
+ * the resource form's, which is where a file resource's PDF goes.
+ *
+ * The bytes are handed to the file input as they are, under `name`: a PDF
+ * printed a moment ago has no reason to be written to disk first.
+ */
+export async function uploadIntoFileManager(
+  page: Page,
+  manager: Locator,
+  file: { readonly name: string; readonly mimeType: string; readonly buffer: Buffer },
+  what: string
+): Promise<void> {
+  await openPicker(
+    page,
+    () => required(manager, SELECTORS.fileManagerAdd, what),
+    what
+  );
+  await sendThroughPicker(page, file, file.name, what);
+}
+
+/**
+ * The upload pane, the file, the name it is stored under, and whatever the
+ * picker asks afterwards: everything after the picker is open, which is the
+ * same whichever button opened it.
+ */
+async function sendThroughPicker(
+  page: Page,
+  file: Parameters<Locator["setInputFiles"]>[0],
+  storedAs: string,
+  what: string
+): Promise<void> {
   const input = await openUploadPane(page, what);
-  await input.setInputFiles(image.absolutePath);
+  await input.setInputFiles(file);
   // The name the file is stored under is the publisher's, not the disk's:
   // two pictures in one document may share a file name, and the second would
   // otherwise land on top of the first. Required, like every other control
@@ -185,7 +229,7 @@ export async function uploadImage(page: Page, image: PageImage): Promise<void> {
   // `@@PLUGINFILE@@` reference to it then resolves to nothing.
   await (
     await required(page, SELECTORS.filePickerSaveAs, what)
-  ).fill(image.name);
+  ).fill(storedAs);
   await (await required(page, SELECTORS.filePickerUploadButton, what)).click();
 
   // Asked on every re-publish rather than as an edge case: opening the form

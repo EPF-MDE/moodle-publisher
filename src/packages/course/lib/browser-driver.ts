@@ -9,13 +9,20 @@ import { dirname } from "node:path";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Locator, Page } from "playwright";
 
-import { fillRichBody, required, uploadImage } from "./atto-upload.ts";
+import {
+  fillRichBody,
+  required,
+  uploadImage,
+  uploadIntoFileManager,
+} from "./atto-upload.ts";
 import { browserMissing } from "./browser-install.ts";
+import { printPdf } from "./print-pdf.ts";
 import { createRunRecorder } from "./run-recorder.ts";
 import type { RunRecorder } from "./run-recorder.ts";
 import {
   MICROSOFT_LOGIN_HOST,
   PLAIN_TEXT_EDITOR,
+  RESOURCE_DISPLAY_OPEN,
   RICH_EDITOR,
   SELECTORS,
 } from "./selectors.ts";
@@ -47,9 +54,12 @@ import type {
   CourseItem,
   CourseSnapshot,
   CreatedDevoir,
+  CreatedFileResource,
   CreatedPage,
   DevoirUpdate,
+  FileReplacement,
   NewDevoir,
+  NewFileResource,
   NewPage,
   PageImage,
   PageUpdate,
@@ -109,6 +119,13 @@ const TABLE_APPEARS_TIMEOUT_MS = 60 * 1000;
  * loaded page needs, and short enough that a wrong guess costs nothing.
  */
 const OPTIONAL_CLICK_TIMEOUT_MS = 2000;
+
+/**
+ * How long a file manager gets to list what it holds, or to list it again
+ * after a file is deleted or uploaded. Its listing is fetched from the site
+ * after the form has rendered, so it is a wait on the network.
+ */
+const FILE_MANAGER_TIMEOUT_MS = 30 * 1000;
 
 export class BouncedToMicrosoftLogin extends Error {
   constructor(url: string) {
@@ -460,6 +477,19 @@ type ActivityForm =
       readonly images: readonly PageImage[];
       readonly upload: readonly PageImage[];
     };
+
+/**
+ * What is typed into the file resource form. Creating and replacing are the
+ * same form, opened at a different URL, and a replace touches the file and
+ * nothing else: the name, how it is displayed and who can see it are all on
+ * the create arm only.
+ *
+ * Written from the two seam types, as {@link DevoirForm} is, so that
+ * visibility is unwritable on a replace rather than merely unwritten.
+ */
+type FileResourceForm =
+  | ({ readonly kind: "create" } & Omit<NewFileResource, "section">)
+  | ({ readonly kind: "replace" } & Omit<FileReplacement, "moduleId">);
 
 /**
  * The sections of the course page.
@@ -1361,6 +1391,147 @@ export async function openBrowserCourse(
     return created;
   }
 
+  /**
+   * The resource form's file manager, once it has listed what it holds.
+   *
+   * Waited for before anything is counted in it: the listing arrives after
+   * the form, and a file manager read too early reads as empty — which on a
+   * replace would leave the old file in place beside the new one.
+   */
+  async function loadedFileManager(what: string): Promise<Locator> {
+    const manager = await required(page, SELECTORS.resourceFiles, what);
+    await required(
+      manager,
+      SELECTORS.fileManagerLoaded,
+      what,
+      FILE_MANAGER_TIMEOUT_MS
+    );
+    return manager;
+  }
+
+  /**
+   * Deletes every file the file manager holds, one at a time, each through
+   * the dialogue the file opens and the confirmation behind it.
+   *
+   * Delete-then-upload rather than an upload over the top: Moodle only offers
+   * to overwrite a file of the same name, and a replacement under a new name
+   * would leave the resource holding two.
+   */
+  async function emptyFileManager(
+    manager: Locator,
+    what: string
+  ): Promise<void> {
+    const files = manager.locator(SELECTORS.fileManagerFile);
+    for (let held = await files.count(); held > 0; held -= 1) {
+      await files.first().click();
+      await (await required(page, SELECTORS.fileManagerDelete, what)).click();
+      await (await required(page, SELECTORS.fileManagerConfirm, what)).click();
+      // Gone when there is no longer a file in the last place: the listing is
+      // redrawn from the site, so the count is what can be waited on.
+      const gone = await files
+        .nth(held - 1)
+        .waitFor({ state: "detached", timeout: FILE_MANAGER_TIMEOUT_MS })
+        .then(() => true)
+        .catch(() => false);
+      if (!gone) {
+        throw new Error(
+          `Aborting: ${what} — deleted a file from the resource form and the file ` +
+            `manager still lists ${held}. Nothing was submitted. Confirm the file ` +
+            `manager's controls in an attended codegen session.`
+        );
+      }
+    }
+  }
+
+  /**
+   * Requires the file manager to hold `fileName` and nothing else before the
+   * form is submitted. The resource is exactly its one file: a second one
+   * beside it, or the upload stored under another name, is what a Student
+   * would open instead.
+   */
+  async function assertHoldsOnly(
+    manager: Locator,
+    fileName: string,
+    what: string
+  ): Promise<void> {
+    const names = manager.locator(SELECTORS.fileManagerFileName);
+    await names
+      .filter({ hasText: fileName })
+      .first()
+      .waitFor({ state: "attached", timeout: FILE_MANAGER_TIMEOUT_MS })
+      .catch(() => undefined);
+    const held = (await names.allTextContents()).map((name) => name.trim());
+    if (held.length !== 1 || held[0] !== fileName) {
+      const listed =
+        held.length === 0
+          ? "nothing"
+          : held.map((name) => `"${name}"`).join(", ");
+      throw new Error(
+        `Aborting: ${what} — after the upload the file manager holds ${listed}, ` +
+          `not "${fileName}" alone. Nothing was submitted. Check the resource's ` +
+          `files in Moodle, and the file manager's selectors.`
+      );
+    }
+  }
+
+  /**
+   * Prints the HTML, opens the file resource form, puts the PDF in its file
+   * manager in place of whatever was there, and saves it.
+   *
+   * The PDF is printed before the form is opened, so a document that cannot
+   * be printed writes nothing. The file manager is checked to hold exactly
+   * the new file before the form is submitted, because what Moodle saves is
+   * whatever the draft area holds at that moment.
+   */
+  async function submitFileResourceForm(
+    formUrl: string,
+    fields: FileResourceForm,
+    what: string
+  ): Promise<readonly CourseItem[]> {
+    const pdf = await printPdf(fields.html);
+    await page.goto(formUrl, { waitUntil: "domcontentloaded" });
+    assertNotOnLoginHost(page, watch);
+    await assertNotMoodleError(page, `opening the resource form: ${what}`);
+    await assertInConfiguredCourse(page, options);
+
+    if (fields.kind === "create") {
+      await page.locator(SELECTORS.activityName).fill(fields.name);
+    }
+    const manager = await loadedFileManager(what);
+    await emptyFileManager(manager, what);
+    await uploadIntoFileManager(
+      page,
+      manager,
+      { name: fields.fileName, mimeType: "application/pdf", buffer: pdf },
+      what
+    );
+    await assertHoldsOnly(manager, fields.fileName, what);
+
+    // How it opens and who can see it: decided once, when it is created. Not
+    // reached from a replace, which carries neither.
+    if (fields.kind === "create") {
+      const display = await writableField(
+        SELECTORS.resourceDisplay,
+        what,
+        "the PDF cannot be set to open in the browser"
+      );
+      await display.selectOption(RESOURCE_DISPLAY_OPEN);
+      await selectPossiblyCollapsed(
+        SELECTORS.activityVisible,
+        fields.visible ? "1" : "0",
+        `${what} ${fields.visible ? "visible" : "hidden"}`
+      );
+    }
+
+    await page.locator(SELECTORS.activitySubmitAndReturn).click();
+    await page.waitForURL(/\/course\/view\.php/, {
+      waitUntil: "domcontentloaded",
+    });
+    assertNotOnLoginHost(page, watch);
+    await assertInConfiguredCourse(page, options);
+    return readItems(page);
+  }
+
   async function submitActivityForm(
     formUrl: string,
     fields: ActivityForm
@@ -1562,6 +1733,80 @@ export async function openBrowserCourse(
 
         updatedActivity(items, update, "activity");
         return servedAssets(update.moduleId, update.name, update.images);
+      } catch (error) {
+        noteAbort(mutation, error);
+        throw error;
+      } finally {
+        await after();
+      }
+    },
+
+    async createFileResource(
+      resource: NewFileResource
+    ): Promise<CreatedFileResource> {
+      const what = `creating the file resource "${resource.name}"`;
+      const mutation = await prepareToMutate();
+      // As for a page: the publishing layer has already put the section in
+      // the course, and this is the lookup finding it.
+      const { number: section } = await ensureSectionOn(resource.section);
+      await gotoCourse(page, options, watch);
+      const after = await mutation.capture(`create file ${resource.name}`);
+
+      try {
+        const before = await readItems(page);
+        const form = new URL(
+          `/course/modedit.php?add=resource&course=${options.courseId}&section=${section}`,
+          options.baseUrl
+        ).toString();
+        const items = await submitFileResourceForm(
+          form,
+          { kind: "create", ...resource },
+          what
+        );
+
+        const created = createdActivity(before, items, {
+          named: `the file resource "${resource.name}"`,
+          section: resource.section,
+          visible: resource.visible,
+          ifRevealed: "it holds material students must not see.",
+        });
+        return { moduleId: created.moduleId };
+      } catch (error) {
+        noteAbort(mutation, error);
+        throw error;
+      } finally {
+        await after();
+      }
+    },
+
+    async replaceFile(replacement: FileReplacement): Promise<void> {
+      const what = `replacing the file of resource ${replacement.moduleId} with "${replacement.fileName}"`;
+      // The existing activity's form, reached by URL rather than through the
+      // course page's action menu, whose ids change from one render to the
+      // next. Moodle keeps the module id, the name, the section and the
+      // visibility; this call has none of them to type.
+      const mutation = await prepareToMutate();
+      await gotoCourse(page, options, watch);
+      const after = await mutation.capture(
+        `replace file ${replacement.moduleId}`
+      );
+
+      try {
+        const form = new URL(
+          `/course/modedit.php?update=${replacement.moduleId}`,
+          options.baseUrl
+        ).toString();
+        const items = await submitFileResourceForm(
+          form,
+          { kind: "replace", ...replacement },
+          what
+        );
+        if (!items.some((item) => item.moduleId === replacement.moduleId)) {
+          throw new Error(
+            `Aborting: file resource ${replacement.moduleId} is not in course ` +
+              `${options.courseId} after replacing its file.`
+          );
+        }
       } catch (error) {
         noteAbort(mutation, error);
         throw error;
