@@ -11,10 +11,7 @@ import { formatFreeze } from "../catalog/deliverables.ts";
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../course/index.ts";
 import { renderDocument } from "../documents/index.ts";
 import { devoirEntryFor, pageFor } from "../manifest/index.ts";
-import {
-  checkCrossReferences,
-  formatHiddenLinks,
-} from "./lib/cross-references.ts";
+import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
 
 import type {
@@ -32,16 +29,10 @@ import type {
   PageEntry,
   RecordedAsset,
 } from "../manifest/index.ts";
-import type {
-  CrossReferenceInput,
-  HiddenLink,
-} from "./lib/cross-references.ts";
+import type { CrossReferenceInput } from "./lib/cross-references.ts";
 
 export { DevoirBriefNotPublished } from "./lib/devoirs.ts";
-export {
-  LinkToInstructorOnly,
-  LinkToUnknownDocument,
-} from "./lib/cross-references.ts";
+export { LinkToInstructorOnly } from "./lib/cross-references.ts";
 
 /**
  * What a run would do to one document. `update` is decided by content: the
@@ -96,21 +87,13 @@ export type PlanItem =
 
 export interface Plan {
   /**
-   * The Moodle site, so that applying can turn a course module id into the URL
-   * a cross-reference points at. Decided by the configuration and carried here
-   * rather than read again lower down, so one run cannot write links to a
-   * second site.
+   * The Moodle site, so that applying can turn the brief's course module id
+   * into the URL a Devoir's description points at. Decided by the configuration
+   * and carried here rather than read again lower down, so one run cannot write
+   * links to a second site.
    */
   readonly baseUrl: string;
   readonly items: readonly PlanItem[];
-  /**
-   * Cross-references this run publishes whose target is hidden in the course.
-   *
-   * Allowed, and surfaced: the link resolves, but a reader who cannot see the
-   * target activity cannot follow it. The links that cannot be published at all
-   * never reach here — they abort while the plan is being built.
-   */
-  readonly hiddenLinks: readonly HiddenLink[];
   /**
    * What this run would do to the Devoirs, one entry per Deliverable, in the
    * order the front matter defines them.
@@ -209,12 +192,15 @@ export class AlreadyInCourse extends Error {
 /**
  * Everything a plan is decided from: the repository, the tables, the course.
  *
- * Deciding a link takes all of it but the two paths, so the rest is declared
- * once, where the link rules live, and this widens it.
+ * Deciding a link takes only the table, so that part is declared once, where
+ * the link rules live, and this widens it.
  */
 export interface PlanInput extends CrossReferenceInput {
+  readonly manifest: Manifest;
+  /** The course as it stands. */
+  readonly snapshot: CourseSnapshot;
   readonly repoRoot: string;
-  /** The Moodle site the cross-references will point at. */
+  /** The Moodle site a Devoir's description will point at. */
   readonly baseUrl: string;
   /**
    * The Deliverables, already read and already checked. Handed in rather than
@@ -235,16 +221,19 @@ export function buildPlan(input: PlanInput): Plan {
   const { repoRoot, documents, manifest, snapshot } = input;
 
   const live = new Map(snapshot.items.map((item) => [item.moduleId, item]));
-  // What every document the table names is published under, which is what a
-  // link to it is published *as*. The same reading `checkCrossReferences`
-  // makes below, so a link cannot be labelled by one table and checked against
-  // another.
-  const titles = new Map(
-    documents.map((document) => [document.source, document.title])
+  // Where every document the table names is published — its title and its
+  // Section — which is what a link to it is published *as*. The same reading
+  // `checkCrossReferences` makes below, so a link cannot be labelled by one
+  // table and checked against another.
+  const targets = new Map(
+    documents.map((document) => [
+      document.source,
+      { title: document.title, section: document.section },
+    ])
   );
   const items = documents.map((document): PlanItem => {
     const rendered = renderDocument(repoRoot, document.source, (link) =>
-      titles.get(link.target)
+      targets.get(link.target)
     );
     const published = pageFor(manifest, document.source);
     // The activity the manifest points at, as the course holds it now. Absent
@@ -322,10 +311,9 @@ export function buildPlan(input: PlanInput): Plan {
   // built by the reporting path too, so `publish` without `--apply` is a link
   // check.
   //
-  // Checked against every document either table names: a link whose target is
-  // absent from the tables is refused as a link to nothing, which is now the
-  // only way a cross-reference can fail to find its target.
-  const hiddenLinks = checkCrossReferences(
+  // Checked against every document the table names: a link whose target is
+  // absent from it is published as its own text, and is nobody's refusal.
+  checkCrossReferences(
     input,
     items.flatMap((item) =>
       item.rendered.links.map((link) => ({ document: item.document, link }))
@@ -335,7 +323,6 @@ export function buildPlan(input: PlanInput): Plan {
   return {
     baseUrl: input.baseUrl,
     items,
-    hiddenLinks,
     devoirs: planDevoirs(input, documents, createdSources(items), live),
   };
 }
@@ -617,7 +604,6 @@ export function formatPlan(plan: Plan): string {
   return [
     heading,
     ...lines,
-    ...formatHiddenLinks(plan.hiddenLinks),
     "",
     `${count(plan, "create")} to create, ${count(plan, "update")} to update, ` +
       `${skips(plan)} to skip, ${hides(plan)} to hide, ` +

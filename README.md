@@ -39,7 +39,7 @@ npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
 ```
 
-`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a cross-reference to a document no entry names, a Student-facing document linking to Instructor Material, a grid that still has the retired `probes:` block — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a grid that still has the retired `probes:` block — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
 
 `check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
@@ -212,7 +212,7 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 
 **A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
 
-Membership is by explicit entry; nothing is discovered by walking a directory. **A document the table does not name is not published** — in the 2026 course, the C3 fixture generator under `script/`, notes nobody meant anyone to read — and a link to one of them is refused rather than published dead. There is no list of things that must never be published, because there is nothing a document has to be taken off.
+Membership is by explicit entry; nothing is discovered by walking a directory. **A document the table does not name is not published** — in the 2026 course, the C3 fixture generator under `script/`, notes nobody meant anyone to read — and a link to one of them is published as its link text alone. There is no list of things that must never be published, because there is nothing a document has to be taken off.
 
 **Who a document is for is not in the table.** A source path ending in `--instructor.md` is material for examiners, and nothing else says so: the file sits beside the student document it pairs with — in the 2026 course, `labs/lab-3-oral--instructor.md` next to `labs/lab-3-oral.md`, `c1-assessment-examples--instructor.md` next to `assessment-grid.md` — and everything that follows from the suffix is derived at publish time. See [Instructor material](#instructor-material).
 
@@ -295,32 +295,31 @@ The front matter is read by the publisher and never published: the page a studen
 
 ## Cross-references
 
-A link from one document of a course repository to another takes a student to that document **in Moodle**, and a link that would strand them **stops the run**.
+A link from one document of a course repository to another is **published as text**, not as a link: it names the target and where on the course page to find it, and a link that would hand a student the answer key **stops the run**. No document needs another document's module id to be published, so every page goes in on the first pass.
 
-A relative link ending in `.md` is resolved against the linking document's directory and rewritten to the target's Moodle URL, looked up in the manifest. **In-page anchors and absolute URLs are left exactly as written** — so an in-page `#section` link and the 2026 course's Lecture 1 links out to aihero.dev both keep working — and so is a relative path that merely appears in a code span, because the rewrite is done to the rendered HTML, where a link is unambiguously an `href` attribute.
+A relative link ending in `.md`, with or without a `#fragment`, is resolved against the linking document's directory and looked up in the table:
 
-**A link that only spells its own path is published under the target's title.** Most cross-references in the 2026 course are written ``[`../resources/model-effort-and-cost.md`](../resources/model-effort-and-cost.md)``, which publishes a working link labelled with a repository path a reader cannot act on — and labelled differently from the title the same document was published under. So when a link's text _is_ its own path, the text is replaced by the target's title from the table, and a code span wrapping that text goes with it, because a title is prose and not code. A link whose text is prose is published byte-for-byte as written: `[AI Coding Dictionary](…)` is already the target style, and so is a sentence that happens to end in a path. A code span in ordinary prose — which the lectures write constantly, often right beside the link itself — is still untouched; only a code span forming a link's whole text is replaced.
+- **A listed document** becomes `"<title>" (document available in the <Section> section)` — for example `"Killing bloat" (document available in the Resources section)`. The title is the one the course page shows, `Instructor — ` prefix included. The link's own text is dropped, whatever it said, so a link written ``[`../resources/killing-bloat.md`](../resources/killing-bloat.md)`` reads under the target's title like any other. A link to a heading in the linking document itself, spelled with its own path (`lab-1.md#appendix` from `lab-1.md`), is no exception: it reads as that document's own title.
+- **A document the table does not list** — or a path that climbs out of the repository — becomes its link text alone, with its formatting kept and no parenthetical. Nothing publishes the target, so there is nothing to name and nothing to click.
 
-The title comes from the same table entry that decides whether the link may be published at all, never from the filename or from a heading in the target, so a retitled entry and a relinked page cannot disagree. It is folded into the document's content hash for the same reason the bytes of a picture are: rename an entry in the table and every page linking to it reads differently, which nothing in the linking document's markdown would show.
+**In-page anchors and web links stay links** — an in-page `#section` link and the 2026 course's Lecture 1 links out to aihero.dev both keep working — and so does a relative path that merely appears in a code span, because the rewrite is done to the rendered HTML, where a link is unambiguously an `<a>` with an `href`. A cross-reference the rewrite cannot find in the rendered page — an `<a>` its author never closed — stops the run while the document is read, rather than publishing the path.
+
+The title and Section come from the same table entry that decides whether the link may be published at all, never from the filename or from a heading in the target. Both are folded into the document's content hash for the same reason the bytes of a picture are: rename or move an entry in the table and every page linking to it reads differently, which nothing in the linking document's markdown would show.
 
 What a link is allowed to mean turns on **who each end of it is for**, not on publishability and not on hiddenness:
 
 | Link from | Link to | Verdict |
 | --- | --- | --- |
 | student-facing | instructor material | **hard error** |
-| instructor material | anything published, either kind | rewritten |
-| anything | a document the table does not name | **hard error** |
-| anything | a published document that is hidden | rewritten, with a **warning** |
+| instructor material | anything published, either kind | text |
+| anything | a document the table does not list | link text alone |
+| anything | a published document that is hidden | text, like any other |
 
 Who it is for rather than whether it is hidden, because the 2026 course's C3 brief is the counterexample already in its table: it ships hidden and is student-facing all the same. A rule written about hidden documents would refuse the lecture that points at the brief and allow a brief that points at the answer key.
 
-**The hidden-link warning fires in bulk by construction.** Every instructor activity is hidden, so every link between two of them warns. A run of the 2026 course produces five at once, and they are reported as one count and one explanation over a list of links, rather than the same paragraph five times over.
+**A link to a hidden document is not warned about.** It is only text, so there is nothing for a reader who cannot see the target to click and be refused.
 
 **Every refusal happens while the plan is being built**, before anything is written to the course — so `npm run plan`, which applies nothing, is a complete link check.
-
-**Some links can only be resolved after the pages exist.** A document and the document it links to can both be new — in the 2026 course, the second lecture and the C3 brief it points at, Lab 1 and the reading it sends students to — and a link becomes a URL only once Moodle has given its target a module id. The run therefore comes back at the end for the pages whose links it could not answer the first time, and says `relinked` when it does. Both passes go through the one rewrite, so a link's text does not depend on which of them answered it. The manifest is not rewritten for it: the content hash covers the repository paths a document links to and what the table calls them, not the ids they resolved to.
-
-Two links in the 2026 course came due with this: `c2-assessment-examples--instructor.md` pointed at the publisher's own `src/packages/README.md`, and both lectures pointed at `assets/crash-course/README.md`. Neither target is in the table, so nothing publishes them; each link was dropped and the sentence around it kept, exactly as `labs/lab-3-oral.md`'s pointer at the oral script is.
 
 The tests drive the command line against a temporary repository with its own `publisher.json`, exactly as a course repository is run. That file decides what a repository publishes; it has no say over which of those documents are instructor material, because that is the filename's to say.
 

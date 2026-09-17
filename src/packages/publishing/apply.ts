@@ -4,9 +4,8 @@
 // leaves an accurate record of what actually happened, and recovery is running
 // the same command again.
 import { DELIVERABLE_SECTION } from "../course/index.ts";
-import { withResolvedLinks } from "../documents/index.ts";
 import { devoirKey, recordPublished } from "../manifest/index.ts";
-import { UnrewrittenCrossReference, pageUrl } from "./lib/cross-references.ts";
+import { pageUrl } from "./lib/cross-references.ts";
 import { devoirContentHash, devoirDescription } from "./lib/devoirs.ts";
 import { sectionsToCreate } from "./plan.ts";
 
@@ -15,58 +14,24 @@ import type {
   PageImage,
   PublishedAsset,
 } from "../course/index.ts";
-import type { CrossReference } from "../documents/index.ts";
 import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
 
 /**
- * What each document this run can already point a link at was published as: the
- * course module id a link to it becomes, and the title a link to it reads as.
- * Everything the manifest recorded, plus everything this run has created so
- * far.
+ * The course module id each document was published as, by source: everything
+ * the manifest recorded, plus everything this run has created so far.
  *
- * A document created earlier in the same run is in here by the time a later one
- * is written, which is why most cross-references resolve on the first pass.
- *
- * The two travel together because a link needs both, and looking the title up
- * separately at the point of use is how a page ends up pointing at one document
- * under the name of another.
+ * Only a Devoir asks, for the brief its description links to. A document's own
+ * links are text and need no module id.
  */
-interface PublishedActivity {
-  readonly moduleId: string;
-  readonly title: string;
-}
-type ActivityBySource = Map<string, PublishedActivity>;
+type ModuleIdBySource = Map<string, string>;
 
-function knownActivities(plan: Plan): ActivityBySource {
-  const activities: ActivityBySource = new Map();
+function knownModuleIds(plan: Plan): ModuleIdBySource {
+  const moduleIds: ModuleIdBySource = new Map();
   for (const item of plan.items) {
     if (item.verb !== "create")
-      activities.set(item.document.source, {
-        moduleId: item.published.moduleId,
-        title: item.document.title,
-      });
+      moduleIds.set(item.document.source, item.published.moduleId);
   }
-  return activities;
-}
-
-/**
- * The document's HTML with every cross-reference pointing at Moodle, and the
- * ones whose target this run has not made yet.
- *
- * Which links are allowed was settled while the plan was built. What is decided
- * here is only where each one goes, so a link left unresolved is a document
- * this run is about to create rather than a link anyone needs to hear about.
- */
-function linkedHtml(item: PlanItem, plan: Plan, activities: ActivityBySource) {
-  return withResolvedLinks(item.rendered, (link) => {
-    const target = activities.get(link.target);
-    return target === undefined
-      ? undefined
-      : {
-          url: pageUrl(plan.baseUrl, target.moduleId, link.fragment),
-          title: target.title,
-        };
-  });
+  return moduleIds;
 }
 
 export interface ApplyOptions {
@@ -142,21 +107,15 @@ function reportUploads(
 
 /**
  * Creates one page, with the pictures it shows, and records it. Returns the id
- * Moodle gave it, which is what a link to this document becomes.
+ * Moodle gave it, which is what a Devoir's link to its brief becomes.
  *
- * The pictures come from the document as it was read; the HTML is passed in,
- * because by here its cross-references have been answered with the module ids
- * this run knows and the document itself cannot know them.
+ * The HTML and pictures are the document exactly as the plan read it.
  */
-async function create(
-  item: PlanItem,
-  html: string,
-  options: ApplyOptions
-): Promise<string> {
+async function create(item: PlanItem, options: ApplyOptions): Promise<string> {
   const created = await options.driver.createPage({
     name: item.document.title,
     section: item.document.section,
-    html,
+    html: item.rendered.html,
     images: item.rendered.images,
     upload: item.upload,
     // The one place visibility is *written* for a document that is not being
@@ -198,14 +157,13 @@ async function create(
  */
 async function update(
   item: Extract<PlanItem, { verb: "update" }>,
-  html: string,
   options: ApplyOptions
 ): Promise<void> {
   const { published } = item;
   const assets = await options.driver.updatePage({
     moduleId: published.moduleId,
     name: item.document.title,
-    html,
+    html: item.rendered.html,
     images: item.rendered.images,
     upload: item.upload,
   });
@@ -238,71 +196,10 @@ async function hide(item: PlanItem, options: ApplyOptions): Promise<void> {
 }
 
 /**
- * Rewrites the pages that pointed at something this run had not made yet.
- *
- * A document and the document it links to can both be new — the second lecture
- * and the brief it points at, a lab and the resource it sends students to — and
- * a link becomes a URL only once Moodle has given its target a module id. So
- * the run comes back for them at the end, when every id is known.
- *
- * The manifest is not rewritten: the hash covers the repository paths a
- * document links to, not the ids they resolved to, so the record made on the
- * first pass is already the right one and this pass is invisible to the next
- * run.
- *
- * This is also the last moment anything can be said about a link: every page
- * exists and every id is known, so a cross-reference still spelled as a
- * repository path here is one no later pass will fix. Every page is relinked
- * first and the complaint comes after, so one bad link in the first document
- * does not cost the rest of them the pass they were owed.
- */
-async function relink(
-  pending: readonly PlanItem[],
-  plan: Plan,
-  activities: ActivityBySource,
-  options: ApplyOptions
-): Promise<void> {
-  let dead: { source: string; link: CrossReference } | undefined;
-
-  for (const item of pending) {
-    const moduleId = activities.get(item.document.source)?.moduleId;
-    if (moduleId === undefined) continue;
-    const { html, unresolved } = linkedHtml(item, plan, activities);
-    await options.driver.updatePage({
-      moduleId,
-      name: item.document.title,
-      html,
-      // The same pictures the page already carries. This pass rewrites links
-      // and nothing else, and a page updated without them would have its
-      // pictures taken away to fix a link.
-      images: item.rendered.images,
-      // None of them go up again. Whatever this document needed uploading was
-      // uploaded by the create or update that came before this pass, so the
-      // activity already holds every picture the page shows — and the form
-      // puts what the activity holds back into the draft area, so saying
-      // nothing here keeps them.
-      upload: [],
-    });
-    options.report(
-      `relinked ${item.document.title} (module ${moduleId}, links to pages made in this run)`
-    );
-    // Any link at all, not only the ones whose target this run made: the plan
-    // refuses every link it cannot place, so by here each one has an activity
-    // to point at and being unresolved means the rewrite missed it.
-    const [first] = unresolved;
-    if (first !== undefined && dead === undefined)
-      dead = { source: item.document.source, link: first };
-  }
-
-  if (dead !== undefined)
-    throw new UnrewrittenCrossReference(dead.source, dead.link);
-}
-
-/**
  * Publishes the Devoirs: creates the ones the course does not hold, rewrites
  * the ones whose Deliverable has been edited, and records each as it succeeds.
  *
- * Last in the run, after every page has been written and relinked, because a
+ * Last in the run, after every page has been written, because a
  * Devoir's description links to the brief and the brief's module id only
  * exists once the page has been saved. A brief that is not published at all is
  * refused while the plan is built, so by here every one of these lookups has
@@ -320,7 +217,7 @@ async function relink(
  */
 async function publishDevoirs(
   plan: Plan,
-  activities: ActivityBySource,
+  moduleIds: ModuleIdBySource,
   options: ApplyOptions
 ): Promise<void> {
   for (const devoir of plan.devoirs) {
@@ -334,7 +231,7 @@ async function publishDevoirs(
     const html = devoirDescription(
       devoir.deliverable,
       devoir.brief,
-      pageUrl(plan.baseUrl, briefModuleId(devoir, activities), "")
+      pageUrl(plan.baseUrl, briefModuleId(devoir, moduleIds), "")
     );
     if (devoir.verb === "update") {
       await rewriteDevoir(devoir, html, options);
@@ -355,9 +252,9 @@ async function publishDevoirs(
  */
 function briefModuleId(
   devoir: Extract<DevoirPlanItem, { verb: "create" | "update" }>,
-  activities: ActivityBySource
+  moduleIds: ModuleIdBySource
 ): string {
-  const moduleId = activities.get(devoir.brief.source)?.moduleId;
+  const moduleId = moduleIds.get(devoir.brief.source);
   if (moduleId === undefined) {
     throw new Error(
       `Aborting: the Devoir for "${devoir.deliverable.id}" links to "${devoir.brief.source}", and this ` +
@@ -452,27 +349,18 @@ export async function applyPlan(
 ): Promise<void> {
   await ensureSections(plan, options);
 
-  const activities = knownActivities(plan);
-  const pending: PlanItem[] = [];
+  const moduleIds = knownModuleIds(plan);
 
   for (const item of plan.items) {
-    if (item.verb !== "skip") {
-      const { html, unresolved } = linkedHtml(item, plan, activities);
-      if (item.verb === "create") {
-        activities.set(item.document.source, {
-          moduleId: await create(item, html, options),
-          title: item.document.title,
-        });
-      } else {
-        await update(item, html, options);
-      }
-      if (unresolved.length > 0) pending.push(item);
+    if (item.verb === "create") {
+      moduleIds.set(item.document.source, await create(item, options));
+    } else if (item.verb === "update") {
+      await update(item, options);
     } else if (!item.hide) {
       options.report(`skip     ${item.document.title}`);
     }
     await hide(item, options);
   }
 
-  await relink(pending, plan, activities, options);
-  await publishDevoirs(plan, activities, options);
+  await publishDevoirs(plan, moduleIds, options);
 }

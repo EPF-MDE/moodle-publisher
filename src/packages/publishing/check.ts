@@ -18,22 +18,13 @@ import { loadDeliverables } from "../catalog/deliverables.ts";
 import { loadFeedbackLetter } from "../catalog/feedback-letter.ts";
 import { assertSkillLinks } from "../skills/index.ts";
 import { assertContextPointer } from "./lib/context-map.ts";
-import { formatHiddenLinks } from "./lib/cross-references.ts";
 import { buildPlan } from "./plan.ts";
-
-import type { HiddenLink } from "./lib/cross-references.ts";
 
 /** What a check read, for the one line that says it passed. */
 export interface CheckReport {
   readonly documents: number;
   readonly deliverables: number;
   readonly competencies: number;
-  /**
-   * Links to a document that ships hidden, decided from the catalog's intent
-   * alone: a plan over a course where somebody has since revealed the target
-   * says nothing about it, and this still does.
-   */
-  readonly hiddenLinks: readonly HiddenLink[];
 }
 
 /**
@@ -72,7 +63,6 @@ export function checkRepository(repoRoot: string): CheckReport {
     documents: plan.items.length,
     deliverables: plan.devoirs.length,
     competencies: competencies.length,
-    hiddenLinks: plan.hiddenLinks,
   };
 }
 
@@ -87,7 +77,6 @@ export function formatCheck(report: CheckReport): string {
     `Check passed: ${counted(report.documents, "document", "documents")}, ` +
       `${counted(report.deliverables, "Deliverable", "Deliverables")}, ` +
       `${counted(report.competencies, "Competency", "Competencies")}.`,
-    ...formatHiddenLinks(report.hiddenLinks),
     "",
     "Nothing was read from Moodle and nothing was written.",
   ].join("\n");

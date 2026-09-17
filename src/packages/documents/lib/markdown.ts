@@ -12,7 +12,13 @@ import { imagesShownBy, resolveReference } from "./images.ts";
 
 import type { HashedPart } from "./content-hash.ts";
 import type { FrontMatter } from "./front-matter.ts";
-import type { CrossReference } from "./links.ts";
+import type { CrossReference, LinkTarget } from "./links.ts";
+
+/**
+ * How a cross-reference is published, as the hash records it: as text naming
+ * its target. Changing that changes every page that links, so it is hashed.
+ */
+const LINK_RENDERING_VERSION = "named-text";
 
 /**
  * The absolute path of `source`, or a refusal. Every read in this file goes
@@ -223,19 +229,19 @@ export function rewriteImages(
  * Hashing the URL instead would make the hash turn on the state of the course,
  * which is the one thing this hash is not about.
  *
- * A link's *title* is in here all the same, when `titleOf` names one. That is
- * not course state: it is what the catalog — code, in this repository — says
- * the target is called, and it is what a self-naming link is published as. A
- * title changed in the table with the hash blind to it leaves every page
- * linking to that document reading the old name for good, while the plan
- * reports nothing to do.
+ * A link's *title and Section* are in here all the same, when `targetOf` names
+ * them. That is not course state: it is what the catalog — code, in this
+ * repository — says the target is called and where it sits, and it is the text
+ * the link is published as. A title changed in the table with the hash blind
+ * to it leaves every page linking to that document reading the old name for
+ * good, while the plan reports nothing to do.
  */
 export function hashDocument(
   repoRoot: string,
   source: string,
   markdown: string,
   links: readonly CrossReference[],
-  titleOf: (link: CrossReference) => string | undefined
+  targetOf: (link: CrossReference) => LinkTarget | undefined
 ): string {
   const parts: HashedPart[] = [markdown];
   const shown = imagesShownBy(source, markdown);
@@ -253,12 +259,17 @@ export function hashDocument(
     // the day it arrives the document reads as changed.
     parts.push(`\0${image}\0`, bytesOf(repoRoot, image) ?? "absent");
   }
+  // A cross-reference is published as text rather than as a link, which is a
+  // different page from the one an earlier version of this program published
+  // for the same markdown. Folded in only when there are links, so a document
+  // making none is not republished for a change that does not touch it.
+  if (links.length > 0) parts.push(`\0links:${LINK_RENDERING_VERSION}\0`);
   // Sorted, so the hash does not turn on the order the links happen to be
   // written in: reordering two paragraphs already changes the markdown itself.
   for (const link of [...links]
     .map((link) => ({
       path: `${link.target}${link.fragment}`,
-      title: titleOf(link),
+      target: targetOf(link),
     }))
     // By code unit, as the default sort was before titles rode along, and not
     // by locale: a hash that came out differently on a machine set to another
@@ -267,13 +278,14 @@ export function hashDocument(
       one.path === other.path ? 0 : one.path < other.path ? -1 : 1
     )) {
     parts.push(`\0link\0${link.path}`);
-    // The title only when there is one, so a document whose links nobody named
-    // hashes to exactly what it hashed to before titles were counted. It goes
-    // in because a link that spells its own path is published under the
-    // target's title: edit that title in the catalog and every page linking to
-    // it reads differently, which the plan cannot see from the markdown alone.
-    // The same reason the bytes of a picture are in here.
-    if (link.title !== undefined) parts.push(`\0title\0${link.title}`);
+    // A link is published as its target's title and Section: edit either in
+    // the catalog and every page linking to it reads differently, which the
+    // plan cannot see from the markdown alone. The same reason the bytes of a
+    // picture are in here.
+    if (link.target !== undefined) {
+      parts.push(`\0title\0${link.target.title}`);
+      parts.push(`\0section\0${link.target.section}`);
+    }
   }
   return contentHash(parts);
 }

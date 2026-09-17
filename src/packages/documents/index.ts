@@ -9,12 +9,12 @@ import {
   readSource,
   rewriteImages,
 } from "./lib/markdown.ts";
-import { crossReferencesIn, linkKey, rewriteLinks } from "./lib/links.ts";
+import { crossReferencesIn, linkKey, linksAsText } from "./lib/links.ts";
 
-import type { CrossReference, ResolvedLink } from "./lib/links.ts";
+import type { CrossReference, LinkTarget } from "./lib/links.ts";
 import type { FrontMatter } from "./lib/front-matter.ts";
 
-export type { CrossReference, ResolvedLink } from "./lib/links.ts";
+export type { CrossReference, LinkTarget } from "./lib/links.ts";
 
 import type { PageImage } from "../course/index.ts";
 
@@ -28,20 +28,14 @@ export interface RenderedDocument {
   /**
    * The HTML that goes into the page activity's body, with every reference to
    * a picture in this repository already pointing at the copy that goes up
-   * with the page.
-   *
-   * Cross-references are the other way round: they are still spelled as the
-   * document spells them, repository paths until {@link withResolvedLinks} is
-   * given the course's answer for each one. A picture's destination is known
-   * as soon as the document is read; a link's is a module id, which may not
-   * exist until later in the same run.
+   * with the page, and every cross-reference already turned into text.
    */
   readonly html: string;
   /**
-   * Hash of the document — its markdown, the pictures it shows and the
-   * documents it links to — and so the manifest's answer to "has this
-   * changed?". A diagram redrawn without a word of prose touched changes it,
-   * because it changes what students see.
+   * Hash of the document — its markdown, the pictures it shows and what the
+   * documents it links to are called and where they sit — and so the
+   * manifest's answer to "has this changed?". A diagram redrawn without a word
+   * of prose touched changes it, because it changes what students see.
    */
   readonly contentHash: string;
   /**
@@ -57,24 +51,25 @@ export interface RenderedDocument {
   readonly images: readonly PageImage[];
 }
 
-/** HTML with every cross-reference the caller could answer pointing at Moodle. */
-export interface LinkedHtml {
-  readonly html: string;
-  /**
-   * The cross-references still spelled as repository paths in `html`.
-   *
-   * Every link the caller had no URL for — and every link it *did* answer whose
-   * href the rewrite never found. The second kind is the one worth naming: a
-   * URL being available says nothing about whether the substitution landed, and
-   * a link counted resolved on the strength of the first claim alone is exactly
-   * how a dead relative path reaches a student in silence.
-   *
-   * Never a silent outcome either way: a run that publishes a document and the
-   * document it links to in the same pass cannot know the second one's course
-   * module id until it has made it, so the links that could not be answered the
-   * first time are what the caller comes back for.
-   */
-  readonly unresolved: readonly CrossReference[];
+/**
+ * A cross-reference the rendered page still carries as a link.
+ *
+ * Not a mistake the table can make: every cross-reference has an answer, even
+ * if the answer is "nothing publishes that". It means the rewrite did not
+ * recognise the link in the rendered HTML — an `<a>` its author never closed is
+ * the one known shape — and publishing anyway would put a repository path in
+ * front of a reader. Thrown while the document is read, so nothing has been
+ * written to the course.
+ */
+export class UnrewrittenCrossReference extends Error {
+  constructor(source: string, link: CrossReference) {
+    super(
+      `Aborting: "${source}" links to "${link.href}", and that link could not be turned into ` +
+        `text, so the published page would carry the path. An <a> that is never closed is the ` +
+        `usual cause: close it, or write the link in markdown, and run again.`
+    );
+    this.name = "UnrewrittenCrossReference";
+  }
 }
 
 /**
@@ -85,20 +80,21 @@ export interface LinkedHtml {
  * The document's own first heading supplies nothing: Moodle activity names come
  * from the catalog, so body and title are independently controlled.
  *
- * `titleOf` says what each document this one links to is published under. It
- * changes nothing in the HTML — the link texts are substituted later, with the
- * URLs — and everything in the hash: a title is what a self-naming link will
- * read as, so a title edited in the catalog has to make this document read as
- * changed. Asked for rather than defaulted, so there is one hashing rule
- * rather than one per caller: a content hash that turns on which of two
- * spellings the caller used is the bug this parameter exists to close. A
- * caller with nothing to say answers `undefined` per link, and the hash is
- * then exactly what it was before titles were counted.
+ * `targetOf` says where each document this one links to is published: its
+ * title and Section, or `undefined` for a document the table does not list. A
+ * link to a listed document is published as text naming it —
+ * `"Killing bloat" (document available in the Resources section)` — and a link
+ * to anything else as its own text alone. Web links and in-page anchors stay
+ * links. What `targetOf` answers is hashed too, so a title edited in the
+ * catalog makes every document linking to it read as changed.
+ *
+ * Throws {@link UnrewrittenCrossReference} when a cross-reference could not be
+ * found in the rendered page to rewrite.
  */
 export function renderDocument(
   repoRoot: string,
   source: string,
-  titleOf: (link: CrossReference) => string | undefined
+  targetOf: (link: CrossReference) => LinkTarget | undefined
 ): RenderedDocument {
   const markdown = readSource(repoRoot, source);
   const links = crossReferencesIn(source, markdown);
@@ -106,44 +102,22 @@ export function renderDocument(
   // does not hold, and it happens here — in the reading half of a run, before
   // the plan is even reported — so that the refusal comes before anything is
   // written to the course.
-  const { html, images } = rewriteImages(repoRoot, source, render(markdown));
-  return {
-    html,
-    images,
-    contentHash: hashDocument(repoRoot, source, markdown, links, titleOf),
-    links,
-  };
-}
-
-/**
- * `rendered` with each cross-reference `resolve` answers pointing at the
- * activity its target was published as, and reading as that activity's name
- * wherever the document only spelled the path again.
- *
- * Only hrefs this package read as cross-references are offered: an in-page
- * anchor and an absolute URL are never asked about, and so are never touched.
- */
-export function withResolvedLinks(
-  rendered: RenderedDocument,
-  resolve: (link: CrossReference) => ResolvedLink | undefined
-): LinkedHtml {
+  const withImages = rewriteImages(repoRoot, source, render(markdown));
   // Keyed by `linkKey` on both sides, which is the spelling the document and
   // the rendered attribute can both be reduced to.
-  const resolved = new Map<string, ResolvedLink>();
-  for (const link of rendered.links) {
-    const answer = resolve(link);
-    if (answer !== undefined) resolved.set(linkKey(link.href), answer);
-  }
-  const { html, rewritten } = rewriteLinks(rendered.html, (key) =>
-    resolved.get(key)
+  const targets = new Map(
+    links.map((link) => [linkKey(link.href), targetOf(link)])
   );
+  const { html, rewritten } = linksAsText(withImages.html, targets);
+  // Asked of the rewrite rather than of the table: a link is text when the
+  // page no longer carries it, not when the table had something to say.
+  const missed = links.find((link) => !rewritten.has(linkKey(link.href)));
+  if (missed !== undefined) throw new UnrewrittenCrossReference(source, missed);
   return {
     html,
-    // Asked of the rewrite rather than of `urls`: a link is resolved when the
-    // HTML points at Moodle, not when a URL for it existed.
-    unresolved: rendered.links.filter(
-      (link) => !rewritten.has(linkKey(link.href))
-    ),
+    images: withImages.images,
+    contentHash: hashDocument(repoRoot, source, markdown, links, targetOf),
+    links,
   };
 }
 

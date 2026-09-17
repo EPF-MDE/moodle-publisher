@@ -2,16 +2,16 @@
 //
 // The cross-references a document makes: links from one document of this
 // repository to another. A relative link ending in `.md` means "the document
-// at that path", and in Moodle it has to mean the activity that document was
-// published as — a course page carrying `../assessment-grid.md` is a dead
-// link at best.
+// at that path", and a published page cannot carry that — `../assessment-grid.md`
+// is a dead link at best. So a cross-reference is not published as a link at
+// all: it becomes text naming the target and where on the course page to find
+// it, and no document needs another document's module id to be published.
 //
-// What this file does *not* decide is whether a cross-reference is allowed.
-// That turns on who each document is for, which is the catalog's business;
-// here there is only the reading and the rewriting.
+// What this file does *not* decide is whether a cross-reference is allowed, or
+// what its target is called. That turns on the table, which is the catalog's
+// business; here there is only the reading and the rewriting.
 import {
   fragmentOf,
-  isLocal,
   onDisk,
   referencedPath,
   referencesIn,
@@ -19,9 +19,9 @@ import {
 
 // The two halves of this file — reading links out and writing them back — have
 // to recognise exactly the same thing. A shape one half validates and the other
-// does not is a link that can stop the run and can never be rewritten, and it
-// ships to Moodle as a dead relative path with nothing said. So the pattern is
-// written once, in pieces, and both halves are built from the same pieces.
+// does not is a link that can never be rewritten, and it would ship as a dead
+// relative path with nothing said. So the pattern is written once, in pieces,
+// and both halves are built from the same pieces.
 
 /** An `<a>` up to its `href=`, which is the only element a link lives on. */
 const ANCHOR = String.raw`<a\b[^>]*?\bhref\s*=\s*`;
@@ -33,15 +33,13 @@ const REST_OF_TAG = String.raw`[^>]*>`;
  * Everything between the opening tag and the closing one, which is what a
  * reader of the published page sees.
  *
- * Markup is allowed through — a code span around a path is the case this
- * exists for — so it is not `[^<]*`. What is not allowed through is another
- * `<a`, and that is the whole of the difference between this and "anything up
- * to the first `</a>`": an author's unclosed anchor would otherwise match on
- * to the *next* link's closing tag, swallowing that link whole. The run would
- * then abort over the link it ate rather than the one that was malformed,
- * having already written a mangled page. Excluding `<a` makes the malformed
- * anchor simply not match, which is the outcome the rewrite already has a
- * name for: unrewritten, and reported as itself.
+ * Markup is allowed through — emphasis inside a link's text is kept when the
+ * text is — so it is not `[^<]*`. What is not allowed through is another `<a`,
+ * and that is the whole of the difference between this and "anything up to the
+ * first `</a>`": an author's unclosed anchor would otherwise match on to the
+ * *next* link's closing tag, swallowing that link whole. Excluding `<a` makes
+ * the malformed anchor simply not match, which the rewrite already has a name
+ * for: unrewritten, and reported as itself.
  */
 const ANCHOR_TEXT = String.raw`(?:(?!</a>|<a\b)[\s\S])*`;
 
@@ -58,13 +56,8 @@ const QUOTED = String.raw`["']([^"']*)["']`;
 const HTML_LINK = new RegExp(`${ANCHOR}${QUOTED}`, "gi");
 
 /**
- * The same anchors, for the rewrite, and this time the whole element: the
- * opening tag up to the href value in group 1, the value in group 2, the rest
- * of the opening tag in group 3, the text a reader sees in group 4.
- *
- * The element rather than the tag, because the text is rewritten too — a link
- * whose text is its own repository path is published under the target's title,
- * and substituting that means knowing where the text starts and ends.
+ * The same anchors, for the rewrite, and this time the whole element: the href
+ * value in group 1 and the text a reader sees in group 2.
  *
  * Scoped to `<a>` exactly as the reading half is. An `href` on any other element
  * is not a cross-reference this package ever read, and rewriting one would be
@@ -74,18 +67,9 @@ const HTML_LINK = new RegExp(`${ANCHOR}${QUOTED}`, "gi");
  * either: the link is reported unrewritten, and the run aborts naming it.
  */
 const REWRITABLE_LINK = new RegExp(
-  `(${ANCHOR})${QUOTED}(${REST_OF_TAG})(${ANCHOR_TEXT})</a>`,
+  `${ANCHOR}${QUOTED}${REST_OF_TAG}(${ANCHOR_TEXT})</a>`,
   "gi"
 );
-
-/**
- * A code span wrapping the whole of a link's text, with its content in group 1.
- *
- * One span, not two run together: the content stops at the first `</code>`, so
- * `<code>a.md</code><code>b.md</code>` is not read as a single path with tags
- * in the middle of it.
- */
-const WRAPPING_CODE = /^\s*<code\b[^>]*>((?:(?!<\/code>)[\s\S])*)<\/code>\s*$/i;
 
 /** One link from this document to another document of the repository. */
 export interface CrossReference {
@@ -102,13 +86,11 @@ export interface CrossReference {
  *
  * Only `.md` paths are here. An in-page anchor, an absolute URL and a link to
  * anything that is not a markdown document are all left exactly as written:
- * the first two work in Moodle unchanged, and the third names something this
- * publisher never turns into an activity, so there is no activity for it to be
- * rewritten to.
+ * the first two work in a published page unchanged, and the third names
+ * something this publisher never publishes.
  *
  * A path that climbs out of the repository *is* here, spelled as it resolved.
- * It is a link to a document no table can name, and the refusal that follows
- * has to be able to quote it.
+ * It is a link to a document no table can name, and is published as such.
  */
 export function crossReferencesIn(
   source: string,
@@ -154,8 +136,7 @@ function hrefAsWritten(value: string): string {
  * find one.
  *
  * Two hrefs that differ only in how much of the path they escaped name the same
- * file, so collapsing them onto one key loses nothing — they resolve to the
- * same activity and the same URL.
+ * file, so collapsing them onto one key loses nothing.
  */
 export function linkKey(href: string): string {
   const written = hrefAsWritten(href);
@@ -169,17 +150,8 @@ export function linkKey(href: string): string {
 }
 
 /**
- * A URL as it goes back into a double-quoted attribute. Two entities, not five:
- * this escapes a URL this program built, and the other three cannot occur in
- * one.
- */
-function asAttribute(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
-}
-
-/**
- * A title as it goes back into a link's text: the three characters that would
- * otherwise be read as markup, as entities.
+ * A title as it goes into the page: the three characters that would otherwise
+ * be read as markup, as entities.
  *
  * A catalog title is prose written by hand — `Lecture 1 — Framing & scoping` —
  * and prose with an ampersand in it must not arrive in the page as the start of
@@ -193,113 +165,69 @@ function asText(value: string): string {
 }
 
 /**
- * A link's text with a code span wrapping the whole of it taken off.
- *
- * Because the two spellings this repository uses for a self-naming link —
- * ``[`../a.md`](../a.md)`` and `[../a.md](../a.md)` — say the same thing, and
- * a title is prose rather than code, so the formatting goes with the path it
- * was formatting.
+ * Where a cross-reference's target is on the course page: the title it is
+ * published under, `Instructor — ` prefix included, and its Section.
  */
-function withoutWrappingCode(text: string): string {
-  return WRAPPING_CODE.exec(text)?.[1] ?? text;
+export interface LinkTarget {
+  readonly title: string;
+  readonly section: string;
 }
 
 /**
- * Whether a link's text is the link naming itself rather than saying anything:
- * `[../resources/model-effort-and-cost.md](../resources/model-effort-and-cost.md)`,
- * which publishes as a path no reader can act on.
+ * What a link to `target` reads as in a published page:
+ * `"Killing bloat" (document available in the Resources section)`.
  *
- * Two ways to be self-naming, because both occur. The text may be the href
- * itself, compared under {@link linkKey} so the two spellings of an escaped
- * path still count as one; or it may be some other relative `.md` path, which
- * is a link written to one spelling of its target and labelled with another.
- *
- * Whitespace anywhere disqualifies it: a sentence that ends in a path — "see
- * ../a.md" — is prose about a document, and prose is left exactly as the author
- * wrote it.
+ * The link's own text is not part of it, whatever it said. A link labelled with
+ * its repository path and a link labelled with prose read the same, because
+ * either way the reader needs the title they will see on the course page and
+ * where to look for it.
  */
-function isSelfNaming(text: string, href: string): boolean {
-  const written = hrefAsWritten(withoutWrappingCode(text)).trim();
-  if (written === "" || /\s/.test(written)) return false;
-  if (linkKey(written) === linkKey(href)) return true;
-  return isLocal(written) && onDisk(written).endsWith(".md");
+function namingText(target: LinkTarget): string {
+  return `"${asText(target.title)}" (document available in the ${asText(target.section)} section)`;
 }
 
 /** A rewrite that has happened, and what it actually touched. */
-export interface RewrittenLinks {
+export interface TextLinks {
   readonly html: string;
   /**
    * The links a substitution landed on, as {@link linkKey} spells them.
    *
-   * Reported rather than assumed, because "a URL was available" and "the link
-   * now points at it" are different claims, and only the second one is the one
-   * a student depends on. Anything the caller offered a URL for that is not in
-   * here was left as written and is still a repository path.
+   * Reported rather than assumed, because "the table had an answer" and "the
+   * page no longer carries the path" are different claims, and only the second
+   * is the one a reader depends on.
    */
   readonly rewritten: ReadonlySet<string>;
 }
 
-/** Where a cross-reference goes, and what the document it points at is called. */
-export interface ResolvedLink {
-  readonly url: string;
-  /**
-   * The target's title in the catalog — what students see it published under.
-   *
-   * Handed in beside the URL rather than looked up here, and beside it rather
-   * than through a second lookup keyed on the same link, so a page cannot be
-   * relinked to one document under the name of another.
-   */
-  readonly title: string;
-}
-
 /**
- * `html` with every href `resolve` has an answer for replaced by that answer,
- * and every link that only named its own path relabelled with the title of the
- * document it points at.
+ * `html` with every cross-reference in `targets` taken out of its `<a>`.
+ *
+ * A key mapped to a {@link LinkTarget} becomes the text naming that target. A
+ * key mapped to `undefined` is a link to a document the table does not list:
+ * nothing publishes it, so there is nothing to name, and the link becomes its
+ * own text alone — markup kept, element gone. Any other `<a>` is left exactly
+ * as written.
  *
  * Done to the rendered HTML rather than to the markdown, because in HTML a link
- * is unambiguously an `href` attribute: a document that *quotes* a relative
- * path in a code span — which the lectures do constantly, often right beside
- * the link itself — has the path in its text, not in an attribute, and a
- * rewrite over the markdown could not tell the two apart.
- *
- * `resolve` is asked about a {@link linkKey}, not about the attribute as it
- * stands, so a path the renderer percent-encoded still finds its answer.
- *
- * Every href goes back in double quotes whatever quotes it arrived in, which is
- * what {@link asAttribute} escapes for. The rest of the opening tag — a class,
- * a title, whatever the author put there — is kept exactly as it was.
+ * is unambiguously an `<a>` with an `href`: a document that *quotes* a relative
+ * path in a code span — which the lectures do constantly — has the path in its
+ * text, not in an attribute, and a rewrite over the markdown could not tell the
+ * two apart.
  */
-export function rewriteLinks(
+export function linksAsText(
   html: string,
-  resolve: (key: string) => ResolvedLink | undefined
-): RewrittenLinks {
+  targets: ReadonlyMap<string, LinkTarget | undefined>
+): TextLinks {
   const rewritten = new Set<string>();
-  const withUrls = html.replaceAll(
+  const text = html.replaceAll(
     REWRITABLE_LINK,
-    (
-      whole: string,
-      opening: string,
-      raw: string,
-      rest: string,
-      text: string
-    ): string => {
+    (whole: string, raw: string, inner: string): string => {
       const key = linkKey(raw);
-      const resolved = resolve(key);
-      if (resolved === undefined) return whole;
-      const label = isSelfNaming(text, raw) ? asText(resolved.title) : text;
-      // What a reader would meet if this went in. A path is what this whole
-      // rewrite exists to take off the page, so a label that is still one is
-      // the same defect as an href that was never replaced, and is left the
-      // same way: the element untouched, the link counted unrewritten, and the
-      // caller made loud about it rather than a reader shown a path. The href
-      // goes back untouched with it, so what is published is the link exactly
-      // as the document wrote it rather than half a rewrite.
-      const stillAPath = isSelfNaming(label, raw);
-      if (stillAPath) return whole;
+      if (!targets.has(key)) return whole;
       rewritten.add(key);
-      return `${opening}"${asAttribute(resolved.url)}"${rest}${label}</a>`;
+      const target = targets.get(key);
+      return target === undefined ? inner : namingText(target);
     }
   );
-  return { html: withUrls, rewritten };
+  return { html: text, rewritten };
 }

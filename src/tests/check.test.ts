@@ -118,14 +118,14 @@ interface Refusal {
 
 const REFUSALS: readonly Refusal[] = [
   {
-    what: "a broken cross-reference",
+    what: "a cross-reference that cannot be turned into text",
     broken: () => {
       const workspace = makeWorkspace();
       writeDayOneSet(workspace);
-      workspace.write("labs/lab-1.md", `${LAB_MARKDOWN}\nRead [the notes](../notes/scratch.md).\n`);
+      workspace.write("labs/lab-1.md", `${LAB_MARKDOWN}\nRead <a href="../assessment-grid.md">the grid.\n`);
       return workspace;
     },
-    message: /the table does not name/,
+    message: /could not be turned into text/,
   },
   {
     what: "a missing picture",
