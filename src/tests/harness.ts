@@ -109,7 +109,7 @@ export function pointContextAtPublisher(workspace: Workspace): void {
  * describe the rename to come, and wait for it.
  */
 export const AWAITS_RENAME = {
-  skip: "renaming a published PDF is not built yet",
+  skip: "renaming a published PDF is #36",
 };
 
 /** The course every run in this suite is pointed at. */
