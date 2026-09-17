@@ -22,7 +22,7 @@ export class MissingPublisherFile extends Error {
   constructor(path: string) {
     super(
       `Refusing to start: there is no ${path}. A course repository says what it ` +
-        `publishes in it: { "grid": "assessment-grid.md", "published": [ … ] }.`
+        `publishes in it: { "course": "…", "grid": "assessment-grid.md", "published": [ … ] }.`
     );
     this.name = "MissingPublisherFile";
   }
@@ -57,7 +57,29 @@ export class NoGrid extends Error {
   }
 }
 
+/**
+ * A `publisher.json` that does not say what the Course is called.
+ *
+ * No default: the name is printed at the foot of every page a Student takes
+ * away, and one guessed from a directory or a course id would be printed there
+ * just as confidently.
+ */
+export class NoCourse extends Error {
+  constructor(path: string, course: unknown) {
+    const what =
+      typeof course === "string" || course === undefined || course === null
+        ? `names no course`
+        : `has a "course" that is ${typeof course}, not a name`;
+    super(
+      `Refusing to start: ${path} ${what}. Set "course" to the Course's name as ` +
+        `its Students know it, e.g. "Coding Agents Management 2026".`
+    );
+    this.name = "NoCourse";
+  }
+}
+
 interface PublisherFile {
+  readonly course?: unknown;
   readonly grid?: unknown;
   readonly published?: unknown;
   readonly feedbackLetter?: unknown;
@@ -69,6 +91,7 @@ interface PublisherFile {
  * carried as written, and is only read by `check`.
  */
 export function readPublisherFile(repoRoot: string): {
+  course: string;
   grid: string;
   published: readonly PublishedEntry[];
   feedbackLetter: unknown;
@@ -95,6 +118,9 @@ export function readPublisherFile(repoRoot: string): {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new UnreadablePublisherFile(path, `It is not a JSON object.`);
   }
+  if (typeof parsed.course !== "string" || parsed.course.trim() === "") {
+    throw new NoCourse(path, parsed.course);
+  }
   if (typeof parsed.grid !== "string" || parsed.grid.trim() === "") {
     throw new NoGrid(path, parsed.grid);
   }
@@ -112,6 +138,7 @@ export function readPublisherFile(repoRoot: string): {
     assertEntryShape(path, entry, index + 1)
   );
   return {
+    course: parsed.course.trim(),
     grid: parsed.grid,
     published: parsed.published as readonly PublishedEntry[],
     feedbackLetter: parsed.feedbackLetter,

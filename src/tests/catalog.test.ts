@@ -138,6 +138,23 @@ const MALFORMED: readonly (readonly [
     /"grid" that is object, not a path/,
   ],
   [
+    // No default: the name is printed at the foot of every page a Student
+    // takes away, and a guessed one would be printed there just the same.
+    "no course",
+    (workspace) => workspace.writeCatalog({ course: undefined, published: [] }),
+    /names no course/,
+  ],
+  [
+    "a course that is blank",
+    (workspace) => workspace.writeCatalog({ course: "  ", published: [] }),
+    /names no course/,
+  ],
+  [
+    "a course that is not a string",
+    (workspace) => workspace.writeCatalog({ course: 2026, published: [] }),
+    /"course" that is number, not a name/,
+  ],
+  [
     "no published",
     (workspace) => workspace.writeCatalog({ published: undefined }),
     /has no "published"/,
@@ -250,10 +267,12 @@ test("renaming a document is the whole of the change", async () => {
   };
   const [visible] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples.md" }],
+    course: "Coding Agents Management 2026",
     grid: "assessment-grid.md",
   });
   const [hidden] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples--instructor.md" }],
+    course: "Coding Agents Management 2026",
     grid: "assessment-grid.md",
   });
 

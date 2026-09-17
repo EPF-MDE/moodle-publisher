@@ -39,6 +39,10 @@ function knownActivities(plan: Plan): DocumentActivityBySource {
 export interface ApplyOptions {
   readonly manifestPath: string;
   readonly driver: CourseDriver;
+  /** What the Course is called, for the foot of every page of every PDF. */
+  readonly course: string;
+  /** The instant the run publishes as of: the day every PDF is dated. */
+  readonly now: Date;
   /** Where progress goes: one line per item, as it happens. */
   readonly report: (line: string) => void;
 }
@@ -82,7 +86,10 @@ async function create(
     name: document.title,
     section: document.section,
     fileName: item.fileName,
-    html: printReady(document, item.rendered.html),
+    html: printReady(document, item.rendered.html, {
+      course: options.course,
+      publishedOn: options.now,
+    }),
     // The one place visibility is *written* for a document that is not being
     // re-hidden. Which value it is was decided by the catalog, which owns the
     // policies; this passes it on and has no opinion, so there is no second
