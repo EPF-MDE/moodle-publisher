@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
 import {
+  AWAITS_REPLACE,
   makeWorkspace,
   writeDayOneSet,
   LECTURE_MARKDOWN,
@@ -14,13 +15,6 @@ import {
 } from "./harness.ts";
 
 import type { Workspace } from "./harness.ts";
-
-/**
- * Replacing a changed document's PDF in the same module is the next ticket
- * (#24). Until it lands a run leaves a published document alone, so these wait
- * for it rather than being deleted with the page path they were written for.
- */
-const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
 
 /** Stand-in for a diagram: the publisher hashes bytes, not pixels. */
 const DIAGRAM = "first drawing of the five-phase workflow";

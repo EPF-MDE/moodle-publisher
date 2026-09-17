@@ -46,11 +46,24 @@ export class DevoirBriefNotPublished extends Error {
  * what kind, because Moodle serves each kind from its own URL. A brief is a
  * PDF, or a page an earlier publisher made and this one left standing.
  */
-export type Activity = Pick<DocumentEntry, "kind" | "moduleId">;
+export type DocumentActivity = Pick<DocumentEntry, "kind" | "moduleId">;
+
+/**
+ * The Moodle module that serves each kind of document entry. A record over the
+ * whole union, so a kind added to the Manifest does not compile until it has a
+ * URL here.
+ */
+const MODULE_OF: Readonly<Record<DocumentEntry["kind"], string>> = {
+  "file-resource": "resource",
+  page: "page",
+};
 
 /** Where Moodle serves `activity`. */
-export function activityUrl(baseUrl: string, activity: Activity): string {
-  const module = activity.kind === "file-resource" ? "resource" : "page";
+export function documentActivityUrl(
+  baseUrl: string,
+  activity: DocumentActivity
+): string {
+  const module = MODULE_OF[activity.kind];
   return `${baseUrl.replace(/\/+$/, "")}/mod/${module}/view.php?id=${activity.moduleId}`;
 }
 

@@ -6,7 +6,7 @@
 import { DELIVERABLE_SECTION } from "../course/index.ts";
 import { devoirKey, recordPublished } from "../manifest/index.ts";
 import {
-  activityUrl,
+  documentActivityUrl,
   devoirContentHash,
   devoirDescription,
 } from "./lib/devoirs.ts";
@@ -14,7 +14,7 @@ import { printReady } from "./lib/print-ready.ts";
 import { sectionsToCreate } from "./plan.ts";
 
 import type { CourseDriver } from "../course/index.ts";
-import type { Activity } from "./lib/devoirs.ts";
+import type { DocumentActivity } from "./lib/devoirs.ts";
 import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
 
 /**
@@ -24,10 +24,10 @@ import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
  * Only a Devoir asks, for the brief its description links to. A document's own
  * links are text and need no module id.
  */
-type ActivityBySource = Map<string, Activity>;
+type DocumentActivityBySource = Map<string, DocumentActivity>;
 
-function knownActivities(plan: Plan): ActivityBySource {
-  const activities: ActivityBySource = new Map();
+function knownActivities(plan: Plan): DocumentActivityBySource {
+  const activities: DocumentActivityBySource = new Map();
   for (const item of plan.items) {
     if (item.verb === "skip") {
       activities.set(item.document.source, item.published);
@@ -149,7 +149,7 @@ async function hide(item: PlanItem, options: ApplyOptions): Promise<void> {
  */
 async function publishDevoirs(
   plan: Plan,
-  activities: ActivityBySource,
+  activities: DocumentActivityBySource,
   options: ApplyOptions
 ): Promise<void> {
   for (const devoir of plan.devoirs) {
@@ -162,7 +162,7 @@ async function publishDevoirs(
     const html = devoirDescription(
       devoir.deliverable,
       devoir.brief,
-      activityUrl(plan.baseUrl, briefActivity(devoir, activities))
+      documentActivityUrl(plan.baseUrl, briefActivity(devoir, activities))
     );
     if (devoir.verb === "update") {
       await rewriteDevoir(devoir, html, options);
@@ -183,8 +183,8 @@ async function publishDevoirs(
  */
 function briefActivity(
   devoir: Extract<DevoirPlanItem, { verb: "create" | "update" }>,
-  activities: ActivityBySource
-): Activity {
+  activities: DocumentActivityBySource
+): DocumentActivity {
   const activity = activities.get(devoir.brief.source);
   if (activity === undefined) {
     throw new Error(

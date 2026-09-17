@@ -142,6 +142,27 @@ test("the Manifest holds a file resource entry per document", async () => {
   assert.equal(files.length, 5);
 });
 
+// Two repositories alike but for one picture's bytes: the hash is the only
+// thing a later run can tell them apart by, so the picture has to be in it.
+test("a document's recorded hash covers the pictures it shows", async () => {
+  const hashes = [];
+  for (const drawing of ["first drawing", "second drawing"]) {
+    const workspace = makeWorkspace();
+    writeDayOneSet(workspace);
+    workspace.write("assets/workflow.png", drawing);
+    workspace.write(
+      "lectures/lecture-1.md",
+      `${LECTURE_MARKDOWN}\n![The workflow](../assets/workflow.png)\n`
+    );
+    const result = await workspace.publisher(["publish", "--apply"]);
+    assert.equal(result.code, 0, result.stderr);
+    hashes.push(workspace.readManifest().documents["lectures/lecture-1.md"]?.["contentHash"]);
+  }
+
+  assert.match(String(hashes[0]), /^sha256:/);
+  assert.notEqual(hashes[0], hashes[1]);
+});
+
 test("the plan lists the PDFs a run would create", async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);

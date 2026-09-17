@@ -59,12 +59,7 @@ export function readFrontMatter(
 }
 
 export function render(markdown: string): string {
-  const html = marked.parse(markdown, { async: false });
-  // `generaltable` is core Moodle's own table class, which its theme draws
-  // borders for. Kept while the print layout (#26) is still to come.
-  return fitToColumn(
-    html.replaceAll("<table>", '<table class="generaltable">')
-  );
+  return fitToColumn(marked.parse(markdown, { async: false }));
 }
 
 /** Any `<img>`, however the picture came to be written in the document. */

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 
 import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
+  AWAITS_REPLACE,
   makeWorkspace,
   writeDayOneSet,
   writeGrid,
@@ -15,13 +16,6 @@ import {
   GRID_MARKDOWN,
   LAB_MARKDOWN,
 } from "./harness.ts";
-
-/**
- * Replacing a changed document's PDF in the same module is the next ticket
- * (#24). Until it lands a run leaves a published document alone, so these wait
- * for it rather than being deleted with the page path they were written for.
- */
-const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
 
 test("a second consecutive run reports zero changes", async () => {
   const workspace = makeWorkspace();

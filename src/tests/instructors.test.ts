@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  AWAITS_REPLACE,
   ANCHORS_SOURCE,
   DAY_ONE_ENTRIES,
   INSTRUCTOR_ENTRIES,
@@ -16,13 +17,6 @@ import {
   sectionsOf,
   writeInstructorSet,
 } from "./harness.ts";
-
-/**
- * Replacing a changed document's PDF in the same module is the next ticket
- * (#24). Until it lands a run leaves a published document alone, so these wait
- * for it rather than being deleted with the page path they were written for.
- */
-const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
 
 const SCRIPT = "Instructor — Oral interview script";
 const ANCHORS = "Instructor — C1 banding anchors";
@@ -36,7 +30,7 @@ test("instructor material is created hidden, beside the documents it pairs with"
 
   assert.equal(result.code, 0, result.stderr);
   // Every section visible, including the two holding an answer key: hiding is
-  // a property of the page, and a section nobody hid is a section nobody can
+  // a property of the PDF, and a section nobody hid is a section nobody can
   // reveal by accident.
   assert.deepEqual(sectionsOf(workspace), [
     ["General", true],

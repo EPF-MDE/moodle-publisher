@@ -102,6 +102,14 @@ export function pointContextAtPublisher(workspace: Workspace): void {
   linkSkills(workspace);
 }
 
+/**
+ * Marks a test that waits for replacing a changed document's PDF in the same
+ * module (#24). Until it lands a run leaves a published document alone, so
+ * these tests wait for it rather than being deleted with the page path they
+ * were written for.
+ */
+export const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
+
 /** The course every run in this suite is pointed at. */
 export const COURSE_ID = "4242";
 
