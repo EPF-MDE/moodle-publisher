@@ -2,8 +2,9 @@
 // within it.
 //
 // Getting a file into Moodle: a file resource's PDF through the form's file
-// manager, the file picker behind it, and the thing that goes wrong there —
-// asking the page a question before it can have an answer.
+// manager, the file picker behind it, and the dialogues it leaves open. What
+// goes wrong there is mostly asking the page a question before it can have an
+// answer.
 //
 // Like the driver it serves, nothing here is unit tested. It is verified
 // against a scratch course by `npm run check:file-resource`, which drives the

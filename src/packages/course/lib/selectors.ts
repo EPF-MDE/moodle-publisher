@@ -46,7 +46,7 @@ export const SELECTORS = {
   // --- the Devoir form (mod_assign), at /course/modedit.php?add=assign -----
   //
   // Core Moodle ids, like everything above: the Devoir is created through the
-  // same `modedit.php` form a page is, not through the activity chooser.
+  // same `modedit.php` form a file resource is, not through the activity chooser.
   //
   // Every one of these fields is filled on a create and again on every edit,
   // at `modedit.php?update=<module id>`: an edited Deliverable is rewritten on
@@ -56,11 +56,11 @@ export const SELECTORS = {
   // nothing else ever does.
 
   /**
-   * The Devoir's description — `mod_assign`'s intro, which is a different
-   * field from a page's body and lives on a different form.
+   * The Devoir's description — `mod_assign`'s intro, which is a field of
+   * its own on a form of its own.
    *
-   * With the plain text editor preference this is a raw textarea, exactly as
-   * the page body is, so the stub is written as the HTML it is.
+   * With the plain text editor preference this is a raw textarea, so the stub
+   * is written as the HTML it is.
    */
   assignIntroTextarea:
     "#id_introeditor_editor, textarea[name='introeditor[text]'], #id_introeditor",

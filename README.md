@@ -366,7 +366,7 @@ A lecture that shows a diagram is not published until the diagram is. Nothing in
 
 **A document naming a picture the course repository does not hold aborts the run**, before anything is written to the course, naming the document and the path. A reference that climbs out of the repository is the same case. A student should never meet a broken image icon.
 
-A picture hosted elsewhere — an `https://` URL — is left where it is. The bytes of every picture a document embeds are part of its content hash, so a redrawn diagram is a changed document.
+A picture hosted elsewhere — an `https://` URL — is left where it is. The bytes of every picture a document embeds are part of the content hash the manifest records.
 
 ## A document with a reveal date
 

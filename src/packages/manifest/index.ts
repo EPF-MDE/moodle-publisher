@@ -61,8 +61,7 @@ export interface DevoirEntry {
    * Optional, because the entries in this repository's own manifest were
    * written before a Devoir could be edited at all and carry no hash. An entry
    * without one cannot be called unchanged, so it is rewritten once and the
-   * record is complete from then on — the same reading a picture recorded
-   * without a hash gets.
+   * record is complete from then on.
    */
   readonly contentHash?: string;
   readonly publishedAt: string;

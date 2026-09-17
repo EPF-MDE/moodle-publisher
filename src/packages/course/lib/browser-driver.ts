@@ -1585,8 +1585,8 @@ export async function openBrowserCourse(
       const after = await mutation.capture(`create devoir ${devoir.name}`);
 
       try {
-        // As for a file resource: what identifies the activity this call made is the
-        // module id that was not on the course page a moment ago.
+        // As for a file resource: what identifies the activity this call made
+        // is the module id that was not on the course page a moment ago.
         const before = await readItems(page);
         const form = new URL(
           `/course/modedit.php?add=assign&course=${options.courseId}&section=${section}`,

@@ -464,7 +464,10 @@ test("wipe deletes file resources and leftover pages beside an empty Devoir", as
     result.stdout,
     /deleted activity {2}Lecture 1 — Framing and decomposing/
   );
-  assert.match(result.stdout, /deleted activity {2}Lecture 0 — Written as a page/);
+  assert.match(
+    result.stdout,
+    /deleted activity {2}Lecture 0 — Written as a page/
+  );
   assert.match(result.stdout, new RegExp(`deleted activity {2}${C1_TITLE}`));
   assert.deepEqual(workspace.readCourse().items, []);
   assert.deepEqual(workspace.readCourse().sections, ["General"]);
