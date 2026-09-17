@@ -13,7 +13,7 @@ import { renderDocument } from "../documents/index.ts";
 import { devoirEntryFor, documentEntryFor } from "../manifest/index.ts";
 import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
-import { pdfFileName, printedHash } from "./lib/print-ready.ts";
+import { pdfFileName, hashPrinted } from "./lib/print-ready.ts";
 
 import type {
   CourseItem,
@@ -53,7 +53,7 @@ interface PlannedDocument {
    * the print layout folded in. Compared here and written by applying, so the
    * two cannot disagree about what "changed" means.
    */
-  readonly contentHash: string;
+  readonly printedHash: string;
   /** The name the PDF is stored under: the source's basename with `.pdf`. */
   readonly fileName: string;
   /**
@@ -236,7 +236,7 @@ export function buildPlan(input: PlanInput): Plan {
       targets.get(link.target)
     );
     const fileName = pdfFileName(document.source);
-    const contentHash = printedHash(rendered.html, rendered.contentHash);
+    const printedHash = hashPrinted(rendered.html, rendered.contentHash);
     const published = documentEntryFor(manifest, document.source);
     // The activity the manifest points at, as the course holds it now. Absent
     // means the record outlived what it recorded: the activity was deleted in
@@ -251,7 +251,7 @@ export function buildPlan(input: PlanInput): Plan {
       return {
         document,
         rendered,
-        contentHash,
+        printedHash,
         fileName,
         hide: false,
         verb: "create",
@@ -277,12 +277,12 @@ export function buildPlan(input: PlanInput): Plan {
     // left standing: it has no file to replace.
     if (
       published.kind === "file-resource" &&
-      published.contentHash !== contentHash
+      published.contentHash !== printedHash
     ) {
       return {
         document,
         rendered,
-        contentHash,
+        printedHash,
         fileName,
         hide,
         verb: "replace",
@@ -292,7 +292,7 @@ export function buildPlan(input: PlanInput): Plan {
     return {
       document,
       rendered,
-      contentHash,
+      printedHash,
       fileName,
       hide,
       verb: "skip",

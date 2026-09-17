@@ -19,10 +19,12 @@ import type { PublishedDocument } from "../../catalog/index.ts";
 const PRINT_LAYOUT_VERSION = "table-title-only";
 
 /**
- * The `h1` a rendered body opens with, and the space around it. An `h1` holds
- * no other `h1`, so the first closing tag is its own.
+ * The `h1` a rendered body opens with, and the space after it. Comments before
+ * it are captured so they are kept: a reader sees none of them, so the heading
+ * after them is still the first thing on the page. An `h1` holds no other
+ * `h1`, so the first closing tag is its own.
  */
-const LEADING_H1 = /^\s*<h1[\s>][\s\S]*?<\/h1>\s*/i;
+const LEADING_H1 = /^((?:\s*<!--[\s\S]*?-->)*\s*)<h1[\s>][\s\S]*?<\/h1>\s*/i;
 
 /**
  * What a Student's download is called: the source's basename with `.pdf`, so
@@ -122,7 +124,7 @@ img { max-width: 100%; height: auto; break-inside: avoid; }
  * only when the body opens with an `h1`, so a document the layout does not
  * touch keeps the hash it always had and is not reprinted for nothing.
  */
-export function printedHash(body: string, documentHash: string): string {
+export function hashPrinted(body: string, documentHash: string): string {
   if (!LEADING_H1.test(body)) return documentHash;
   return contentHash([documentHash, `\0print:${PRINT_LAYOUT_VERSION}\0`]);
 }
@@ -154,7 +156,7 @@ export function printReady(
     "</head>",
     "<body>",
     `<h1 class="document-title">${title}</h1>`,
-    body.replace(LEADING_H1, ""),
+    body.replace(LEADING_H1, "$1"),
     "</body>",
     "</html>",
     "",

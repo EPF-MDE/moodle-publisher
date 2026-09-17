@@ -69,7 +69,7 @@ function afterBodyTag(body: string): string {
 }
 
 /** Every `h1` in a printed document, tag and all. */
-function headingsOne(body: string): string[] {
+function levelOneHeadings(body: string): string[] {
   return body.match(/<h1[\s>][\s\S]*?<\/h1>/g) ?? [];
 }
 
@@ -88,7 +88,7 @@ test("the HTML handed to the course opens with the title and holds the rendered 
     afterBodyTag(body),
     /^<h1 class="document-title">Lecture 1 — Framing and decomposing<\/h1>\s*<p>Framing is saying/
   );
-  assert.equal(headingsOne(body).length, 1);
+  assert.equal(levelOneHeadings(body).length, 1);
   assert.match(body, /<li>A brief an agent can act on names the file, the seam and the check.<\/li>/);
 });
 
@@ -105,7 +105,7 @@ test("a document opening with its own heading prints the table title alone", asy
   await workspace.publisher(["publish", "--apply"]);
 
   const body = itemNamed(workspace, LECTURE)?.body ?? "";
-  assert.deepEqual(headingsOne(body), [
+  assert.deepEqual(levelOneHeadings(body), [
     '<h1 class="document-title">Lecture 1 — Framing and decomposing</h1>',
   ]);
   assert.doesNotMatch(body, /framing, and decomposing/);
@@ -113,6 +113,25 @@ test("a document opening with its own heading prints the table title alone", asy
     afterBodyTag(body),
     /^<h1 class="document-title">[^<]*<\/h1>\s*<p>Framing comes first\.<\/p>/
   );
+});
+
+// A comment is not something a reader sees, so it does not stop the heading
+// after it from being the first thing on the page.
+test("a document opening with a comment and then its heading prints the table title alone", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write(
+    "lectures/lecture-1.md",
+    "<!-- Revised for 2026 -->\n# Lecture 1\n\nFraming comes first.\n"
+  );
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const body = itemNamed(workspace, LECTURE)?.body ?? "";
+  assert.deepEqual(levelOneHeadings(body), [
+    '<h1 class="document-title">Lecture 1 — Framing and decomposing</h1>',
+  ]);
+  assert.match(body, /<p>Framing comes first\.<\/p>/);
 });
 
 test("a document with no leading heading prints its body whole under the table title", async () => {
@@ -157,7 +176,7 @@ test("a later heading in a document that opens with one is kept", async () => {
   await workspace.publisher(["publish", "--apply"]);
 
   const body = itemNamed(workspace, LECTURE)?.body ?? "";
-  assert.deepEqual(headingsOne(body), [
+  assert.deepEqual(levelOneHeadings(body), [
     '<h1 class="document-title">Lecture 1 — Framing and decomposing</h1>',
     "<h1>Part two</h1>",
   ]);
