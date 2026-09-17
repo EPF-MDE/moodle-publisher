@@ -13,9 +13,12 @@ import {
 import type {
   CourseDriver,
   CreatedDevoir,
+  CreatedFileResource,
   CreatedPage,
   DevoirUpdate,
+  FileReplacement,
   NewDevoir,
+  NewFileResource,
   PageImage,
   PublishedAsset,
   CourseItem,
@@ -100,6 +103,11 @@ type StoredItem = Omit<CourseItem, "stealth" | "devoir"> & {
   /** What a student reads on the activity, kept for the tests to read back. */
   body: string;
   files?: Record<string, string>;
+  /**
+   * The file a file resource holds, which is what makes the activity one.
+   * Its `body` is the HTML that would have been printed into that file.
+   */
+  fileName?: string;
 };
 
 /**
@@ -360,11 +368,13 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
       return {
         courseId: course.courseId,
         sections: sections(),
-        items: course.items.map(({ files: _files, body: _body, ...item }) => ({
+        items: course.items.map(
+          ({ files: _files, body: _body, fileName: _fileName, ...item }) => ({
           ...item,
           stealth: item.stealth ?? false,
-          devoir: isDevoir(course, item.moduleId),
-        })),
+            devoir: isDevoir(course, item.moduleId),
+          })
+        ),
       };
     },
 
@@ -452,6 +462,66 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
       updated += 1;
       write(path, course);
       return assets;
+    },
+
+    async createFileResource(
+      resource: NewFileResource
+    ): Promise<CreatedFileResource> {
+      if (
+        course.failCreateAfter !== undefined &&
+        created >= course.failCreateAfter
+      ) {
+        throw new Error(
+          `Fake driver: refusing to create "${resource.name}" (simulated failure).`
+        );
+      }
+      // The section is put in the course if it is not there, as the real
+      // driver's find-or-add does.
+      ensureSectionNamed(resource.section);
+      const moduleId = String(course.nextModuleId);
+      course.nextModuleId += 1;
+      // The HTML is kept where a page keeps its body: what a Student would be
+      // served is the PDF printed from it, and this is what went to the printer.
+      course.items.push({
+        moduleId,
+        name: resource.name,
+        section: resource.section,
+        visible: resource.visible,
+        fileName: resource.fileName,
+        body: resource.html,
+      });
+      created += 1;
+      write(path, course);
+      return { moduleId };
+    },
+
+    async replaceFile(replacement: FileReplacement): Promise<void> {
+      if (
+        course.failUpdateAfter !== undefined &&
+        updated >= course.failUpdateAfter
+      ) {
+        throw new Error(
+          `Fake driver: refusing to replace the file of ${replacement.moduleId} (simulated failure).`
+        );
+      }
+      const at = course.items.findIndex(
+        (item) => item.moduleId === replacement.moduleId
+      );
+      const existing = course.items[at];
+      if (existing?.fileName === undefined) {
+        throw new Error(
+          `Fake driver: no file resource with module id ${replacement.moduleId} to replace the file of.`
+        );
+      }
+      // The file and nothing else. Name, section and visibility are what the
+      // activity already has; the old file is gone, not kept beside the new.
+      course.items[at] = {
+        ...existing,
+        fileName: replacement.fileName,
+        body: replacement.html,
+      };
+      updated += 1;
+      write(path, course);
     },
 
     async createDevoir(devoir: NewDevoir): Promise<CreatedDevoir> {

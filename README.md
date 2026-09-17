@@ -34,6 +34,10 @@ npm run apply           # publishes
 
 npm run check:upload    # sends pictures into an activity form on the live course
                         # through the driver's own code, and abandons the form
+npm run check:file-resource
+                        # creates a hidden PDF file resource on the course and
+                        # replaces its file, then lists what to check by hand;
+                        # point MOODLE_COURSE_ID at a scratch course
 
 npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
