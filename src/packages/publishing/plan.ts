@@ -17,7 +17,7 @@ import {
 } from "../manifest/index.ts";
 import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
-import { pdfFileName } from "./lib/print-ready.ts";
+import { pdfFileName, hashPrinted } from "./lib/print-ready.ts";
 
 import type {
   CourseItem,
@@ -52,6 +52,12 @@ interface PlannedDocument {
    * document is rendered once per run.
    */
   readonly rendered: RenderedDocument;
+  /**
+   * What the manifest records for the PDF: the rendered document's hash, with
+   * the print layout folded in. Compared here and written by applying, so the
+   * two cannot disagree about what "changed" means.
+   */
+  readonly printedHash: string;
   /** The name the PDF is stored under: the source's basename with `.pdf`. */
   readonly fileName: string;
   /**
@@ -274,6 +280,7 @@ export function buildPlan(input: PlanInput): Plan {
       targets.get(link.target)
     );
     const fileName = pdfFileName(document.source);
+    const printedHash = hashPrinted(rendered.html, rendered.contentHash);
     const published = documentEntryFor(manifest, document.source);
     // The activity the manifest points at, as the course holds it now. Absent
     // means the record outlived what it recorded: the activity was deleted in
@@ -285,7 +292,14 @@ export function buildPlan(input: PlanInput): Plan {
       assertNotAlreadyInCourse(document, snapshot);
       // Created hidden when the policy says so, so there is no moment between
       // being created and being hidden. Nothing to re-hide.
-      return { document, rendered, fileName, hide: false, verb: "create" };
+      return {
+        document,
+        rendered,
+        printedHash,
+        fileName,
+        hide: false,
+        verb: "create",
+      };
     }
     // Only asked of an activity that is standing. A document whose activity
     // was deleted so it could be published elsewhere has already been created
@@ -300,19 +314,20 @@ export function buildPlan(input: PlanInput): Plan {
     }
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
-    // Changed is decided by the hash of the markdown and the pictures it
-    // shows, never by the render, or by the title. The title comes from the
-    // table, so the hash cannot see it, and it is printed at the top of the
-    // PDF, so a retitle needs a new file. The title compared is the published
-    // one, `Instructor — ` prefix and all, because
-    // that is what the manifest records. A changed PDF has its file replaced
-    // in the same module, so its place in the Section, Moodle's logs and
-    // Students' bookmarks survive.
+    // Changed is decided by the hash of the markdown, the pictures it shows
+    // and the print layout, never by the render, or by the title. The title
+    // comes from the table, so the hash cannot see it, and it is printed at
+    // the top of the PDF, so a retitle needs a new file. The title compared is
+    // the published one, `Instructor — ` prefix and all, because that is what
+    // the manifest records. A changed PDF has its file replaced in the same
+    // module, so its place in the Section, Moodle's logs and Students'
+    // bookmarks survive.
     const retitled = published.title !== document.title;
-    if (retitled || published.contentHash !== rendered.contentHash) {
+    if (retitled || published.contentHash !== printedHash) {
       return {
         document,
         rendered,
+        printedHash,
         fileName,
         hide,
         verb: "replace",
@@ -320,7 +335,15 @@ export function buildPlan(input: PlanInput): Plan {
         ...(retitled ? { retitledFrom: published.title } : {}),
       };
     }
-    return { document, rendered, fileName, hide, verb: "skip", published };
+    return {
+      document,
+      rendered,
+      printedHash,
+      fileName,
+      hide,
+      verb: "skip",
+      published,
+    };
   });
 
   // After the items, so that a run refused over a link has already read every
