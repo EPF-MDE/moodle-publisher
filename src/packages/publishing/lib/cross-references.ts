@@ -73,12 +73,3 @@ export function checkCrossReferences(
       throw new LinkToInstructorOnly(from, link);
   }
 }
-
-/** Where Moodle serves the page activity `moduleId`, with the fragment asked for. */
-export function pageUrl(
-  baseUrl: string,
-  moduleId: string,
-  fragment: string
-): string {
-  return `${baseUrl.replace(/\/+$/, "")}/mod/page/view.php?id=${moduleId}${fragment}`;
-}

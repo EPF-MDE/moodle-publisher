@@ -17,6 +17,13 @@ import {
   writeInstructorSet,
 } from "./harness.ts";
 
+/**
+ * Replacing a changed document's PDF in the same module is the next ticket
+ * (#24). Until it lands a run leaves a published document alone, so these wait
+ * for it rather than being deleted with the page path they were written for.
+ */
+const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
+
 const SCRIPT = "Instructor — Oral interview script";
 const ANCHORS = "Instructor — C1 banding anchors";
 const LECTURE = "Lecture 1 — Framing and decomposing";
@@ -74,11 +81,11 @@ test("a second run reports zero changes for instructor material too", async () =
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /0 to create, 0 to update, 5 to skip, 0 to hide/);
+  assert.match(result.stdout, /0 PDFs to create, 5 to skip, 0 to hide/);
   assert.doesNotMatch(result.stdout, /re-hid/);
 });
 
-test("editing a banding anchor updates the activity in place and leaves it hidden", async () => {
+test("editing a banding anchor updates the activity in place and leaves it hidden", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);
   await workspace.publisher(["publish", "--apply"]);

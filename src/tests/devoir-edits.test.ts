@@ -302,6 +302,6 @@ test("a Devoir's link follows the brief when the brief is created again", async 
   assert.ok(grid && devoir);
   assert.match(
     devoir.item.body,
-    new RegExp(`href="[^"]*/mod/page/view\\.php\\?id=${grid.moduleId}"`)
+    new RegExp(`href="[^"]*/mod/resource/view\\.php\\?id=${grid.moduleId}"`)
   );
 });

@@ -106,10 +106,10 @@ test("a Devoir's description says what to paste, states the Freeze and links to 
     /Thursday 10 September 2026 at 20:00 Europe\/Paris \(2026-09-10T20:00:00\+02:00\)/
   );
   // And the brief, as a link to the activity that holds its prose — not a copy
-  // of the prose. Pointed at the module id Moodle gave the page in this run.
+  // of the prose. Pointed at the module id Moodle gave the brief's PDF in this run.
   assert.match(
     devoir.item.body,
-    new RegExp(`href="[^"]*/mod/page/view\\.php\\?id=${grid.moduleId}"`)
+    new RegExp(`href="[^"]*/mod/resource/view\\.php\\?id=${grid.moduleId}"`)
   );
   assert.match(devoir.item.body, new RegExp(GRID_TITLE));
 });

@@ -25,7 +25,7 @@ import type { PublishedAsset, SectionName } from "../course/index.ts";
  * fields on `PageEntry`, so that reading an entry never means guessing which
  * fields its neighbours left empty.
  */
-export type ManifestEntry = PageEntry | DevoirEntry;
+export type ManifestEntry = FileResourceEntry | PageEntry | DevoirEntry;
 
 /**
  * A Deliverable published as a Moodle Devoir.
@@ -95,7 +95,29 @@ export function devoirEntryFor(
   return entry?.kind === "devoir" ? entry : undefined;
 }
 
-/** A markdown document published as a Moodle page. */
+/**
+ * A Published Document published as a PDF: a Moodle file resource in its
+ * Section.
+ *
+ * The hash is taken over the markdown and the pictures it shows — what the
+ * Instructor wrote — and never over the PDF's bytes, which a render is free to
+ * vary without anything having changed.
+ */
+export interface FileResourceEntry {
+  readonly kind: "file-resource";
+  readonly moduleId: string;
+  readonly section: SectionName;
+  /** What the course page names the resource, `Instructor — ` prefix and all. */
+  readonly title: string;
+  readonly contentHash: string;
+  readonly publishedAt: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * A markdown document published as a Moodle page, by a publisher before
+ * documents were published as PDFs. Nothing writes one any more.
+ */
 export interface PageEntry {
   readonly kind: "page";
   readonly moduleId: string;
@@ -192,6 +214,24 @@ export function pageFor(
 ): PageEntry | undefined {
   const entry = manifest.entries[source];
   return entry?.kind === "page" ? entry : undefined;
+}
+
+/**
+ * What `source` was published as — a PDF, or a page an earlier publisher made
+ * — if it was published at all.
+ *
+ * Both answer "is this document already in the course, and where?", which is
+ * the question a run asks of a document. A Devoir entry is not a document and
+ * reads as nothing recorded, as it does for {@link pageFor}.
+ */
+export function documentEntryFor(
+  manifest: Manifest,
+  source: string
+): FileResourceEntry | PageEntry | undefined {
+  const entry = manifest.entries[source];
+  return entry?.kind === "file-resource" || entry?.kind === "page"
+    ? entry
+    : undefined;
 }
 
 /** Every page in the manifest, with the source path it was published from. */

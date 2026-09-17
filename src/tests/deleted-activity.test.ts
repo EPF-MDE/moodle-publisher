@@ -1,12 +1,12 @@
 // An activity the manifest records and the course no longer holds.
 //
-// Someone deletes a page in Moodle — by hand, or through a course rebuild the
+// Someone deletes an activity in Moodle — by hand, or through a course rebuild the
 // publisher was not part of — and the manifest goes on naming a module id that
 // resolves to nothing. The run that found this opened
 // `/course/modedit.php?update=<gone>`, got Moodle's "record not found" error
 // page, and aborted on the course guard, which reads site context off an error
 // page and reported the browser as being in course 1. The plan is where that
-// has to be settled: an activity the course does not hold is not an update.
+// has to be settled: an activity the course does not hold is created again.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -15,7 +15,6 @@ import {
   writeDayOneSet,
   writeInstructorSet,
   itemNamed,
-  LECTURE_MARKDOWN,
 } from "./harness.ts";
 
 import type { Workspace } from "./harness.ts";
@@ -34,7 +33,7 @@ function deleteFromCourse(workspace: Workspace, name: string): string {
   return gone.moduleId;
 }
 
-test("an activity deleted from the course is planned as a create, not an update", async () => {
+test("an activity deleted from the course is planned as a create", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -44,7 +43,7 @@ test("an activity deleted from the course is planned as a create, not an update"
 
   assert.equal(plan.code, 0, plan.stderr);
   assert.match(plan.stdout, /create .*Lecture 1/);
-  assert.match(plan.stdout, /1 to create, 0 to update, 2 to skip/);
+  assert.match(plan.stdout, /1 PDF to create, 2 to skip/);
 });
 
 test("the deleted activity is created again, and the manifest follows it", async () => {
@@ -69,31 +68,6 @@ test("the deleted activity is created again, and the manifest follows it", async
   );
   // Nothing else was disturbed on the way past: three documents, two Devoirs.
   assert.equal(workspace.readCourse().items.length, 5);
-});
-
-test("the recreated activity sends its pictures again, holding none of its own", async () => {
-  const workspace = makeWorkspace();
-  writeDayOneSet(workspace);
-  workspace.write(
-    "assets/workflow.png",
-    "a drawing of the five-phase workflow"
-  );
-  workspace.write(
-    "lectures/lecture-1.md",
-    `${LECTURE_MARKDOWN}\n![The five-phase workflow](../assets/workflow.png)\n`
-  );
-  await workspace.publisher(["publish", "--apply"]);
-  deleteFromCourse(workspace, LECTURE);
-
-  const plan = await workspace.publisher(["publish"]);
-
-  assert.equal(plan.code, 0, plan.stderr);
-  // The picture went up with the activity that is gone, so the course holds
-  // nothing of it: the manifest's record of what was uploaded belongs to a
-  // module that no longer exists, and reusing it would publish a page of
-  // broken icons.
-  assert.match(plan.stdout, /pictures: 1 of 1 to upload/);
-  assert.match(plan.stdout, /1 picture to upload/);
 });
 
 test("a deleted document the table has since moved is created where the table says", async () => {

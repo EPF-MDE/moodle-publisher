@@ -77,7 +77,7 @@ test("a document already in the manifest is skipped, not created twice", async (
   const second = await workspace.publisher(["publish"]);
 
   assert.match(second.stdout, /skip/);
-  assert.match(second.stdout, /0 to create, 0 to update, 1 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 1 to skip/);
   // The grid and its two Devoirs, each made once.
   assert.equal(workspace.readCourse().items.length, 3);
 });

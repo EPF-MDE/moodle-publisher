@@ -10,6 +10,7 @@
 // Freeze, and links to that activity.
 import { formatFreeze } from "../../catalog/deliverables.ts";
 import { contentHash } from "../../documents/index.ts";
+import { escape } from "./html.ts";
 
 import type { Deliverable } from "../../catalog/deliverables.ts";
 import type { PublishedDocument } from "../../catalog/index.ts";
@@ -40,14 +41,19 @@ export class DevoirBriefNotPublished extends Error {
 }
 
 /**
- * `&`, `<` and `>` as HTML entities, so a title with an ampersand or an angle
- * bracket in it publishes as the characters somebody typed.
+ * A published document as a Devoir's link needs it: which activity it is, and
+ * what kind, because Moodle serves each kind from its own URL. A brief is a
+ * PDF, or a page an earlier publisher made and this one left standing.
  */
-function escape(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+export interface Activity {
+  readonly kind: "file-resource" | "page";
+  readonly moduleId: string;
+}
+
+/** Where Moodle serves `activity`. */
+export function activityUrl(baseUrl: string, activity: Activity): string {
+  const module = activity.kind === "file-resource" ? "resource" : "page";
+  return `${baseUrl.replace(/\/+$/, "")}/mod/${module}/view.php?id=${activity.moduleId}`;
 }
 
 /**

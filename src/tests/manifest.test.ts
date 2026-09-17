@@ -14,19 +14,19 @@ import type { Workspace } from "./harness.ts";
 const MANIFEST_FILE = "moodle-manifest.json";
 
 /**
- * The manifest as an earlier version of the publisher wrote it: no `kind` on
- * its pages. Devoir entries keep theirs, because no version ever wrote one
- * without it.
+ * The manifest as an earlier version of the publisher wrote it: its documents
+ * recorded as pages with no `kind`, and no title. Devoir entries keep theirs,
+ * because no version ever wrote one without it.
  */
-function stripKinds(workspace: Workspace): void {
+function asKindlessPages(workspace: Workspace): void {
   const file = workspace.readManifest();
   const documents: Record<string, Record<string, string>> = {};
   for (const [source, entry] of Object.entries(file.documents)) {
-    if (entry["kind"] !== "page") {
+    if (entry["kind"] !== "file-resource") {
       documents[source] = entry;
       continue;
     }
-    const { kind: _kind, ...rest } = entry;
+    const { kind: _kind, title: _title, ...rest } = entry;
     documents[source] = rest;
   }
   workspace.write(
@@ -35,20 +35,22 @@ function stripKinds(workspace: Workspace): void {
   );
 }
 
-test("a written entry says it is a page, alongside module, section and hash", async () => {
+test("a written entry says it is a file resource, alongside module, section, title and hash", async () => {
   const workspace = makeWorkspace();
 
   await workspace.publisher(["publish", "--apply"]);
 
   const entry = workspace.readManifest().documents["assessment-grid.md"];
   assert.ok(entry, "expected a manifest entry for the grid");
-  assert.equal(entry["kind"], "page");
+  assert.equal(entry["kind"], "file-resource");
+  assert.equal(entry["title"], "Assessment Grid — how you are graded");
   assert.deepEqual(Object.keys(entry).sort(), [
     "contentHash",
     "kind",
     "moduleId",
     "publishedAt",
     "section",
+    "title",
     "updatedAt",
   ]);
 });
@@ -56,19 +58,20 @@ test("a written entry says it is a page, alongside module, section and hash", as
 test("an entry written before entries had a kind is read as a page and skipped", async () => {
   const workspace = makeWorkspace();
   await workspace.publisher(["publish", "--apply"]);
-  stripKinds(workspace);
+  asKindlessPages(workspace);
 
   const second = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 to create, 0 to update, 1 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 1 to skip/);
   // The grid and its two Devoirs, and nothing made a second time.
   assert.equal(workspace.readCourse().items.length, 3);
 });
 
 /**
  * The manifest as a publisher that still configured the gradebook left it: a
- * Grade Item recorded under each Competency's id, beside the pages and Devoirs.
+ * Grade Item recorded under each Competency's id, beside the documents and
+ * Devoirs.
  */
 function addGradeItems(workspace: Workspace): void {
   const file = workspace.readManifest();
@@ -102,14 +105,17 @@ test("a manifest holding Grade Items still reads, and the next write drops them"
   // Read, by a plan, and not refused.
   const plan = await workspace.publisher(["publish"]);
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 0 to update, 1 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to skip/);
   assert.ok(workspace.readManifest().documents["C1"], "reading wrote nothing");
 
-  // Written, by the next run that changes something.
+  // Written, by the next run that changes something: a Deliverable retitled.
   writeGrid(
     workspace,
-    GRID_FRONT_MATTER,
-    `${GRID_MARKDOWN}\n| Strong | Rare. |\n`
+    GRID_FRONT_MATTER.replace(
+      "Your repository — C1 and C2",
+      "Your repository — C1 and C2, as a URL"
+    ),
+    GRID_MARKDOWN
   );
   const applied = await workspace.publisher(["publish", "--apply"]);
   assert.equal(applied.code, 0, applied.stderr);
@@ -121,27 +127,3 @@ test("a manifest holding Grade Items still reads, and the next write drops them"
   assert.equal(workspace.readCourse().items.length, 3);
 });
 
-test("updating an entry written before kinds keeps its module and names it a page", async () => {
-  const workspace = makeWorkspace();
-  await workspace.publisher(["publish", "--apply"]);
-  const before = workspace.readManifest().documents["assessment-grid.md"];
-  stripKinds(workspace);
-  writeGrid(
-    workspace,
-    GRID_FRONT_MATTER,
-    `${GRID_MARKDOWN}\n| Strong | Rare. |\n`
-  );
-
-  const second = await workspace.publisher(["publish", "--apply"]);
-
-  assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 to create, 1 to update, 0 to skip/);
-  const after = workspace.readManifest().documents["assessment-grid.md"];
-  assert.ok(before && after);
-  // What an update does to the rest of the entry is rerun.test.ts's subject.
-  // What matters here is that the entry came back through the update path
-  // still attached to its activity, and now says what it is.
-  assert.equal(after["kind"], "page");
-  assert.equal(after["moduleId"], before["moduleId"]);
-  assert.equal(workspace.readCourse().items.length, 3);
-});

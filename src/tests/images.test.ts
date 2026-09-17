@@ -15,6 +15,13 @@ import {
 
 import type { Workspace } from "./harness.ts";
 
+/**
+ * Replacing a changed document's PDF in the same module is the next ticket
+ * (#24). Until it lands a run leaves a published document alone, so these wait
+ * for it rather than being deleted with the page path they were written for.
+ */
+const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
+
 /** Stand-in for a diagram: the publisher hashes bytes, not pixels. */
 const DIAGRAM = "first drawing of the five-phase workflow";
 const REDRAWN = "second drawing, arrows corrected";
@@ -44,7 +51,7 @@ function writeSetShowingDiagram(
   }
 }
 
-test("redrawing a diagram plans the document that shows it as an update", async () => {
+test("redrawing a diagram plans the document that shows it as an update", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -60,7 +67,7 @@ test("redrawing a diagram plans the document that shows it as an update", async 
   assert.match(plan.stdout, /Nothing has been applied/);
 });
 
-test("redrawing one diagram marks every document that shows it", async () => {
+test("redrawing one diagram marks every document that shows it", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -83,10 +90,10 @@ test("editing a picture no published document shows changes nothing", async () =
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
 });
 
-test("a second consecutive run after a redrawn diagram reports zero changes", async () => {
+test("a second consecutive run after a redrawn diagram reports zero changes", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -98,7 +105,7 @@ test("a second consecutive run after a redrawn diagram reports zero changes", as
   assert.equal(first.code, 0, first.stderr);
   assert.match(first.stdout, /0 to create, 2 to update, 1 to skip/);
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 3 to skip/);
 });
 
 test("a picture that is not there yet holds its document back until it arrives", async () => {
@@ -109,7 +116,7 @@ test("a picture that is not there yet holds its document back until it arrives",
     `${LECTURE_MARKDOWN}\n![Not drawn yet](../assets/workflow.png)\n`
   );
 
-  // The picture is uploaded with the document that shows it, so a document
+  // The picture is embedded in the document that shows it, so a document
   // whose diagram is missing cannot be published at all — see
   // `image-upload.test.ts` for what the refusal says.
   const missing = await workspace.publisher(["publish", "--apply"]);
@@ -118,10 +125,10 @@ test("a picture that is not there yet holds its document back until it arrives",
 
   assert.equal(missing.code, 1);
   assert.equal(arrived.code, 0, arrived.stderr);
-  assert.match(arrived.stdout, /3 to create/);
+  assert.match(arrived.stdout, /3 PDFs to create/);
 });
 
-test("a diagram shown as HTML counts as much as one shown as markdown", async () => {
+test("a diagram shown as HTML counts as much as one shown as markdown", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -139,7 +146,7 @@ test("a diagram shown as HTML counts as much as one shown as markdown", async ()
   assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
 });
 
-test("a diagram named by a link definition counts too", async () => {
+test("a diagram named by a link definition counts too", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -172,10 +179,10 @@ test("a picture quoted in a code fence is shown to nobody, and counts for nothin
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
 });
 
-test("a diagram whose name has a space in it is found, however the link spells it", async () => {
+test("a diagram whose name has a space in it is found, however the link spells it", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/five phase workflow.png", DIAGRAM);
@@ -192,7 +199,7 @@ test("a diagram whose name has a space in it is found, however the link spells i
   assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
 });
 
-test("a link that sizes the same diagram twice does not confuse the verdict", async () => {
+test("a link that sizes the same diagram twice does not confuse the verdict", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -242,5 +249,5 @@ test("a picture hosted elsewhere leaves the verdict alone", async () => {
 
   assert.equal(applied.code, 0, applied.stderr);
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
 });
