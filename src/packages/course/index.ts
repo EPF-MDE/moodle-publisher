@@ -130,13 +130,20 @@ export interface NewFileResource {
  * so bookmarks and links to the resource survive, and the old file goes rather
  * than sitting beside the new one.
  *
- * There is deliberately no visibility here, and no name or Section either: a
- * replace changes what the resource holds and nothing about where it is or who
- * can see it. Revealing a document is a human decision, and the guarantee is
- * the interface's — there is no field to write it into.
+ * The name is here because the title is printed at the top of the PDF: a
+ * retitled document needs its file replaced anyway, so there is no rename
+ * apart from a replace, and every replace writes the name the course page
+ * should show.
+ *
+ * There is deliberately no visibility here, and no Section either: a replace
+ * changes what the resource holds and what it is called, and nothing about
+ * where it is or who can see it. Revealing a document is a human decision, and
+ * the guarantee is the interface's — there is no field to write it into.
  */
 export interface FileReplacement {
   readonly moduleId: string;
+  /** As {@link NewFileResource.name}; it may differ from the old name. */
+  readonly name: string;
   /** As {@link NewFileResource.fileName}; it may differ from the old file's. */
   readonly fileName: string;
   /** As {@link NewFileResource.html}. */
@@ -280,8 +287,9 @@ export interface CourseDriver {
   createFileResource(resource: NewFileResource): Promise<CreatedFileResource>;
   /**
    * Replaces the file an existing file resource holds with `replacement.html`
-   * printed to a PDF: same module id, same name, same Section, same
-   * visibility, and the old file removed rather than kept beside the new one.
+   * printed to a PDF, and names it `replacement.name`: same module id, same
+   * Section, same visibility, and the old file removed rather than kept beside
+   * the new one.
    *
    * It cannot write visibility, because {@link FileReplacement} has none: no
    * run and no later edit above this seam can reveal a resource the

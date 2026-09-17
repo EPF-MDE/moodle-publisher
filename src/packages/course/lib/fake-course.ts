@@ -338,10 +338,11 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
           `Fake driver: no file resource with module id ${replacement.moduleId} to replace the file of.`
         );
       }
-      // The file and nothing else. Name, section and visibility are what the
-      // activity already has; the old file is gone, not kept beside the new.
+      // The file and the name. Section and visibility are what the activity
+      // already has; the old file is gone, not kept beside the new.
       course.items[at] = {
         ...existing,
+        name: replacement.name,
         fileName: replacement.fileName,
         body: replacement.html,
       };

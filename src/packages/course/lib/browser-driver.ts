@@ -441,9 +441,9 @@ async function setEditorPreference(
 
 /**
  * What is typed into the file resource form. Creating and replacing are the
- * same form, opened at a different URL, and a replace touches the file and
- * nothing else: the name, how it is displayed and who can see it are all on
- * the create arm only.
+ * same form, opened at a different URL, and a replace touches the file and the
+ * name and nothing else: how it is displayed and who can see it are on the
+ * create arm only.
  *
  * Written from the two seam types, as {@link DevoirForm} is, so that
  * visibility is unwritable on a replace rather than merely unwritten.
@@ -1372,9 +1372,7 @@ export async function openBrowserCourse(
     await assertNotMoodleError(page, `opening the resource form: ${what}`);
     await assertInConfiguredCourse(page, options);
 
-    if (fields.kind === "create") {
-      await page.locator(SELECTORS.activityName).fill(fields.name);
-    }
+    await page.locator(SELECTORS.activityName).fill(fields.name);
     const manager = await loadedFileManager(what);
     await emptyFileManager(manager, what);
     await uploadIntoFileManager(
@@ -1530,8 +1528,8 @@ export async function openBrowserCourse(
       const what = `replacing the file of resource ${replacement.moduleId} with "${replacement.fileName}"`;
       // The existing activity's form, reached by URL rather than through the
       // course page's action menu, whose ids change from one render to the
-      // next. Moodle keeps the module id, the name, the section and the
-      // visibility; this call has none of them to type.
+      // next. Moodle keeps the module id, the section and the visibility;
+      // this call has none of them to type.
       const mutation = await prepareToMutate();
       await gotoCourse(page, options, watch);
       const after = await mutation.capture(
@@ -1548,12 +1546,7 @@ export async function openBrowserCourse(
           { kind: "replace", ...replacement },
           what
         );
-        if (!items.some((item) => item.moduleId === replacement.moduleId)) {
-          throw new Error(
-            `Aborting: file resource ${replacement.moduleId} is not in course ` +
-              `${options.courseId} after replacing its file.`
-          );
-        }
+        updatedActivity(items, replacement, "file resource");
       } catch (error) {
         noteAbort(mutation, error);
         throw error;
