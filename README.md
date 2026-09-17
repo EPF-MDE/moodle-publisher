@@ -151,9 +151,16 @@ Plan:
 
 A document has changed when the hash of its markdown and the pictures it shows differs from the one in its manifest entry. The rendered PDF never decides this, because a render is free to vary. A picture redrawn on its own is a change to every document that shows it, and to no other. An unchanged document uploads nothing.
 
-A `replace` **swaps the file inside the existing file resource**: same course module id, same place in its section, same name, same visibility. It is not a delete and a recreate, because the module id is what student bookmarks, Moodle's logs and completion tracking are hung on. Editing one lecture and re-running therefore touches exactly one PDF, and running again immediately afterwards reports zero changes.
+A `replace` **swaps the file inside the existing file resource**: same course module id, same place in its section, same visibility. It is not a delete and a recreate, because the module id is what student bookmarks, Moodle's logs and completion tracking are hung on. Editing one lecture and re-running therefore touches exactly one PDF, and running again immediately afterwards reports zero changes.
 
-**Retitling an entry in the table is not picked up yet (#36).** The title is not in the hash, and a replace keeps the resource's name, so a retitled document whose markdown is unchanged is planned as a `skip`. Rename it in Moodle by hand, or delete its PDF and run again.
+**Retitling an entry in the table is a `replace` too.** The title is not in the hash, but it is in the manifest entry and it is printed at the top of the PDF, so a document whose published title — `Instructor — ` prefix included — differs from the one recorded is replaced even when its markdown is unchanged. The replace sets the resource's name to the new title and reprints the PDF under it; the module id, the section, the visibility and the PDF's file name stay as they were. The plan line says which title it had, before anything is applied:
+
+```
+  replace     Lecture 1 — Framing and decomposing
+              section: Lectures   source: lectures/lecture-1-framing.md   pdf: lecture-1-framing.pdf   retitled from "Lecture 1 — Framing"
+```
+
+Adding or dropping the `--instructor` suffix changes the published title the same way, and goes down the same path.
 
 **A document whose activity the course no longer holds is planned as a `create`, not a `replace`.** The manifest records a module id, and a PDF deleted in Moodle — by hand, or by a rebuild the publisher was not part of — leaves that id naming nothing. The plan reads the course before it decides, so the record that outlived what it recorded is settled there, where the course is already in hand. The recreated PDF is uploaded afresh, and the manifest follows the document to its new module id. Examiner-only material is the one thing this cannot do quietly: an activity of the same name already standing in the section the table names aborts the run rather than putting a second copy of an answer key in the course.
 
@@ -363,9 +370,9 @@ Instructor material is published from the first run, wherever it sits — includ
 
 The hash answers "has this changed?" for what a reader reads — the markdown and the pictures it shows — and never covers the PDF's bytes, which a render is free to vary. Entries an earlier publisher wrote for Moodle pages are still read, as pages, and skipped.
 
-A replace keeps the module id, the section, the title and the first publication date, and refreshes the content hash and `updatedAt`. The hash answers "has this changed?" for what a reader reads — the markdown and the pictures it shows — so a run that changes nothing in the repository reports nothing to do.
+A replace keeps the module id, the section and the first publication date, and refreshes the title, the content hash and `updatedAt`. The hash answers "has this changed?" for what a reader reads — the markdown and the pictures it shows — so a run that changes nothing in the repository reports nothing to do.
 
-**A retitle is the one change the hash cannot see.** Titles come from the table, not from the file, so renaming an entry leaves the hash identical, and a run leaves the PDF alone. See [Re-running](#re-running).
+**A retitle is the one change the hash cannot see**, so the plan compares the title too. Titles come from the table, not from the file, so renaming an entry leaves the hash identical; the recorded title differing is what makes the run replace the PDF and rename it. See [Re-running](#re-running).
 
 **What the manifest records for a new activity is the module id that appeared**, never the one whose name matches. Two activities are allowed to share a name — a copy left behind in the section a document has just been moved out of is exactly that case — and the course page lists the older one first. Creating a PDF therefore reads the course before it writes and takes the id that was not there a moment ago, aborting if none appeared or more than one did. Matching by name recorded the older copy instead, which pointed the manifest at an activity the run had not created, and made the read-back that proves an activity was created hidden prove it of the wrong one. It is the same reasoning as the section-add check, for the same reason.
 

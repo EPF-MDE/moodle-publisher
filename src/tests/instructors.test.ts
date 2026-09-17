@@ -97,6 +97,36 @@ test("editing a banding anchor replaces its PDF in place and leaves it hidden", 
   assert.match(after?.body ?? "", /the night before the orals/);
 });
 
+test("retitling a banding anchor renames its PDF, keeping the prefix and the hiding", async () => {
+  const workspace = makeWorkspace();
+  writeInstructorSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const before = itemNamed(workspace, ANCHORS);
+  const renamed = "Instructor — C1 banding anchors, revised";
+  writeInstructorSet(
+    workspace,
+    INSTRUCTOR_ENTRIES.map((entry) =>
+      entry.source === ANCHORS_SOURCE
+        ? { ...entry, title: "C1 banding anchors, revised" }
+        : entry
+    )
+  );
+
+  const plan = await workspace.publisher(["publish"]);
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.match(
+    plan.stdout,
+    new RegExp(`replace\\s+${renamed}\\n.*\\(hidden, examiners only\\).*retitled from "${ANCHORS}"`)
+  );
+  assert.equal(result.code, 0, result.stderr);
+  const after = itemNamed(workspace, renamed);
+  assert.equal(after?.moduleId, before?.moduleId);
+  assert.equal(after?.visible, false);
+  assert.match(after?.body ?? "", new RegExp(`<title>${renamed}</title>`));
+  assert.equal(itemNamed(workspace, ANCHORS), undefined);
+});
+
 test("a changed instructor PDF found revealed is replaced and re-hidden in the same run", async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);

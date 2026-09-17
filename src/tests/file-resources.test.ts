@@ -62,7 +62,7 @@ test("the snapshot lists a file resource as a course item, hidden when created h
   assert.ok(snapshot.sections.some((section) => section.name === "Labs"));
 });
 
-test("replacing the file keeps the module id, name, section and visibility", async () => {
+test("replacing the file keeps the module id, section and visibility, and sets the name", async () => {
   const workspace = makeWorkspace();
   const course = createFakeDriver(workspace.coursePath, COURSE_ID);
   const { moduleId } = await course.createFileResource({
@@ -76,6 +76,7 @@ test("replacing the file keeps the module id, name, section and visibility", asy
   const revised = "<!doctype html><title>Lab 1</title><p>Fork it first.</p>";
   await course.replaceFile({
     moduleId,
+    name: "Lab 1 — Worked answers",
     fileName: "lab-1-answer-key-v2.pdf",
     html: revised,
   });
@@ -84,7 +85,7 @@ test("replacing the file keeps the module id, name, section and visibility", asy
   assert.deepEqual(workspace.readCourse().items, [
     {
       moduleId,
-      name: "Lab 1 — Answer key",
+      name: "Lab 1 — Worked answers",
       section: "Labs",
       visible: false,
       fileName: "lab-1-answer-key-v2.pdf",
@@ -106,6 +107,7 @@ test("replacing the file cannot be told a visibility", async () => {
 
   await course.replaceFile({
     moduleId,
+    name: "Lab 1 — Answer key",
     fileName: "lab-1-answer-key.pdf",
     html: PRINTED,
     // @ts-expect-error — the guarantee is the interface's: there is no field to write it into.
@@ -134,11 +136,11 @@ test("replacing the file of an activity that is not a file resource fails", asyn
   const course = createFakeDriver(workspace.coursePath, COURSE_ID);
 
   await assert.rejects(
-    course.replaceFile({ moduleId: "1", fileName: "lab-1.pdf", html: PRINTED }),
+    course.replaceFile({ moduleId: "1", name: "Lab 1", fileName: "lab-1.pdf", html: PRINTED }),
     /no file resource with module id 1/
   );
   await assert.rejects(
-    course.replaceFile({ moduleId: "9", fileName: "lab-1.pdf", html: PRINTED }),
+    course.replaceFile({ moduleId: "9", name: "Lab 1", fileName: "lab-1.pdf", html: PRINTED }),
     /no file resource with module id 9/
   );
   assert.equal(itemNamed(workspace, "Lab 1 — Setup")?.body, "<p>A page.</p>");

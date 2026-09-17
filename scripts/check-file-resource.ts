@@ -4,7 +4,7 @@
 //
 // Nothing publishes a file resource yet, so this is the only way to run them.
 // It creates one hidden resource in the Resources section, replaces its file
-// under a new name, and reads the course back after each step. What it cannot
+// under a new file name and renames it, and reads the course back after each step. What it cannot
 // check is what a Student sees; it prints what to check by hand instead.
 //
 //     npm run check:file-resource
@@ -30,6 +30,7 @@ function document(title: string, line: string): string {
 const config = readConfig();
 const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
 const name = `check-${stamp} file resource`;
+const renamed = `${name}, renamed`;
 
 const course = await createBrowserDriver({
   baseUrl: config.baseUrl,
@@ -51,8 +52,9 @@ try {
 
   await course.replaceFile({
     moduleId,
+    name: renamed,
     fileName: `check-${stamp}-second.pdf`,
-    html: document(name, "Second version: the file was replaced."),
+    html: document(renamed, "Second version: the file was replaced."),
   });
 
   const after = (await course.snapshot()).items.find(
@@ -61,26 +63,29 @@ try {
   if (after === undefined) {
     throw new Error(`module ${moduleId} is not in the course after the replace.`);
   }
+  if (after.name !== renamed) {
+    throw new Error(`module ${moduleId} is called "${after.name}" after the replace.`);
+  }
   if (after.visible) {
     throw new Error(`module ${moduleId} is visible after the replace.`);
   }
   const url = new URL(`/mod/resource/view.php?id=${moduleId}`, config.baseUrl);
   process.stdout.write(
-    `\nOK: module ${moduleId} kept its id and stayed hidden through the replace.\n\n` +
+    `\nOK: module ${moduleId} kept its id, took its new name and stayed hidden through the replace.\n\n` +
       `Now check by hand:\n` +
       `  1. As yourself, open ${url} — the PDF opens in the browser and reads\n` +
-      `     "Second version", with a shaded title (backgrounds printed).\n` +
+      `     "Second version", under the title "${renamed}", shaded (backgrounds printed).\n` +
       `  2. The resource's files (edit settings) hold check-${stamp}-second.pdf alone.\n` +
       `  3. As a Student (or "Log in as"), the same URL is refused, and the\n` +
       `     resource is not on the course page.\n` +
-      `  4. Delete "${name}" from the course when done.\n`
+      `  4. Delete "${renamed}" from the course when done.\n`
   );
 } catch (error) {
   failed = true;
   process.stderr.write(
     `\nFAILED: ${error instanceof Error ? error.message : String(error)}\n` +
       `Look in ${config.runsRoot} for the run's screenshots, and delete anything ` +
-      `named "${name}" from the course.\n`
+      `named "${name}" or "${renamed}" from the course.\n`
   );
 } finally {
   await course.close();

@@ -36,7 +36,8 @@ export { LinkToInstructorOnly } from "./lib/cross-references.ts";
 
 /**
  * What a run would do to one document: create its PDF, replace the file of the
- * one the manifest records because the document changed, or leave it alone.
+ * one the manifest records because the document changed or was retitled, or
+ * leave it alone.
  */
 export type PlanVerb = "create" | "replace" | "skip";
 
@@ -74,6 +75,12 @@ export type PlanItem =
       readonly verb: "replace";
       /** The file resource whose file is replaced, and the record of it. */
       readonly published: FileResourceEntry;
+      /**
+       * The title the resource was published under, when the table now
+       * gives it another one. The replace renames it, and the plan says so
+       * before anything is applied.
+       */
+      readonly retitledFrom?: string;
     })
   | (PlannedDocument & {
       readonly verb: "skip";
@@ -257,15 +264,26 @@ export function buildPlan(input: PlanInput): Plan {
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
     // Changed is decided by the hash of the markdown and the pictures it
-    // shows, never by the render. A changed PDF has its file replaced in the
-    // same module, so its place in the Section, Moodle's logs and Students'
-    // bookmarks survive. A page an earlier publisher made is left standing:
-    // it has no file to replace.
-    if (
-      published.kind === "file-resource" &&
-      published.contentHash !== rendered.contentHash
-    ) {
-      return { document, rendered, fileName, hide, verb: "replace", published };
+    // shows, never by the render, and by the title: the table gives it, the
+    // hash cannot see it, and it is printed at the top of the PDF. The title
+    // compared is the published one, `Instructor — ` prefix and all, because
+    // that is what the manifest records. A changed PDF has its file replaced
+    // in the same module, so its place in the Section, Moodle's logs and
+    // Students' bookmarks survive. A page an earlier publisher made is left
+    // standing: it has no file to replace.
+    if (published.kind === "file-resource") {
+      const retitled = published.title !== document.title;
+      if (retitled || published.contentHash !== rendered.contentHash) {
+        return {
+          document,
+          rendered,
+          fileName,
+          hide,
+          verb: "replace",
+          published,
+          ...(retitled ? { retitledFrom: published.title } : {}),
+        };
+      }
     }
     return { document, rendered, fileName, hide, verb: "skip", published };
   });
@@ -506,6 +524,16 @@ function formatDeliverables(plan: Plan): readonly string[] {
   ];
 }
 
+/**
+ * The title a replace renames the resource from, so a retitle is read before it
+ * is applied. Anything else says nothing.
+ */
+function retitleOf(item: PlanItem): string {
+  return item.verb === "replace" && item.retitledFrom !== undefined
+    ? `   retitled from "${item.retitledFrom}"`
+    : "";
+}
+
 /** The plan as the instructor reads it, one line per document and its PDF. */
 export function formatPlan(plan: Plan): string {
   const heading = "Plan:";
@@ -516,7 +544,8 @@ export function formatPlan(plan: Plan): string {
     (item) =>
       `  ${verbOf(item).padEnd(11)} ${item.document.title}\n` +
       `              ${placementOf(item)}   source: ${item.document.source}` +
-      pdfOf(item)
+      pdfOf(item) +
+      retitleOf(item)
   );
   return [
     heading,
