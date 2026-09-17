@@ -42,27 +42,17 @@ export class DevoirBriefNotPublished extends Error {
 }
 
 /**
- * A published document as a Devoir's link needs it: which activity it is, and
- * what kind, because Moodle serves each kind from its own URL. A brief is a
- * PDF.
+ * A published document as a Devoir's link needs it: which activity it is. A
+ * brief is a PDF, so Moodle serves it as a file resource.
  */
-export type DocumentActivity = Pick<FileResourceEntry, "kind" | "moduleId">;
-
-/**
- * The Moodle module that serves each kind of document activity. A record over
- * every kind, so a kind added here does not compile until it has a URL.
- */
-const MODULE_OF: Readonly<Record<DocumentActivity["kind"], string>> = {
-  "file-resource": "resource",
-};
+export type DocumentActivity = Pick<FileResourceEntry, "moduleId">;
 
 /** Where Moodle serves `activity`. */
 export function documentActivityUrl(
   baseUrl: string,
   activity: DocumentActivity
 ): string {
-  const module = MODULE_OF[activity.kind];
-  return `${baseUrl.replace(/\/+$/, "")}/mod/${module}/view.php?id=${activity.moduleId}`;
+  return `${baseUrl.replace(/\/+$/, "")}/mod/resource/view.php?id=${activity.moduleId}`;
 }
 
 /**

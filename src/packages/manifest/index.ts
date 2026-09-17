@@ -117,8 +117,8 @@ export interface FileResourceEntry {
  * A markdown document published as a Moodle page, by a publisher before
  * documents were published as PDFs. Nothing writes one any more, and nothing
  * publishes from one: pages are not migrated. A Manifest still holding one is
- * read so that publishing can refuse it by name ({@link pageSources}) and the
- * Wipe can count it, and for nothing else.
+ * read so that publishing can refuse it by name ({@link pageSources}), and
+ * so that the Wipe, which clears every entry, still runs against it.
  */
 export interface PageEntry {
   readonly kind: "page";
