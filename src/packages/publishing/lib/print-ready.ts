@@ -28,7 +28,7 @@ export interface Footer {
 }
 
 /**
- * The day `instant` falls on in Paris, as a reader writes it:
+ * Writes an instant as the day it falls on in Paris, as a reader writes it:
  * `12 September 2026`. The course runs in Paris, so a run late in the evening
  * UTC is dated the next day, as the Students who print it would date it.
  */

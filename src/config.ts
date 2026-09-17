@@ -38,14 +38,14 @@ export class UnreadableEnvFile extends Error {
  * Only a fake-driver run can reach this. A real course ignores the variable
  * entirely, so a typo in it can never abort a publish.
  */
-export class UnreadableDate extends Error {
+export class UnreadableNow extends Error {
   constructor(value: string) {
     super(
       `Aborting: PUBLISHER_NOW is set to "${value}", which is not a date. ` +
         `Set it to an ISO date or timestamp, e.g. 2026-09-11 or 2026-09-11T14:00:00Z, ` +
         `or unset it to use the clock.`
     );
-    this.name = "UnreadableDate";
+    this.name = "UnreadableNow";
   }
 }
 
@@ -233,6 +233,6 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
 function readNow(raw: string | undefined): Date | undefined {
   if (raw === undefined || raw.trim() === "") return undefined;
   const now = new Date(raw.trim());
-  if (Number.isNaN(now.getTime())) throw new UnreadableDate(raw);
+  if (Number.isNaN(now.getTime())) throw new UnreadableNow(raw);
   return now;
 }

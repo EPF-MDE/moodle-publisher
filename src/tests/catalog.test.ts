@@ -12,6 +12,7 @@ import { basename, join } from "node:path";
 import { documentsToPublish } from "../packages/catalog/index.ts";
 import { SECTION_ORDER } from "../packages/course/index.ts";
 import {
+  COURSE_NAME,
   DAY_ONE_ENTRIES,
   makeWorkspace,
   writeDayOneSet,
@@ -267,12 +268,12 @@ test("renaming a document is the whole of the change", async () => {
   };
   const [visible] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples.md" }],
-    course: "Coding Agents Management 2026",
+    course: COURSE_NAME,
     grid: "assessment-grid.md",
   });
   const [hidden] = documentsToPublish({
     published: [{ ...entry, source: "c1-assessment-examples--instructor.md" }],
-    course: "Coding Agents Management 2026",
+    course: COURSE_NAME,
     grid: "assessment-grid.md",
   });
 

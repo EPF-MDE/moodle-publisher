@@ -181,8 +181,7 @@ async function publish(apply: boolean): Promise<number> {
     await applyPlan(plan, {
       manifestPath: config.manifestPath,
       driver,
-      course: catalog.course,
-      now,
+      footer: { course: catalog.course, publishedOn: now },
       report: (line) => process.stdout.write(`  ${line}\n`),
     });
     process.stdout.write(`\nManifest: ${config.manifestPath}\n`);

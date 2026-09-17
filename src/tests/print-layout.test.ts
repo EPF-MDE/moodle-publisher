@@ -19,11 +19,11 @@ import type { Workspace } from "./harness.ts";
 const LECTURE = "Lecture 1 — Framing and decomposing";
 
 /** Late on the 11th in UTC, and already the 12th in Paris. */
-const PARIS_MIDNIGHT = { PUBLISHER_NOW: "2026-09-11T22:30:00Z" };
+const JUST_PAST_PARIS_MIDNIGHT = { PUBLISHER_NOW: "2026-09-11T22:30:00Z" };
 
 async function printedLecture(
   workspace: Workspace,
-  env: Record<string, string | undefined> = PARIS_MIDNIGHT
+  env: Record<string, string | undefined> = JUST_PAST_PARIS_MIDNIGHT
 ): Promise<string> {
   const result = await workspace.publisher(["publish", "--apply"], env);
   assert.equal(result.code, 0, result.stderr);
@@ -123,7 +123,7 @@ test("a run handed a date says so before anything else", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
 
-  const result = await workspace.publisher(["publish"], PARIS_MIDNIGHT);
+  const result = await workspace.publisher(["publish"], JUST_PAST_PARIS_MIDNIGHT);
 
   assert.equal(result.code, 0, result.stderr);
   assert.match(
