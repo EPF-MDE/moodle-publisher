@@ -28,6 +28,27 @@ export class UnreadableEnvFile extends Error {
   }
 }
 
+/**
+ * `PUBLISHER_NOW` is set to something that is not a date.
+ *
+ * Falling back to the clock would be worse than stopping: whoever set it did
+ * so to publish as of a particular day, and a footer dated today would look
+ * exactly like one dated that day.
+ *
+ * Only a fake-driver run can reach this. A real course ignores the variable
+ * entirely, so a typo in it can never abort a publish.
+ */
+export class UnreadableNow extends Error {
+  constructor(value: string) {
+    super(
+      `Aborting: PUBLISHER_NOW is set to "${value}", which is not a date. ` +
+        `Set it to an ISO date or timestamp, e.g. 2026-09-11 or 2026-09-11T14:00:00Z, ` +
+        `or unset it to use the clock.`
+    );
+    this.name = "UnreadableNow";
+  }
+}
+
 export class MissingConfiguration extends Error {
   readonly variable: string;
 
@@ -49,6 +70,16 @@ export interface Config {
   readonly runsRoot: string;
   readonly driver: DriverName;
   readonly fakeCoursePath: string | undefined;
+  /**
+   * The instant a run publishes as of, when the environment names one;
+   * `undefined` means the clock. It dates the footer of every PDF.
+   *
+   * Honoured only for the fake driver: it is a test seam and must not reach a
+   * live course however the environment is set. A stale value left in an
+   * `.env` would otherwise print last month's date on this morning's PDFs, and
+   * a Student comparing printouts would be told the wrong one is current.
+   */
+  readonly now: Date | undefined;
 }
 
 /**
@@ -194,5 +225,14 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     ),
     runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,
+    now: driver === "fake" ? readNow(env["PUBLISHER_NOW"]) : undefined,
   };
+}
+
+/** The overriding instant, or undefined for the clock. Never a fallback. */
+function readNow(raw: string | undefined): Date | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const now = new Date(raw.trim());
+  if (Number.isNaN(now.getTime())) throw new UnreadableNow(raw);
+  return now;
 }

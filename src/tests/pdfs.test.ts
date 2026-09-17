@@ -268,8 +268,8 @@ test("a replace leaves a PDF the Instructor revealed by hand revealed", async ()
   assert.match(lecture?.body ?? "", /A new line\./);
 });
 
-// The footer a PDF prints will carry the run's date (#26), so two runs on
-// different days will render different HTML from the same markdown. That is
+// The footer a PDF prints carries the run's date, so two runs on different
+// days render different HTML from the same markdown. That is
 // not a change: "changed" is read off the markdown, never off the render.
 test("a run on another day replaces nothing", async () => {
   const workspace = makeWorkspace();

@@ -35,11 +35,8 @@ export const SELECTORS = {
   loggedIn: "#page, body.userloggedin",
   /** The course page's own sections, each carrying its human name. */
   courseSection: "li.section, [data-for='section']",
-  /** The activity form: name, content, submit. */
+  /** The activity form: name, submit. */
   activityName: "#id_name",
-  /** With the plain text editor preference, the content field is a raw textarea. */
-  activityContentTextarea:
-    "#id_page_editor, textarea[name='page[text]'], #id_page",
   /** "Save and return to course" — not `#id_submitbutton`, which displays the
    * new activity instead and leaves us off the course page, where the module
    * id is read from. */
@@ -49,7 +46,7 @@ export const SELECTORS = {
   // --- the Devoir form (mod_assign), at /course/modedit.php?add=assign -----
   //
   // Core Moodle ids, like everything above: the Devoir is created through the
-  // same `modedit.php` form a page is, not through the activity chooser.
+  // same `modedit.php` form a file resource is, not through the activity chooser.
   //
   // Every one of these fields is filled on a create and again on every edit,
   // at `modedit.php?update=<module id>`: an edited Deliverable is rewritten on
@@ -59,11 +56,11 @@ export const SELECTORS = {
   // nothing else ever does.
 
   /**
-   * The Devoir's description — `mod_assign`'s intro, which is a different
-   * field from a page's body and lives on a different form.
+   * The Devoir's description — `mod_assign`'s intro, which is a field of
+   * its own on a form of its own.
    *
-   * With the plain text editor preference this is a raw textarea, exactly as
-   * the page body is, so the stub is written as the HTML it is.
+   * With the plain text editor preference this is a raw textarea, so the stub
+   * is written as the HTML it is.
    */
   assignIntroTextarea:
     "#id_introeditor_editor, textarea[name='introeditor[text]'], #id_introeditor",
@@ -252,57 +249,20 @@ export const SELECTORS = {
   editorPreferenceSelect: "#id_preference_htmleditor",
   editorPreferenceSubmit: "#id_submitbutton",
 
-  // --- the rich editor, used only to get a picture into the course ---------
+  // --- the file picker, the one way a file gets into this Moodle ----------
   //
-  // A file has to be uploaded through the editor's own picker: the activity
-  // form has no other way in, and there is no web service token to be had on
-  // this site. So a document that shows a picture is written through Atto
-  // instead of the plain textarea, and these are the controls that takes.
+  // There is no web service token to be had on this site, so a file resource's
+  // PDF goes up through the picker its form's file manager opens, and these
+  // are the controls that takes.
 
   /**
-   * The Atto instance behind the activity's body.
+   * Moodle's file picker dialogue, once something has opened it.
    *
-   * The activity form carries two rich editors — the Description above and the
-   * body below — and each has its own toolbar and its own set of dialogues.
-   * Every control under this heading has to be looked for inside this one, or
-   * the first match on the page is the Description's: pictures then go into
-   * the Description's draft area, the body's `@@PLUGINFILE@@` references
-   * resolve to nothing, and students get the broken icon the read-back exists
-   * to catch.
-   */
-  attoBodyEditor: ".editor_atto:has(#id_pageeditable)",
-  /** Atto's toolbar button that opens the image dialogue. */
-  attoImageButton: ".atto_image_button, button[data-plugin='image']",
-  /**
-   * "Browse repositories…", in the image dialogue.
-   *
-   * Matched on the visible one, like every dialogue control below it. Each
-   * editor keeps its dialogues in the DOM whether they are open or not, so the
+   * Matched on the visible one, like every dialogue control below it. Moodle
+   * keeps its dialogues in the DOM whether they are open or not, so the
    * selector alone matches controls in dialogues nobody opened — and clicking
    * one of those does nothing at all.
    */
-  attoBrowseRepositories: "button.openimagebrowser:visible",
-  /**
-   * Atto's toolbar button that swaps the rich area for the raw HTML behind it.
-   *
-   * The body is still written as HTML source, exactly as it is under the plain
-   * text editor: Atto is here for the file picker, not to have opinions about
-   * the markup the publisher renders.
-   */
-  attoHtmlButton: ".atto_html_button, button[data-plugin='html']",
-  /** The body Atto edits: clicked to give the toolbar something to act on. */
-  attoBodyEditable: "#id_pageeditable",
-  /**
-   * The source view Atto's HTML button opens on this site.
-   *
-   * Not the form's own textarea. This Moodle runs the HTML plugin with
-   * CodeMirror turned on, so the raw textarea stays hidden and the source is
-   * edited in an editor of its own — which is why filling the textarea failed
-   * with "on the form but not showing" however carefully the button was
-   * clicked.
-   */
-  attoSourceView: ".CodeMirror",
-  /** Moodle's file picker dialogue, once something has opened it. */
   filePicker: ".file-picker:visible, .moodle-dialogue:visible .fp-repo-area",
   /** One repository in the picker's left-hand list. */
   filePickerRepository: ".fp-repo",
@@ -318,18 +278,14 @@ export const SELECTORS = {
   /**
    * "Overwrite", on Moodle's "a file with that name already exists" dialogue.
    *
-   * Reached on every re-publish, not as an edge case: opening the activity
-   * form puts the files the activity already holds back into the draft area,
-   * so a picture that has not changed is always uploaded over itself.
+   * Asked only when the file manager already holds a file of that name.
    */
   filePickerOverwrite: "button.fp-dlg-butoverwrite",
   /**
    * Any dialogue currently on screen.
    *
-   * Uploading a picture opens two of them, and Atto's image dialogue stays up
-   * after the picker beneath it is dismissed. An open dialogue lays a mask
-   * over the toolbar, so the next picture's button is unclickable until every
-   * one of them is closed.
+   * An open dialogue lays a mask over the form, so the next control on it is
+   * unclickable until every one of them is closed.
    */
   openDialogue: ".moodle-dialogue:visible",
 
@@ -356,18 +312,11 @@ export const SELECTORS = {
 /** The host we must never be sitting on when we are about to write. */
 export const MICROSOFT_LOGIN_HOST = "login.microsoftonline.com";
 
-/** The value of the editor preference that turns the content field into raw HTML. */
-export const PLAIN_TEXT_EDITOR = "textarea";
-
 /**
- * The value of the editor preference that brings back the file picker.
- *
- * Set only while a document that shows a picture is being written, and put
- * back to {@link PLAIN_TEXT_EDITOR} straight afterwards: the plain textarea is
- * the path this program has proven against the live course, and a run should
- * not take the longer way round for the documents that do not need it.
+ * The value of the editor preference that turns a Devoir's description into
+ * a raw HTML textarea.
  */
-export const RICH_EDITOR = "atto";
+export const PLAIN_TEXT_EDITOR = "textarea";
 
 /**
  * The value of {@link SELECTORS.resourceDisplay} that opens the file in the

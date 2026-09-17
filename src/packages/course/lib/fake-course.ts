@@ -1,31 +1,20 @@
 // Implementation of the fake driver: private to the course package.
-import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 
-import {
-  DELIVERABLE_SECTION,
-  DEVOIR_SUBMISSION,
-  PLUGINFILE_PREFIX,
-  pluginfileReference,
-} from "../index.ts";
+import { DELIVERABLE_SECTION, DEVOIR_SUBMISSION } from "../index.ts";
 
 import type {
   CourseDriver,
   CreatedDevoir,
   CreatedFileResource,
-  CreatedPage,
   DevoirUpdate,
   FileReplacement,
   NewDevoir,
   NewFileResource,
-  PageImage,
-  PublishedAsset,
   CourseItem,
   CourseSection,
   CourseSnapshot,
-  NewPage,
-  PageUpdate,
   SectionName,
   SectionOutcome,
 } from "../index.ts";
@@ -91,18 +80,11 @@ interface StoredCourse {
  * An activity as the file stores it. `stealth` is optional for the same reason
  * a section's visibility is: it is the exception, and a fixture that does not
  * mention it means an ordinary activity.
- *
- * `files` is the activity's own file area — stored name to content hash — and
- * it is what makes this fake able to disagree with the caller. A run that
- * decides a picture is already in the course and is wrong finds an activity
- * that does not hold it, exactly as Moodle would leave a page whose reference
- * resolves to nothing.
  */
 type StoredItem = Omit<CourseItem, "stealth" | "devoir"> & {
   stealth?: boolean;
   /** What a student reads on the activity, kept for the tests to read back. */
   body: string;
-  files?: Record<string, string>;
   /**
    * The file a file resource holds, which is what makes the activity one.
    * Its `body` is the HTML that would have been printed into that file.
@@ -221,96 +203,6 @@ function read(path: string, courseId: string): StoredCourse {
   };
 }
 
-/**
- * Where the fake course serves a picture uploaded into activity `moduleId`.
- *
- * Shaped like Moodle's own `pluginfile.php` URL, and derived rather than
- * invented fresh each time: a run that published nothing must leave the
- * manifest byte-for-byte as it found it, which a URL carrying a timestamp or
- * a counter would quietly break.
- */
-function servedAt(moduleId: string, image: PageImage): string {
-  return `/pluginfile.php/${moduleId}/mod_page/content/1/${encodeURIComponent(image.name)}`;
-}
-
-/** What a file in the fake course's file area hashes to. */
-function hashOf(bytes: Buffer): string {
-  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
-}
-
-/** What saving a page left behind: its file area, and the body a student reads. */
-interface Saved {
-  readonly body: string;
-  readonly files: Record<string, string>;
-  readonly assets: readonly PublishedAsset[];
-}
-
-/**
- * Uploads the pictures the caller sent, keeps the ones the activity already
- * held, and returns the body a student would read.
- *
- * The bytes of a sent picture are read here, and a picture that cannot be read
- * fails the call: the whole point of uploading is that the file is really
- * there, and a fake that accepted a path nothing was at would let a test pass
- * over a document whose diagram never left the repository. What each file
- * hashes to is read from those bytes rather than taken from the caller, so
- * that the manifest ends up recording what the course holds and not what the
- * run intended to put there.
- *
- * Keeping the files already in the area is Moodle's behaviour, not a
- * convenience: an activity's files survive its text being rewritten, which is
- * what makes it safe for a run to send only the pictures that changed.
- *
- * Resolving `@@PLUGINFILE@@` is what Moodle does when it renders the activity,
- * so the body stored here is what a student would actually be served — which
- * means a reference to a file the page does not hold shows up as what it is,
- * rather than as a placeholder nobody looks at.
- */
-function save(
-  moduleId: string,
-  held: Record<string, string>,
-  page: {
-    html: string;
-    images: readonly PageImage[];
-    upload: readonly PageImage[];
-  }
-): Saved {
-  const shown = new Set(page.images.map((image) => image.name));
-  const files = { ...held };
-  for (const image of page.upload) {
-    if (!shown.has(image.name)) {
-      throw new Error(
-        `Fake driver: "${image.path}" was sent to activity ${moduleId}, which does not ` +
-          `show it. A page holds the pictures it shows and no others.`
-      );
-    }
-    files[image.name] = hashOf(readFileSync(image.absolutePath));
-  }
-
-  const assets: PublishedAsset[] = [];
-  let body = page.html;
-  for (const image of page.images) {
-    const contentHash = files[image.name];
-    if (contentHash === undefined) {
-      throw new Error(
-        `Fake driver: activity ${moduleId} shows "${image.path}" but does not hold it — ` +
-          `it was not sent with this save and was not there before. A student would see ` +
-          `a broken image.`
-      );
-    }
-    const url = servedAt(moduleId, image);
-    body = body.replaceAll(pluginfileReference(image.name), url);
-    assets.push({ path: image.path, url, contentHash });
-  }
-  if (body.includes(PLUGINFILE_PREFIX)) {
-    throw new Error(
-      `Fake driver: the body of "${moduleId}" still names a file of its own that was ` +
-        `not uploaded with it, so a student would see a broken image.`
-    );
-  }
-  return { body, files, assets };
-}
-
 function write(path: string, course: StoredCourse): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(course, null, 2)}\n`, "utf8");
@@ -338,7 +230,7 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
    * The number of the section called `name`, adding it when it is not there.
    *
    * A function rather than only a driver method because two of the driver's
-   * own calls need it: creating a page is told which section to use, and
+   * own calls need it: creating a file resource is told which section to use, and
    * creating a Devoir is not — there is one section a Devoir can be in, so the
    * driver looks it up itself.
    */
@@ -369,7 +261,7 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
         courseId: course.courseId,
         sections: sections(),
         items: course.items.map(
-          ({ files: _files, body: _body, fileName: _fileName, ...item }) => ({
+          ({ body: _body, fileName: _fileName, ...item }) => ({
           ...item,
           stealth: item.stealth ?? false,
             devoir: isDevoir(course, item.moduleId),
@@ -397,73 +289,6 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
       write(path, course);
     },
 
-    async createPage(page: NewPage): Promise<CreatedPage> {
-      if (
-        course.failCreateAfter !== undefined &&
-        created >= course.failCreateAfter
-      ) {
-        throw new Error(
-          `Fake driver: refusing to create "${page.name}" (simulated failure).`
-        );
-      }
-      const moduleId = String(course.nextModuleId);
-      // A new activity holds nothing, so what it ends up with is exactly what
-      // this call sends it.
-      const { body, files, assets } = save(moduleId, {}, page);
-      course.nextModuleId += 1;
-      course.items.push({
-        moduleId,
-        name: page.name,
-        section: page.section,
-        visible: page.visible,
-        body,
-        ...(Object.keys(files).length === 0 ? {} : { files }),
-      });
-      created += 1;
-      write(path, course);
-      return { moduleId, assets };
-    },
-
-    async updatePage(page: PageUpdate): Promise<readonly PublishedAsset[]> {
-      if (
-        course.failUpdateAfter !== undefined &&
-        updated >= course.failUpdateAfter
-      ) {
-        throw new Error(
-          `Fake driver: refusing to update "${page.name}" (simulated failure).`
-        );
-      }
-      const at = course.items.findIndex(
-        (item) => item.moduleId === page.moduleId
-      );
-      const existing = course.items[at];
-      if (existing === undefined) {
-        throw new Error(
-          `Fake driver: no activity with module id ${page.moduleId} to update.`
-        );
-      }
-      const { body, files, assets } = save(
-        page.moduleId,
-        existing.files ?? {},
-        page
-      );
-      // Name, body and files. Section and visibility are what the activity
-      // already has, which is what "in place" means.
-      //
-      // The file area is replaced by what `save` worked out rather than merged
-      // again here: a picture a document no longer shows stays in the area, as
-      // it does in Moodle, and one it does show is whatever was last sent.
-      course.items[at] = {
-        ...existing,
-        name: page.name,
-        body,
-        ...(Object.keys(files).length === 0 ? {} : { files }),
-      };
-      updated += 1;
-      write(path, course);
-      return assets;
-    },
-
     async createFileResource(
       resource: NewFileResource
     ): Promise<CreatedFileResource> {
@@ -480,7 +305,7 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
       ensureSectionNamed(resource.section);
       const moduleId = String(course.nextModuleId);
       course.nextModuleId += 1;
-      // The HTML is kept where a page keeps its body: what a Student would be
+      // The HTML is kept as the activity's body: what a Student would be
       // served is the PDF printed from it, and this is what went to the printer.
       course.items.push({
         moduleId,
@@ -543,8 +368,8 @@ export function openFakeCourse(path: string, courseId: string): CourseDriver {
         name: devoir.name,
         section: nameOf(section),
         visible: devoir.visible,
-        // The description a student reads on the activity, held where a page's
-        // body is held, so that "the text of this activity" means one thing
+        // The description a student reads on the activity, held where a file
+        // resource's HTML is held, so that "the text of this activity" means one thing
         // whichever kind of activity it is.
         body: devoir.html,
       });
