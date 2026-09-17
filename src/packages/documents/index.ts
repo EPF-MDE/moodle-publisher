@@ -45,7 +45,7 @@ export interface RenderedDocument {
 }
 
 /**
- * A cross-reference the rendered page still carries as a link.
+ * A cross-reference the rendered document still carries as a link.
  *
  * Not a mistake the table can make: every cross-reference has an answer, even
  * if the answer is "nothing publishes that". It means the rewrite did not
@@ -103,7 +103,7 @@ export function renderDocument(
   );
   const { html, rewritten } = linksAsText(withImages, targets);
   // Asked of the rewrite rather than of the table: a link is text when the
-  // page no longer carries it, not when the table had something to say.
+  // document no longer carries it, not when the table had something to say.
   const missed = links.find((link) => !rewritten.has(linkKey(link.href)));
   if (missed !== undefined) throw new UnrewrittenCrossReference(source, missed);
   return {

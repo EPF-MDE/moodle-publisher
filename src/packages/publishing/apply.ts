@@ -29,9 +29,9 @@ type ActivityBySource = Map<string, Activity>;
 function knownActivities(plan: Plan): ActivityBySource {
   const activities: ActivityBySource = new Map();
   for (const item of plan.items) {
-    if (item.verb !== "skip") continue;
-    const { kind, moduleId } = item.published;
-    activities.set(item.document.source, { kind, moduleId });
+    if (item.verb === "skip") {
+      activities.set(item.document.source, item.published);
+    }
   }
   return activities;
 }

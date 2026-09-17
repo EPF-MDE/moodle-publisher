@@ -14,6 +14,7 @@ import { escape } from "./html.ts";
 
 import type { Deliverable } from "../../catalog/deliverables.ts";
 import type { PublishedDocument } from "../../catalog/index.ts";
+import type { DocumentEntry } from "../../manifest/index.ts";
 
 /**
  * The document a Deliverable's front matter defines it in, and which its
@@ -45,10 +46,7 @@ export class DevoirBriefNotPublished extends Error {
  * what kind, because Moodle serves each kind from its own URL. A brief is a
  * PDF, or a page an earlier publisher made and this one left standing.
  */
-export interface Activity {
-  readonly kind: "file-resource" | "page";
-  readonly moduleId: string;
-}
+export type Activity = Pick<DocumentEntry, "kind" | "moduleId">;
 
 /** Where Moodle serves `activity`. */
 export function activityUrl(baseUrl: string, activity: Activity): string {
@@ -93,7 +91,7 @@ export function devoirDescription(
  * What stands in for the brief's URL while the description is being hashed.
  *
  * The stub carries a link to an activity, and a link is a course module id —
- * which changes only when the page it names is created again, and says nothing
+ * which changes only when the brief it names is created again, and says nothing
  * about whether the Deliverable was edited. So the description is hashed with
  * this in the href's place, for the reason `hashDocument` hashes what a link
  * *says* and never the module id it resolves to: what is being asked is

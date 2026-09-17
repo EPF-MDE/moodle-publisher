@@ -25,9 +25,8 @@ import type { Deliverable } from "../catalog/deliverables.ts";
 import type { RenderedDocument } from "../documents/index.ts";
 import type {
   DevoirEntry,
-  FileResourceEntry,
+  DocumentEntry,
   Manifest,
-  PageEntry,
 } from "../manifest/index.ts";
 import type { CrossReferenceInput } from "./lib/cross-references.ts";
 
@@ -72,7 +71,7 @@ export type PlanItem =
   | (PlannedDocument & { readonly verb: "create" })
   | (PlannedDocument & {
       readonly verb: "skip";
-      readonly published: FileResourceEntry | PageEntry;
+      readonly published: DocumentEntry;
     });
 
 export interface Plan {
@@ -312,8 +311,8 @@ function planDevoirs(
     // Nothing recorded, or a record that outlived what it recorded: the Devoir
     // was deleted in Moodle, and the module id names nothing. There is nothing
     // to rewrite, so this is a create — the same reading a document whose
-    // activity is gone gets, and the same one it has to get, because opening an update
-    // form on a module id Moodle does not have is an error page.
+    // activity is gone gets, and the same one it has to get, because opening
+    // an update form on a module id Moodle does not have is an error page.
     if (published === undefined || !live.has(published.moduleId)) {
       return { deliverable, brief, verb: "create" };
     }

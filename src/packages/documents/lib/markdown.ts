@@ -60,8 +60,8 @@ export function readFrontMatter(
 
 export function render(markdown: string): string {
   const html = marked.parse(markdown, { async: false });
-  // Moodle's page activity renders tables without borders unless the theme is
-  // asked for them; `generaltable` is core Moodle's own table class.
+  // `generaltable` is core Moodle's own table class, which its theme draws
+  // borders for. Kept while the print layout (#26) is still to come.
   return fitToColumn(
     html.replaceAll("<table>", '<table class="generaltable">')
   );
@@ -168,8 +168,8 @@ function mediaTypeOf(path: string): string {
  * mirror the internet. Everything else is embedded or refused — a reference
  * that is neither is a broken image nobody was told about.
  *
- * The rewrite is done on the rendered HTML rather than on the markdown so that
- * `![…](…)` and the `<img>` tags the lectures write when a diagram needs a
+ * The embedding is done on the rendered HTML rather than on the markdown so
+ * that `![…](…)` and the `<img>` tags the lectures write when a diagram needs a
  * width go through one rule, at the point where they have already become the
  * same thing.
  */
