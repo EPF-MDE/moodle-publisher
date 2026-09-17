@@ -10,7 +10,11 @@
 import { formatFreeze } from "../catalog/deliverables.ts";
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../course/index.ts";
 import { renderDocument } from "../documents/index.ts";
-import { devoirEntryFor, documentEntryFor } from "../manifest/index.ts";
+import {
+  devoirEntryFor,
+  documentEntryFor,
+  pageSources,
+} from "../manifest/index.ts";
 import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
 import { pdfFileName } from "./lib/print-ready.ts";
@@ -25,7 +29,6 @@ import type { Deliverable } from "../catalog/deliverables.ts";
 import type { RenderedDocument } from "../documents/index.ts";
 import type {
   DevoirEntry,
-  DocumentEntry,
   FileResourceEntry,
   Manifest,
 } from "../manifest/index.ts";
@@ -65,9 +68,6 @@ interface PlannedDocument {
  * What a run would do to one document. The verb carries the manifest entry
  * with it, so the activity a skip leaves standing is on the item that says
  * `skip` and nowhere else.
- *
- * A skip's entry may still be a page an earlier publisher made: it is in the
- * course all the same, and is left there. Only a PDF is ever replaced.
  */
 export type PlanItem =
   | (PlannedDocument & { readonly verb: "create" })
@@ -84,7 +84,7 @@ export type PlanItem =
     })
   | (PlannedDocument & {
       readonly verb: "skip";
-      readonly published: DocumentEntry;
+      readonly published: FileResourceEntry;
     });
 
 export interface Plan {
@@ -168,6 +168,42 @@ export class SectionMoved extends Error {
 }
 
 /**
+ * The manifest still records pages, which an earlier publisher made.
+ *
+ * Pages are not migrated. Planning past one would read its document as never
+ * published and put a PDF beside the page, so the run stops before planning
+ * and names both ways out. The first is the one for a course whose Devoirs
+ * hold Submissions, which the Wipe refuses to delete.
+ */
+export class PagesStillRecorded extends Error {
+  constructor(sources: readonly string[]) {
+    const documents = `${sources.length} document${sources.length === 1 ? "" : "s"}`;
+    super(
+      `Aborting: the manifest records ${documents} as Moodle pages, ` +
+        `and this publisher does not publish from pages:\n` +
+        sources.map((source) => `  "${source}"\n`).join("") +
+        `Nothing has been touched. Clean up in one of two ways, then run again:\n` +
+        `  - delete those pages in Moodle and their entries in the manifest, and keep ` +
+        `the Devoir entries ("deliverable:…"), so the Devoirs and their Submissions stay; or\n` +
+        `  - for a course without Submissions, run the Wipe: moodle-publisher wipe --course <id> --apply`
+    );
+    this.name = "PagesStillRecorded";
+  }
+}
+
+/**
+ * Refuses a manifest that still records pages: {@link PagesStillRecorded}.
+ *
+ * The command line asks before it opens the course, and {@link buildPlan}
+ * asks again, because the plan is the reading of the manifest that would
+ * otherwise take a page for a document never published.
+ */
+export function refuseRecordedPages(manifest: Manifest): void {
+  const sources = pageSources(manifest);
+  if (sources.length > 0) throw new PagesStillRecorded(sources);
+}
+
+/**
  * The course already holds an instructor activity the manifest has no record
  * of — a lost or stale manifest, or a copy made by hand.
  *
@@ -220,6 +256,7 @@ export interface PlanInput extends CrossReferenceInput {
  */
 export function buildPlan(input: PlanInput): Plan {
   const { repoRoot, documents, manifest, snapshot } = input;
+  refuseRecordedPages(manifest);
 
   const live = new Map(snapshot.items.map((item) => [item.moduleId, item]));
   // Where every document the table names is published — its title and its
@@ -270,21 +307,18 @@ export function buildPlan(input: PlanInput): Plan {
     // one, `Instructor — ` prefix and all, because
     // that is what the manifest records. A changed PDF has its file replaced
     // in the same module, so its place in the Section, Moodle's logs and
-    // Students' bookmarks survive. A page an earlier publisher made is left
-    // standing: it has no file to replace.
-    if (published.kind === "file-resource") {
-      const retitled = published.title !== document.title;
-      if (retitled || published.contentHash !== rendered.contentHash) {
-        return {
-          document,
-          rendered,
-          fileName,
-          hide,
-          verb: "replace",
-          published,
-          ...(retitled ? { retitledFrom: published.title } : {}),
-        };
-      }
+    // Students' bookmarks survive.
+    const retitled = published.title !== document.title;
+    if (retitled || published.contentHash !== rendered.contentHash) {
+      return {
+        document,
+        rendered,
+        fileName,
+        hide,
+        verb: "replace",
+        published,
+        ...(retitled ? { retitledFrom: published.title } : {}),
+      };
     }
     return { document, rendered, fileName, hide, verb: "skip", published };
   });

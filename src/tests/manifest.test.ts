@@ -55,15 +55,15 @@ test("a written entry says it is a file resource, alongside module, section, tit
   ]);
 });
 
-test("an entry written before entries had a kind is read as a page and skipped", async () => {
+test("an entry written before entries had a kind is read as a page, and refused", async () => {
   const workspace = makeWorkspace();
   await workspace.publisher(["publish", "--apply"]);
   asKindlessPages(workspace);
 
   const second = await workspace.publisher(["publish", "--apply"]);
 
-  assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 1 to skip/);
+  assert.equal(second.code, 1, second.stdout);
+  assert.match(second.stderr, /as Moodle pages[^]*"assessment-grid\.md"/);
   // The grid and its two Devoirs, and nothing made a second time.
   assert.equal(workspace.readCourse().items.length, 3);
 });
