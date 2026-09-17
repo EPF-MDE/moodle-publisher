@@ -104,145 +104,8 @@ export interface SectionOutcome {
 }
 
 /**
- * How HTML written by this program addresses a picture uploaded with it.
- *
- * Moodle stores an activity's text with `@@PLUGINFILE@@/name` where a file of
- * its own is referenced, and rewrites it to a real URL every time the activity
- * is rendered. That is what makes the reference survive the activity being
- * updated, moved or restored into another course: the stored text names the
- * file, and Moodle works out the URL. Writing the URL we saw once would tie
- * the document to a course context that is free to change under it.
- *
- * It lives here because it is the contract between the two sides of this seam
- * — what the HTML says, and what the driver has to have uploaded for it to
- * mean anything.
- */
-export const PLUGINFILE_PREFIX = "@@PLUGINFILE@@/";
-
-/**
- * How `html` addresses the picture stored under `name`.
- *
- * One function, so that the side writing the reference and the sides looking
- * for it cannot spell it differently: the encoding is part of the contract,
- * and a diagram whose name has a space in it is exactly where two hand-written
- * copies of this rule would quietly stop agreeing.
- */
-export function pluginfileReference(name: string): string {
-  return `${PLUGINFILE_PREFIX}${encodeURIComponent(name)}`;
-}
-
-/**
- * One picture to upload with the page that shows it.
- *
- * The picture rides in the activity's own file area rather than anywhere
- * central, because that is the one place whose permissions already match the
- * document's: a student who can open the page can fetch the picture, and one
- * who cannot, cannot.
- */
-export interface PageImage {
-  /** Repository-relative path. What the manifest records and errors name. */
-  readonly path: string;
-  /** Where the bytes are read from. */
-  readonly absolutePath: string;
-  /**
-   * The name Moodle stores the file under, and the name the HTML addresses
-   * after {@link PLUGINFILE_PREFIX}. Not the file's own name: two pictures in
-   * one document may share one, and the second would overwrite the first.
-   */
-  readonly name: string;
-  /**
-   * What the file on disk hashes to. Its own hash, per picture, rather than
-   * only the document-wide one: the document's hash says whether the page has
-   * to be rewritten, and this says whether *these* bytes have to travel again.
-   * Lecture 1 shows twenty-eight pictures, and a typo fixed in its prose must
-   * not resend five megabytes through a browser session.
-   */
-  readonly contentHash: string;
-}
-
-/** A picture that is in the course, and where the course serves it. */
-export interface PublishedAsset {
-  /** Repository-relative path, as {@link PageImage.path}. */
-  readonly path: string;
-  /**
-   * What the copy the course holds hashes to, reported by the driver alongside
-   * the URL it read back off the published page.
-   *
-   * This is what a later run compares the file on disk against to decide
-   * whether to send it again, so it is recorded only for a picture the driver
-   * has just seen the course serve: a hash written for a page that never saved
-   * is how a picture would go stale for good.
-   */
-  readonly contentHash: string;
-  /**
-   * The URL the course served it at, read back from the published page rather
-   * than predicted. Recorded so that a picture nobody can see is something the
-   * manifest can be asked about afterwards.
-   */
-  readonly url: string;
-}
-
-/** What creating a page left in the course. */
-export interface CreatedPage {
-  /** Moodle's course module id for the new activity. */
-  readonly moduleId: string;
-  readonly assets: readonly PublishedAsset[];
-}
-
-/** A page to create. Visibility is set only here, never on update. */
-export interface NewPage {
-  readonly name: string;
-  readonly section: SectionName;
-  readonly html: string;
-  readonly visible: boolean;
-  /**
-   * The pictures `html` shows, each addressed as
-   * `@@PLUGINFILE@@/{@link PageImage.name}`.
-   */
-  readonly images: readonly PageImage[];
-  /**
-   * The ones whose bytes go up with this submission — for a new page, all of
-   * them. They are sent before the form is submitted: a page saved before its
-   * pictures are there is a page that is briefly broken for whoever is
-   * reading it.
-   */
-  readonly upload: readonly PageImage[];
-}
-
-/**
- * An existing page to rewrite where it stands. The module id is the one Moodle
- * already gave the activity, so student bookmarks, links from elsewhere in the
- * course and completion tracking survive the edit.
- *
- * There is deliberately no visibility here. Revealing a document is a human
- * decision, and a publisher that reasserted visibility on every run would undo
- * it silently the next time a typo was fixed.
- */
-export interface PageUpdate {
-  readonly moduleId: string;
-  readonly name: string;
-  readonly html: string;
-  /** The pictures `html` shows, as on {@link NewPage}: all of them. */
-  readonly images: readonly PageImage[];
-  /**
-   * The ones whose bytes go up again — those the course does not already hold
-   * unchanged, which on most updates is none of them.
-   *
-   * A picture left out of this list is not left out of the activity: opening
-   * the form puts the files the activity already holds back into the draft
-   * area, so saving without resending keeps them. Which ones those are is
-   * decided from the manifest, above this seam, because the same answer is
-   * what lets a plan say how many pictures a run would upload before it
-   * uploads any — and a driver is never asked to report on work it has not
-   * done: {@link PublishedAsset} is read back from the course either way.
-   */
-  readonly upload: readonly PageImage[];
-}
-
-/**
  * A Published Document to create as a file resource: one PDF in a Section,
- * opened in the browser. Visibility is set only here, never on a replace, as
- * it is for a page.
+ * opened in the browser. Visibility is set only here, never on a replace.
  *
  * What crosses the seam is the HTML, not the PDF. Printing it is the driver's
  * business, so nothing above this seam knows a browser is involved, and the
@@ -320,7 +183,7 @@ export const DEVOIR_SUBMISSION = {
 
 /**
  * A Devoir to create. Visibility is set only here, never on update, as it is
- * for a page.
+ * for a file resource.
  *
  * There is no `section`: every Devoir goes to {@link DELIVERABLE_SECTION} and
  * membership there is derived from the grid's Deliverables, so a field naming a
@@ -348,7 +211,7 @@ export interface NewDevoir {
  * the one activity in this course that holds work students have nowhere else.
  *
  * There is deliberately no visibility here, exactly as there is none on
- * {@link PageUpdate}. Revealing the C3 Devoir is a click the instructor makes
+ * {@link FileReplacement}. Revealing the C3 Devoir is a click the instructor makes
  * on the morning of the exercise, and a publisher that reasserted visibility
  * on every run would take it back the next time a typo was fixed. The
  * guarantee is the interface's, not a rule anyone has to remember: there is no
@@ -406,22 +269,6 @@ export interface CourseDriver {
    * — and no later edit to the layers above — can undo a hiding by hand.
    */
   hideItem(moduleId: string): Promise<void>;
-  /**
-   * Creates a page activity, uploading the pictures it shows with it, and
-   * reports its course module id, where the course serves each picture and
-   * what the course now holds for it.
-   */
-  createPage(page: NewPage): Promise<CreatedPage>;
-  /**
-   * Rewrites an existing page activity in place: same module id, same section,
-   * same visibility. Deleting and recreating would give the document a new
-   * module id, and every link and bookmark to it would go dead.
-   *
-   * Reports where the course serves each picture, as {@link createPage} does,
-   * so that a run which republishes a document records what a student would
-   * now fetch rather than what the last run saw.
-   */
-  updatePage(page: PageUpdate): Promise<readonly PublishedAsset[]>;
   /**
    * Creates a file resource in a Section, holding `resource.html` printed to
    * a PDF and set to open in the browser, and reports its course module id.

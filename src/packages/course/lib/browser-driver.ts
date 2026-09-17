@@ -9,12 +9,7 @@ import { dirname } from "node:path";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Locator, Page } from "playwright";
 
-import {
-  fillRichBody,
-  required,
-  uploadImage,
-  uploadIntoFileManager,
-} from "./atto-upload.ts";
+import { required, uploadIntoFileManager } from "./file-upload.ts";
 import { browserMissing } from "./browser-install.ts";
 import { printPdf } from "./print-pdf.ts";
 import { createRunRecorder } from "./run-recorder.ts";
@@ -23,11 +18,10 @@ import {
   MICROSOFT_LOGIN_HOST,
   PLAIN_TEXT_EDITOR,
   RESOURCE_DISPLAY_OPEN,
-  RICH_EDITOR,
   SELECTORS,
 } from "./selectors.ts";
 
-import { DELIVERABLE_SECTION, PLUGINFILE_PREFIX } from "../index.ts";
+import { DELIVERABLE_SECTION } from "../index.ts";
 
 import {
   readSections as readSectionMarkup,
@@ -55,15 +49,10 @@ import type {
   CourseSnapshot,
   CreatedDevoir,
   CreatedFileResource,
-  CreatedPage,
   DevoirUpdate,
   FileReplacement,
   NewDevoir,
   NewFileResource,
-  NewPage,
-  PageImage,
-  PageUpdate,
-  PublishedAsset,
   SectionName,
   SectionOutcome,
 } from "../index.ts";
@@ -432,8 +421,8 @@ async function setEditorPreference(
   await page.waitForLoadState("domcontentloaded");
 
   // The preference is read back rather than assumed from a load state, because
-  // the next thing that happens is an activity body being filled on the
-  // strength of it. A silent no-op here produces a page whose content is wrong.
+  // the next thing that happens is a Devoir's description being filled on the
+  // strength of it. A silent no-op here produces a description that is wrong.
   await page.goto(new URL("/user/editor.php", baseUrl).toString(), {
     waitUntil: "domcontentloaded",
   });
@@ -449,34 +438,6 @@ async function setEditorPreference(
   }
   return previous;
 }
-
-/**
- * What is typed into the activity form. Creating and updating are the same
- * form, opened at a different URL, and they differ in exactly one field: only
- * a creation sets visibility.
- *
- * Updating has no way to say it, which is the point — revealing a document is
- * a human decision, and a publisher that reasserted visibility on every run
- * would undo it silently.
- */
-type ActivityForm =
-  | {
-      readonly kind: "create";
-      readonly name: string;
-      readonly html: string;
-      /** Every picture the body shows; what the saved page is checked against. */
-      readonly images: readonly PageImage[];
-      /** The ones whose bytes go through the file picker on this form. */
-      readonly upload: readonly PageImage[];
-      readonly visible: boolean;
-    }
-  | {
-      readonly kind: "update";
-      readonly name: string;
-      readonly html: string;
-      readonly images: readonly PageImage[];
-      readonly upload: readonly PageImage[];
-    };
 
 /**
  * What is typed into the file resource form. Creating and replacing are the
@@ -673,8 +634,8 @@ async function readItems(page: Page): Promise<readonly CourseItem[]> {
 
 /**
  * What is typed into a Devoir's settings form. Creating and updating are the
- * same form, opened at a different URL, and — as for a page — they differ in
- * exactly one field: only a creation sets visibility.
+ * same form, opened at a different URL, and — as for a file resource — they
+ * differ in exactly one field: only a creation sets visibility.
  *
  * Written from the two seam types rather than as a shape of its own, so that a
  * field added to what a Devoir carries reaches this form on both arms at once.
@@ -727,34 +688,22 @@ export async function openBrowserCourse(
   // editor control it never needs.
   let recorder: RunRecorder | undefined;
   let previousEditor: string | undefined;
-  let currentEditor: string | undefined;
   /**
    * Whether this run has confirmed that Moodle renders dates in Paris. Asked
    * once: it is a property of the account, and it cannot change under a run.
    */
   let freezeZoneChecked = false;
 
-  /**
-   * Puts the instructor's editor preference on `value`, remembering what it
-   * was the first time it is moved.
-   *
-   * The preference moves within a run, not only at the ends of it: a document
-   * that shows a picture is written through Atto, because the file picker is
-   * the only way a file gets into this Moodle, and everything else is written
-   * through the plain textarea that this program has proven against the live
-   * course. What is restored at the end is what the instructor had, not
-   * whatever the last document happened to need.
-   */
-  async function useEditor(value: string): Promise<void> {
-    if (currentEditor === value) return;
-    const was = await setEditorPreference(page, options.baseUrl, value, watch);
-    currentEditor = value;
-    previousEditor ??= was;
-  }
-
   async function prepareToMutate(): Promise<RunRecorder> {
     if (recorder === undefined) {
-      await useEditor(PLAIN_TEXT_EDITOR);
+      // The plain text editor, so that a Devoir's description is typed as
+      // HTML source. What is restored at the end is what the instructor had.
+      previousEditor = await setEditorPreference(
+        page,
+        options.baseUrl,
+        PLAIN_TEXT_EDITOR,
+        watch
+      );
       recorder = createRunRecorder(
         options.runDir,
         page,
@@ -1050,92 +999,6 @@ export async function openBrowserCourse(
   }
 
   /**
-   * Fills the activity's body with rendered HTML, through whichever editor is
-   * on the form.
-   *
-   * Atto is switched into its own HTML view first. Typing HTML into the rich
-   * area would publish the markup as text — every tag visible on the page —
-   * and the same textarea is behind both editors, so what is written is
-   * identical either way.
-   */
-  async function fillBody(html: string, what: string): Promise<void> {
-    // Atto's own source view, which is not this form's textarea: see
-    // `fillRichBody`. The plain editor has no view to open and no sync to
-    // wait for — the textarea on the form is the field that is submitted.
-    if (currentEditor === RICH_EDITOR) {
-      await fillRichBody(page, html, what);
-      return;
-    }
-    const textarea = await required(
-      page,
-      SELECTORS.activityContentTextarea,
-      what
-    );
-    if (!(await textarea.isVisible())) {
-      throw new Error(
-        `Aborting: ${what} — the activity's HTML source field is on the form but not ` +
-          `showing, so what would be published cannot be typed into it. Confirm the ` +
-          `editor's source view in an attended session ` +
-          `(see docs/uploading-images.md).`
-      );
-    }
-    await textarea.fill(html);
-  }
-
-  /**
-   * Where the course serves each of a page's pictures, read off the page a
-   * student would open.
-   *
-   * This is the acceptance criterion, checked rather than assumed: the whole
-   * point of the upload is that a student sees the drawing, and the only thing
-   * that can say so is the rendered page. A reference Moodle did not resolve
-   * comes back as the raw `@@PLUGINFILE@@` text or as no `<img>` at all, and
-   * either way the run stops here rather than recording a document as
-   * published and leaving the broken icon to be found in the lecture theatre.
-   */
-  async function servedAssets(
-    moduleId: string,
-    name: string,
-    images: readonly PageImage[]
-  ): Promise<readonly PublishedAsset[]> {
-    if (images.length === 0) return [];
-    await page.goto(
-      new URL(`/mod/page/view.php?id=${moduleId}`, options.baseUrl).toString(),
-      { waitUntil: "domcontentloaded" }
-    );
-    assertNotOnLoginHost(page, watch);
-
-    const sources = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("img")).map((image) => image.src)
-    );
-    return images.map((image) => {
-      // Matched on the name the file was stored under, which is the name the
-      // HTML addressed: an `<img>` somewhere else on the page — a theme's
-      // logo, a user picture — must not be recorded as the diagram.
-      const wanted = `/${encodeURIComponent(image.name)}`;
-      // A reference Moodle did not resolve is still an `<img>`, and its `src`
-      // still ends in the file's name — the browser has merely made a URL out
-      // of the placeholder against the page it is on. So the placeholder is
-      // what is looked for, not the absence of a picture: this is the failure
-      // the read-back exists to catch, and matching on the name alone would
-      // record it as a success.
-      const url = sources.find(
-        (source) =>
-          source.includes(wanted) && !source.includes(PLUGINFILE_PREFIX)
-      );
-      if (url === undefined) {
-        throw new Error(
-          `Aborting: "${name}" is in course ${options.courseId} (module ${moduleId}), and ` +
-            `the page it renders does not serve "${image.path}". Students would see a ` +
-            `broken image. Check the activity's files in Moodle, and the upload selectors ` +
-            `(see docs/uploading-images.md).`
-        );
-      }
-      return { path: image.path, url, contentHash: image.contentHash };
-    });
-  }
-
-  /**
    * Establishes that this Moodle renders dates in `Europe/Paris` before a
    * Freeze is typed into a form.
    *
@@ -1178,8 +1041,8 @@ export async function openBrowserCourse(
           `wrong by whole hours for every student. Set the account's timezone to ` +
           `${FREEZE_ZONE} in Moodle and run again. No Devoir has been created, and no ` +
           `date has been written anywhere. What this run did put in the course is its ` +
-          `pages and an empty "${DELIVERABLE_SECTION}" section; running again fills that ` +
-          `section and leaves the pages alone.`
+          `PDFs and an empty "${DELIVERABLE_SECTION}" section; running again fills that ` +
+          `section and leaves the PDFs alone.`
       );
     }
     freezeZoneChecked = true;
@@ -1547,61 +1410,6 @@ export async function openBrowserCourse(
     return readItems(page);
   }
 
-  async function submitActivityForm(
-    formUrl: string,
-    fields: ActivityForm
-  ): Promise<readonly CourseItem[]> {
-    // A picture that has to go up needs the file picker, which only the rich
-    // editor has; everything else takes the plain textarea this program has
-    // proven against the live course. A document whose twenty-eight pictures
-    // are all already in the course is "everything else": the files the
-    // activity holds are not touched by rewriting its text.
-    await useEditor(
-      fields.upload.length === 0 ? PLAIN_TEXT_EDITOR : RICH_EDITOR
-    );
-    await page.goto(formUrl, { waitUntil: "domcontentloaded" });
-    assertNotOnLoginHost(page, watch);
-    await assertNotMoodleError(
-      page,
-      `opening the activity form for "${fields.name}"`
-    );
-    await assertInConfiguredCourse(page, options);
-
-    await page.locator(SELECTORS.activityName).fill(fields.name);
-    // Before the body, so that the file is in the draft area by the time the
-    // form is submitted: the page and the pictures it shows are saved in one
-    // submission, and there is no moment in which the activity is in the
-    // course showing pictures it does not yet hold.
-    for (const image of fields.upload) {
-      await uploadImage(page, image);
-    }
-    await fillBody(fields.html, `writing "${fields.name}"`);
-    if (fields.kind === "create" && !fields.visible) {
-      await selectPossiblyCollapsed(
-        SELECTORS.activityVisible,
-        "0",
-        `creating "${fields.name}" hidden`
-      );
-    }
-
-    // Save and return to the course, not "save and display": the module id is
-    // then read from the course page we are already required to check.
-    //
-    // The wait is for the course URL, not merely for a load to settle: a load
-    // state can be satisfied by the form page we are leaving, and reading the
-    // module id off that page would abort a run whose activity had in fact
-    // been written — written to the course, absent from the manifest, which is
-    // the one outcome the manifest exists to prevent.
-    await page.locator(SELECTORS.activitySubmitAndReturn).click();
-    await page.waitForURL(/\/course\/view\.php/, {
-      waitUntil: "domcontentloaded",
-    });
-    assertNotOnLoginHost(page, watch);
-    await assertInConfiguredCourse(page, options);
-
-    return readItems(page);
-  }
-
   return {
     async snapshot(): Promise<CourseSnapshot> {
       await gotoCourse(page, options, watch);
@@ -1670,7 +1478,10 @@ export async function openBrowserCourse(
       }
     },
 
-    async createPage(newPage: NewPage): Promise<CreatedPage> {
+    async createFileResource(
+      resource: NewFileResource
+    ): Promise<CreatedFileResource> {
+      const what = `creating the file resource "${resource.name}"`;
       // Acquiring the plain text editor navigates away, so it happens before
       // the course page is opened and before anything is captured: the "before"
       // screenshot is then the course as it stood, not a preferences form.
@@ -1678,9 +1489,9 @@ export async function openBrowserCourse(
       // The publishing layer has already put this section in the course, so
       // this is the lookup finding it. It stays a find-or-add so that the
       // driver has no state to be wrong about if it is ever driven directly.
-      const { number: section } = await ensureSectionOn(newPage.section);
+      const { number: section } = await ensureSectionOn(resource.section);
       await gotoCourse(page, options, watch);
-      const after = await mutation.capture(`create ${newPage.name}`);
+      const after = await mutation.capture(`create file ${resource.name}`);
 
       // The `after` capture is owed whatever happens: a mutation that failed
       // halfway is exactly the one the instructor will want to look at.
@@ -1689,85 +1500,6 @@ export async function openBrowserCourse(
         // the ones that were already there. What identifies it is the module
         // id that was not on the page a moment ago; the name cannot, because
         // two activities are allowed to share one.
-        const before = await readItems(page);
-        const form = new URL(
-          `/course/modedit.php?add=page&course=${options.courseId}&section=${section}`,
-          options.baseUrl
-        ).toString();
-        const items = await submitActivityForm(form, {
-          kind: "create",
-          name: newPage.name,
-          html: newPage.html,
-          images: newPage.images,
-          upload: newPage.upload,
-          visible: newPage.visible,
-        });
-
-        const created = createdActivity(before, items, {
-          named: `"${newPage.name}"`,
-          section: newPage.section,
-          visible: newPage.visible,
-          ifRevealed: "it holds material students must not see.",
-        });
-        return {
-          moduleId: created.moduleId,
-          assets: await servedAssets(
-            created.moduleId,
-            newPage.name,
-            newPage.images
-          ),
-        };
-      } catch (error) {
-        noteAbort(mutation, error);
-        throw error;
-      } finally {
-        await after();
-      }
-    },
-
-    async updatePage(update: PageUpdate): Promise<readonly PublishedAsset[]> {
-      // The same form as creating, opened on the existing activity rather than
-      // on `add=page`: Moodle keeps the module id, the section and the
-      // visibility, and this driver never types into any of them.
-      const mutation = await prepareToMutate();
-      await gotoCourse(page, options, watch);
-      const after = await mutation.capture(`update ${update.name}`);
-
-      try {
-        const form = new URL(
-          `/course/modedit.php?update=${update.moduleId}`,
-          options.baseUrl
-        ).toString();
-        const items = await submitActivityForm(form, {
-          kind: "update",
-          name: update.name,
-          html: update.html,
-          images: update.images,
-          upload: update.upload,
-        });
-
-        updatedActivity(items, update, "activity");
-        return servedAssets(update.moduleId, update.name, update.images);
-      } catch (error) {
-        noteAbort(mutation, error);
-        throw error;
-      } finally {
-        await after();
-      }
-    },
-
-    async createFileResource(
-      resource: NewFileResource
-    ): Promise<CreatedFileResource> {
-      const what = `creating the file resource "${resource.name}"`;
-      const mutation = await prepareToMutate();
-      // As for a page: the publishing layer has already put the section in
-      // the course, and this is the lookup finding it.
-      const { number: section } = await ensureSectionOn(resource.section);
-      await gotoCourse(page, options, watch);
-      const after = await mutation.capture(`create file ${resource.name}`);
-
-      try {
         const before = await readItems(page);
         const form = new URL(
           `/course/modedit.php?add=resource&course=${options.courseId}&section=${section}`,
@@ -1838,7 +1570,7 @@ export async function openBrowserCourse(
       // Freeze writes nothing here at all.
       //
       // It does not follow that the course is untouched. By the time the first
-      // Devoir is made, `applyPlan` has published the run's pages and has
+      // Devoir is made, `applyPlan` has published the run's PDFs and has
       // already created the "Deliverables" section, which is where these were
       // going to go. A refusal therefore leaves that section on the course
       // page with nothing in it, and the fix for both is the same: set the
@@ -1853,7 +1585,7 @@ export async function openBrowserCourse(
       const after = await mutation.capture(`create devoir ${devoir.name}`);
 
       try {
-        // As for a page: what identifies the activity this call made is the
+        // As for a file resource: what identifies the activity this call made is the
         // module id that was not on the course page a moment ago.
         const before = await readItems(page);
         const form = new URL(
@@ -1902,7 +1634,7 @@ export async function openBrowserCourse(
         // as the instructor set it.
         await submitDevoirForm(form, { kind: "update", ...devoir }, what);
 
-        // Read the course back, exactly as an update to a page does. What the
+        // Read the course back, exactly as a file replace does. What the
         // course page cannot say is what the two dates were saved as — that is
         // for a human review to check against the front matter.
         updatedActivity(await readItems(page), devoir, "the Devoir");

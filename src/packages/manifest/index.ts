@@ -12,7 +12,7 @@
 // it is a course the next publish declines to fill.
 import { load, save } from "./lib/store.ts";
 
-import type { PublishedAsset, SectionName } from "../course/index.ts";
+import type { SectionName } from "../course/index.ts";
 
 /**
  * What the publisher has put in the course, one entry per key.
@@ -147,16 +147,21 @@ export interface PageEntry {
 /**
  * A picture as an entry on disk records it.
  *
- * The same thing a driver reports, except that its hash may be missing: this
- * file is committed, and the entries in it were written by earlier versions of
- * this program, one of which recorded a URL per picture and nothing else. The
- * type says so rather than asserting a field that is not in the file. Nothing
- * reads it any more: pictures are embedded in each PDF, and this is kept only
- * so that a page entry still on disk reads as what it is.
+ * Its hash may be missing: this file is committed, and the entries in it were
+ * written by earlier versions of this program, one of which recorded a URL per
+ * picture and nothing else. The type says so rather than asserting a field
+ * that is not in the file. Nothing reads it any more: pictures are embedded in
+ * each PDF, and this is kept only so that a page entry still on disk reads as
+ * what it is.
  */
-export type RecordedAsset = Omit<PublishedAsset, "contentHash"> & {
+export interface RecordedAsset {
+  /** Repository-relative path. */
+  readonly path: string;
+  /** The URL the course served the picture at, read back off the page. */
+  readonly url: string;
+  /** What the copy the course held hashed to. */
   readonly contentHash?: string;
-};
+}
 
 export interface Manifest {
   /** Keyed by repository-relative source path. */

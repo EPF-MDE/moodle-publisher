@@ -395,3 +395,98 @@ test("a Devoir nobody has handed anything into is wiped normally", async () => {
   assert.deepEqual(workspace.readCourse().items, []);
   assert.deepEqual(workspace.readManifest().documents, {});
 });
+
+// --- a course of PDFs, with the pages an earlier publisher left -----------
+//
+// Documents are file resources now, but the 2026 course still holds pages
+// written before they were, and a Devoir beside both. The wipe deletes the
+// first two without asking, whatever kind of activity they are, and the guard
+// over Submissions is the same guard whatever else is in the course.
+
+/** A file resource, a leftover page and a Devoir holding `handedIn`. */
+function seedMixedCourse(
+  workspace: Workspace,
+  handedIn: readonly { email: string; url: string }[]
+): void {
+  workspace.writeCourse({
+    courseId: "4242",
+    nextModuleId: 4,
+    sections: ["General", "Lectures", DELIVERABLE_SECTION],
+    items: [
+      {
+        moduleId: "1",
+        name: "Lecture 1 — Framing and decomposing",
+        section: "Lectures",
+        visible: true,
+        fileName: "lecture-1.pdf",
+        body: "<p>Printed.</p>",
+      },
+      {
+        moduleId: "2",
+        name: "Lecture 0 — Written as a page",
+        section: "Lectures",
+        visible: true,
+        body: "<p>Left by an earlier publisher.</p>",
+      },
+      {
+        moduleId: "3",
+        name: C1_TITLE,
+        section: DELIVERABLE_SECTION,
+        visible: true,
+        body: "<p>Paste your repository URL.</p>",
+      },
+    ],
+    devoirs: {
+      "3": {
+        onlineText: true,
+        fileUpload: false,
+        due: "2026-09-10T20:00:00+02:00",
+        cutOff: "2026-09-10T20:00:00+02:00",
+      },
+    },
+    ...(handedIn.length === 0 ? {} : { submissions: { "3": handedIn } }),
+  });
+}
+
+test("wipe deletes file resources and leftover pages beside an empty Devoir", async () => {
+  const workspace = makeWorkspace();
+  seedMixedCourse(workspace, []);
+
+  const result = await workspace.publisher([
+    "wipe",
+    "--course",
+    "4242",
+    "--apply",
+  ]);
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(
+    result.stdout,
+    /deleted activity {2}Lecture 1 — Framing and decomposing/
+  );
+  assert.match(result.stdout, /deleted activity {2}Lecture 0 — Written as a page/);
+  assert.match(result.stdout, new RegExp(`deleted activity {2}${C1_TITLE}`));
+  assert.deepEqual(workspace.readCourse().items, []);
+  assert.deepEqual(workspace.readCourse().sections, ["General"]);
+});
+
+test("a Devoir holding a Submission stops the wipe of file resources and pages too", async () => {
+  const workspace = makeWorkspace();
+  seedMixedCourse(workspace, [
+    { email: "amina@epf.fr", url: "https://github.com/amina/agents-c1" },
+  ]);
+
+  const result = await workspace.publisher([
+    "wipe",
+    "--course",
+    "4242",
+    "--apply",
+  ]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, new RegExp(`${C1_TITLE}.*1 Submission`));
+  assert.deepEqual(
+    workspace.readCourse().items.map((item) => item.moduleId),
+    ["1", "2", "3"]
+  );
+});

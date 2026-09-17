@@ -22,7 +22,6 @@
   "scripts": {
     "plan": "node src/cli.ts publish",
     "apply": "node src/cli.ts publish --apply",
-    "check:upload": "node scripts/check-image-upload.ts",
     "check:file-resource": "node scripts/check-file-resource.ts",
     "wipe": "node src/cli.ts wipe",
     "typecheck": "tsc --noEmit",
