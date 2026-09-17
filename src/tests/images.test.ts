@@ -44,7 +44,7 @@ function writeSetShowingDiagram(
   }
 }
 
-test("redrawing a diagram plans the document that shows it as an update", async () => {
+test("redrawing a diagram plans the document that shows it as a replace", async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -99,6 +99,34 @@ test("a second consecutive run after a redrawn diagram reports zero changes", as
   assert.match(first.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
   assert.equal(second.code, 0, second.stderr);
   assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
+});
+
+test("a redrawn diagram replaces the PDFs that show it, in their modules, and no other", async () => {
+  const workspace = makeWorkspace();
+  writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
+  await workspace.publisher(["publish", "--apply"]);
+  const before = workspace.readCourse().items;
+  workspace.write("assets/workflow.png", REDRAWN);
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  const after = workspace.readCourse().items;
+  assert.deepEqual(
+    after.map((item) => item.moduleId),
+    before.map((item) => item.moduleId)
+  );
+  const changed = after
+    .filter((item, at) => item.body !== before[at]?.body)
+    .map((item) => item.name);
+  assert.deepEqual(changed, [
+    "Lecture 1 — Framing and decomposing",
+    "Lab 1 — Frame and decompose your own work",
+  ]);
+  const redrawn = Buffer.from(REDRAWN).toString("base64");
+  for (const item of after.filter((item) => changed.includes(item.name))) {
+    assert.ok(item.body.includes(redrawn), `${item.name} holds the old diagram`);
+  }
 });
 
 test("a picture that is not there yet holds its document back until it arrives", async () => {

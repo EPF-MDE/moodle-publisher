@@ -106,8 +106,7 @@ export function pointContextAtPublisher(workspace: Workspace): void {
  * Marks a test that waits for a retitled entry to rename its file resource.
  * Replacing a PDF keeps the resource's name, so a run leaves a document whose
  * markdown is unchanged alone even when the table retitled it. These tests
- * wait for renaming rather than being deleted with the page path they were
- * written for.
+ * describe the rename to come, and wait for it.
  */
 export const AWAITS_RENAME = {
   skip: "renaming a published PDF is not built yet",

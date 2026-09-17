@@ -78,7 +78,7 @@ test("a second run reports zero changes for instructor material too", async () =
   assert.doesNotMatch(result.stdout, /re-hid/);
 });
 
-test("editing a banding anchor updates the activity in place and leaves it hidden", async () => {
+test("editing a banding anchor replaces its PDF in place and leaves it hidden", async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -95,6 +95,33 @@ test("editing a banding anchor updates the activity in place and leaves it hidde
   assert.equal(after?.moduleId, before?.moduleId);
   assert.equal(after?.visible, false);
   assert.match(after?.body ?? "", /the night before the orals/);
+});
+
+test("a changed instructor PDF found revealed is replaced and re-hidden in the same run", async () => {
+  const workspace = makeWorkspace();
+  writeInstructorSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const course = workspace.readCourse();
+  workspace.writeCourse({
+    ...course,
+    items: course.items.map((item) =>
+      item.name === ANCHORS ? { ...item, visible: true } : item
+    ),
+  });
+  workspace.write(ANCHORS_SOURCE, "# C1 banding anchors\n\nRewritten.\n");
+
+  const plan = await workspace.publisher(["publish"]);
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.match(
+    plan.stdout,
+    new RegExp(`replace\\s+${ANCHORS}\\n.*\\(visible, will be re-hidden, examiners only\\)`)
+  );
+  assert.match(result.stdout, new RegExp(`replaced ${ANCHORS}`));
+  assert.match(result.stdout, new RegExp(`re-hid\\s+${ANCHORS}`));
+  const after = itemNamed(workspace, ANCHORS);
+  assert.equal(after?.visible, false);
+  assert.match(after?.body ?? "", /Rewritten\./);
 });
 
 test("a run that finds one instructor activity revealed re-hides that one only", async () => {

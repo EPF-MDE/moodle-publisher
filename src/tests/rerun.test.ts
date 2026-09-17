@@ -30,7 +30,7 @@ test("a second consecutive run reports zero changes", async () => {
   assert.equal(workspace.readCourse().items.length, 5);
 });
 
-test("a changed document is planned as an update before anything is applied", async () => {
+test("a changed document is planned as a replace before anything is applied", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -52,7 +52,7 @@ test("a changed document is planned as an update before anything is applied", as
   );
 });
 
-test("editing one document updates exactly that activity, keeping its module id", async () => {
+test("editing one document replaces exactly that PDF, keeping its module id", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -86,7 +86,7 @@ test("editing one document updates exactly that activity, keeping its module id"
   assert.equal(untouched.length, 4);
 });
 
-test("an update refreshes the hash and keeps the first publication date", async () => {
+test("a replace refreshes the hash and keeps the first publication date", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -104,7 +104,7 @@ test("an update refreshes the hash and keeps the first publication date", async 
   assert.notEqual(second["updatedAt"], first["updatedAt"]);
 });
 
-test("an interrupted run of updates leaves an accurate manifest, and re-running finishes it", async () => {
+test("an interrupted run of replaces leaves an accurate manifest, and re-running finishes it", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -179,7 +179,7 @@ test("a document moved to another section in the table aborts rather than report
   assert.deepEqual(workspace.readCourse().items, before.items);
 });
 
-test("an update leaves visibility alone: revealing is the instructor's call", async () => {
+test("a replace leaves visibility alone: revealing is the instructor's call", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
