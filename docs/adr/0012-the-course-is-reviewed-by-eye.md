@@ -15,7 +15,7 @@ So the audit is retired. A written checklist, [docs/human-review-checklist.md](.
 
 ## Consequences
 
-- **Hand edits are found by a human or not at all.** A moved Freeze, a cut-off switched off, file upload switched on and a stealthed page are on the checklist, and each is fixed by hand. A revealed page of Instructor Material is still re-hidden by the next publish (ADR-0004), and a Devoir deleted in Moodle is still created again.
+- **Hand edits are found by a human or not at all.** A moved Freeze, a cut-off switched off and file upload switched on are on the checklist, and each is fixed by hand. A page of Instructor Material that was revealed or stealthed is still re-hidden by the next publish (ADR-0004), and a Devoir deleted in Moodle is still created again.
 - **ADR-0003's claim that a hand-edited cut-off "is caught rather than invisible"** now holds only when somebody goes through the checklist.
 - **ADR-0004's "audit failure"** and **ADR-0007's note about the audit** describe a check that no longer runs. What they say about publishing still stands.
 - **The following leave the publisher:** the `audit` command; its fingerprints; the driver's Devoir-settings read and the date conversion that only it used; the snapshot's read of each activity's body; and `PUBLISHER_NOW`.

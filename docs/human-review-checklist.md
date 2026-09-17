@@ -21,7 +21,7 @@ It replaces the retired `audit` command ([ADR-0012](./adr/0012-the-course-is-rev
 
 Instructor Material is every entry whose source ends in `--instructor.md`. Its title in the course starts with `Instructor — `.
 
-- [ ] **Every Instructor Material item is hidden and not stealthed.** Moodle marks each one **Hidden from students**. It must not be shown, and it must not be **Available but not shown on course page**: a stealthed activity is off the course page, but its URL still works for anyone who has it. A visible item is re-hidden by the next `publish --apply`. A stealthed item has to be hidden by hand, in the activity's settings.
+- [ ] **Every Instructor Material item is hidden and not stealthed.** Moodle marks each one **Hidden from students**. It must not be shown, and it must not be **Available but not shown on course page**: a stealthed activity is off the course page, but its URL still works for anyone who has it. A visible or stealthed item is re-hidden by the next `publish --apply`: the publisher uses Moodle's own hide action, which also takes an activity out of stealth.
 
 ### Documents with a reveal date
 
