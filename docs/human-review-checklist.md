@@ -1,6 +1,6 @@
 # Reviewing the course by eye
 
-The publisher writes the course; it does not check it afterwards. What a human did by hand in Moodle — a page of Instructor Material revealed, a Freeze moved, file upload switched back on, a Devoir deleted — shows up nowhere in a run's output. This checklist is how it is found: read the live course against the course repository, by eye, and fix what disagrees.
+The publisher writes the course; it does not check it afterwards. What a human did by hand in Moodle — a PDF of Instructor Material revealed, a Freeze moved, file upload switched back on, a Devoir deleted — shows up nowhere in a run's output. This checklist is how it is found: read the live course against the course repository, by eye, and fix what disagrees.
 
 It replaces the retired `audit` command ([ADR-0012](./adr/0012-the-course-is-reviewed-by-eye.md)). Nothing here writes to the course, so it is safe to go through at any time. The times it matters most are after a publish, before a document's reveal date, and in the hour before each Freeze.
 

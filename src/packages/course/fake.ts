@@ -8,7 +8,7 @@ import type { CourseDriver } from "./index.ts";
 /**
  * Opens the in-memory course stored at `path`, creating an empty one if the
  * file does not exist. The file may also carry `failCreateAfter`, which makes
- * the driver raise once that many pages have been created — the simulated
+ * the driver raise once that many activities have been created — the simulated
  * interrupted run.
  */
 export function createFakeDriver(path: string, courseId: string): CourseDriver {
