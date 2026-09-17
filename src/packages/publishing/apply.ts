@@ -317,7 +317,7 @@ export async function applyPlan(
   for (const item of plan.items) {
     if (item.verb === "create") {
       const moduleId = await create(item, options);
-      activities.set(item.document.source, { kind: "file-resource", moduleId });
+      activities.set(item.document.source, { moduleId });
     } else if (item.verb === "replace") {
       await replace(item, options);
     } else if (!item.hide) {
