@@ -8,12 +8,8 @@
 // happens to be hidden. The C3 brief is the reason: it ships hidden and is
 // student-facing all the same, so a rule written about hiddenness would refuse
 // the lecture that points at it and allow a brief that points at the answer key.
-import { pageFor } from "../../manifest/index.ts";
-
 import type { PublishedDocument } from "../../catalog/index.ts";
-import type { CourseSnapshot } from "../../course/index.ts";
 import type { CrossReference } from "../../documents/index.ts";
-import type { Manifest } from "../../manifest/index.ts";
 
 /**
  * A student-facing document points at examiner-only material.
@@ -37,17 +33,8 @@ export class LinkToInstructorOnly extends Error {
   }
 }
 
-/** One link whose target is in the course but hidden from students. */
-export interface HiddenLink {
-  readonly from: string;
-  readonly target: string;
-  /** What the target is published as, so the instructor can find the activity. */
-  readonly title: string;
-}
-
 /**
- * What deciding a link takes: every document the table names, and the course as
- * it stands.
+ * What deciding a link takes: every document the table names.
  *
  * Declared here and widened by the plan's own input rather than copied, so the
  * two cannot drift into describing different things under the same field names.
@@ -55,36 +42,10 @@ export interface HiddenLink {
 export interface CrossReferenceInput {
   /** Every document the table names. */
   readonly documents: readonly PublishedDocument[];
-  readonly manifest: Manifest;
-  readonly snapshot: CourseSnapshot;
 }
 
 /**
- * Whether the activity `document` was published as is hidden from students
- * right now.
- *
- * Read from the live course when the course has it, and from the catalog's
- * intent when it does not. The C3 brief is why: it ships hidden and is revealed
- * by hand, and after the reveal a warning about a link to it would be telling
- * the instructor about a state they themselves ended.
- */
-function isHidden(
-  document: PublishedDocument,
-  input: CrossReferenceInput
-): boolean {
-  const published = pageFor(input.manifest, document.source);
-  const standing =
-    published === undefined
-      ? undefined
-      : input.snapshot.items.find(
-          (item) => item.moduleId === published.moduleId
-        );
-  return standing === undefined ? !document.visibleOnCreate : !standing.visible;
-}
-
-/**
- * Checks every cross-reference the run is about to publish, and returns the
- * ones worth warning about.
+ * Checks every cross-reference the run is about to publish.
  *
  * Throws on the first student-facing link to examiner-only material, naming the
  * document that wrote it and the document it points at. Nothing has been written to the
@@ -94,57 +55,23 @@ function isHidden(
 export function checkCrossReferences(
   input: CrossReferenceInput,
   links: readonly { document: PublishedDocument; link: CrossReference }[]
-): readonly HiddenLink[] {
+): void {
   const bySource = new Map(
     input.documents.map((document) => [document.source, document])
   );
-  const hidden: HiddenLink[] = [];
 
   for (const { document, link } of links) {
     const from = document.source;
     // One lookup answers every question — whether the target is published at
-    // all, who it is for, what it is called — so there is no second reading of
-    // the table here to disagree with the first.
+    // all and who it is for — so there is no second reading of the table here
+    // to disagree with the first.
     const target = bySource.get(link.target);
     // A document the table does not list: nothing publishes it, and the link
-    // is published as its own text, so there is nothing to refuse or warn of.
+    // is published as its own text, so there is nothing to refuse.
     if (target === undefined) continue;
     if (target.instructorMaterial && !document.instructorMaterial)
       throw new LinkToInstructorOnly(from, link);
-    if (isHidden(target, input)) {
-      hidden.push({ from, target: link.target, title: target.title });
-    }
   }
-
-  return hidden;
-}
-
-/**
- * The hidden-link warnings as the instructor reads them: one heading that says
- * what the warning means, then one line per link.
- *
- * Said once rather than once per link, because it fires by construction. Every
- * examiner-only activity is hidden, so every link between two of them warns,
- * and a run of the real repository produces a handful at a time — a paragraph
- * repeated five times is a paragraph nobody reads the fifth time, or the first.
- */
-export function formatHiddenLinks(
-  hidden: readonly HiddenLink[]
-): readonly string[] {
-  if (hidden.length === 0) return [];
-  return [
-    "",
-    hidden.length === 1
-      ? `Warning: 1 link points at a document that is hidden in the course.`
-      : `Warning: ${hidden.length} links point at a document that is hidden in the course.`,
-    `  The link is published as text naming the target; a reader who cannot see the ` +
-      `target activity will not find it.`,
-    `  Examiner-only material is always hidden, so a link between two examiner-only ` +
-      `documents says this by construction.`,
-    ...hidden.map(
-      (link) => `  ${link.from} → ${link.target}  ("${link.title}")`
-    ),
-  ];
 }
 
 /** Where Moodle serves the page activity `moduleId`, with the fragment asked for. */

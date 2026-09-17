@@ -109,6 +109,22 @@ test("a link's fragment does not change what it reads as", async () => {
   assert.doesNotMatch(body, /#bands/);
 });
 
+// Spelled with the document's own path, a link to a heading in the same page
+// is a link to a Published Document like any other: it reads as the document's
+// own title. An in-page anchor is written `#heading`, and stays a link.
+test("a link to a heading in the same document, by its own path, reads as that document", async () => {
+  const workspace = makeWorkspace();
+  writeLinkingLab(workspace, labLinking("lab-1.md#appendix"));
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  const body = bodyOf(workspace, LAB);
+  assert.ok(body.includes(`Read ${named(LAB, "Labs")} first.`), body);
+  assert.equal(localLinkIn(body), undefined);
+  assert.doesNotMatch(body, /#appendix/);
+});
+
 for (const code of [false, true]) {
   test(`a link whose text is its own path${code ? " in a code span" : ""} publishes under the target's title`, async () => {
     const workspace = makeWorkspace();
@@ -261,7 +277,7 @@ test("a single-quoted raw-HTML link to examiner-only material stops the run", as
   assert.equal(workspace.readCourse().items.length, 0);
 });
 
-test("an examiner-only document may link to another, and the run says so once", async () => {
+test("an examiner-only document may link to another, and the run does not warn", async () => {
   const workspace = makeWorkspace();
   workspace.write("lectures/lecture-1.md", "# Lecture 1\n\nFraming.\n");
   workspace.write("labs/lab-1.md", "# Lab 1\n\nYour own backlog.\n");
@@ -290,14 +306,12 @@ test("an examiner-only document may link to another, and the run says so once", 
       )
     );
   }
-  assert.match(result.stdout, /Warning: 5 links point at a document/);
-  assert.equal(
-    result.stdout.match(/Examiner-only material is always hidden/g)?.length,
-    1
-  );
+  // Every examiner-only activity is hidden, and a link that is only text
+  // leads nowhere a reader could be refused, so there is nothing to say.
+  assert.doesNotMatch(result.stdout, /Warning: /);
 });
 
-test("a link to a document that ships hidden warns and publishes anyway", async () => {
+test("a link to a document that ships hidden publishes like any other, without a warning", async () => {
   const workspace = makeWorkspace();
   writeLinkingLab(
     workspace,
@@ -323,11 +337,7 @@ test("a link to a document that ships hidden warns and publishes anyway", async 
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /Warning: 1 link points at a document/);
-  assert.match(
-    result.stdout,
-    /labs\/lab-1\.md → autonomy\/autonomy-2-c3-exercise-brief\.md/
-  );
+  assert.doesNotMatch(result.stdout, /Warning: /);
   assert.ok(bodyOf(workspace, LAB).includes(named(BRIEF, "Autonomy")));
 });
 

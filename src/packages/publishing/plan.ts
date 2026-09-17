@@ -11,10 +11,7 @@ import { formatFreeze } from "../catalog/deliverables.ts";
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../course/index.ts";
 import { renderDocument } from "../documents/index.ts";
 import { devoirEntryFor, pageFor } from "../manifest/index.ts";
-import {
-  checkCrossReferences,
-  formatHiddenLinks,
-} from "./lib/cross-references.ts";
+import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
 
 import type {
@@ -32,10 +29,7 @@ import type {
   PageEntry,
   RecordedAsset,
 } from "../manifest/index.ts";
-import type {
-  CrossReferenceInput,
-  HiddenLink,
-} from "./lib/cross-references.ts";
+import type { CrossReferenceInput } from "./lib/cross-references.ts";
 
 export { DevoirBriefNotPublished } from "./lib/devoirs.ts";
 export { LinkToInstructorOnly } from "./lib/cross-references.ts";
@@ -100,15 +94,6 @@ export interface Plan {
    */
   readonly baseUrl: string;
   readonly items: readonly PlanItem[];
-  /**
-   * Cross-references this run publishes whose target is hidden in the course.
-   *
-   * Allowed, and surfaced: the link is published as text naming the target, but
-   * a reader who cannot see the target activity will not find it. A link that
-   * cannot be published at all never reaches here — it aborts while the plan is
-   * being built.
-   */
-  readonly hiddenLinks: readonly HiddenLink[];
   /**
    * What this run would do to the Devoirs, one entry per Deliverable, in the
    * order the front matter defines them.
@@ -207,10 +192,13 @@ export class AlreadyInCourse extends Error {
 /**
  * Everything a plan is decided from: the repository, the tables, the course.
  *
- * Deciding a link takes all of it but the two paths, so the rest is declared
- * once, where the link rules live, and this widens it.
+ * Deciding a link takes only the table, so that part is declared once, where
+ * the link rules live, and this widens it.
  */
 export interface PlanInput extends CrossReferenceInput {
+  readonly manifest: Manifest;
+  /** The course as it stands. */
+  readonly snapshot: CourseSnapshot;
   readonly repoRoot: string;
   /** The Moodle site a Devoir's description will point at. */
   readonly baseUrl: string;
@@ -325,7 +313,7 @@ export function buildPlan(input: PlanInput): Plan {
   //
   // Checked against every document the table names: a link whose target is
   // absent from it is published as its own text, and is nobody's refusal.
-  const hiddenLinks = checkCrossReferences(
+  checkCrossReferences(
     input,
     items.flatMap((item) =>
       item.rendered.links.map((link) => ({ document: item.document, link }))
@@ -335,7 +323,6 @@ export function buildPlan(input: PlanInput): Plan {
   return {
     baseUrl: input.baseUrl,
     items,
-    hiddenLinks,
     devoirs: planDevoirs(input, documents, createdSources(items), live),
   };
 }
@@ -617,7 +604,6 @@ export function formatPlan(plan: Plan): string {
   return [
     heading,
     ...lines,
-    ...formatHiddenLinks(plan.hiddenLinks),
     "",
     `${count(plan, "create")} to create, ${count(plan, "update")} to update, ` +
       `${skips(plan)} to skip, ${hides(plan)} to hide, ` +

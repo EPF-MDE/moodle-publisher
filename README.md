@@ -300,7 +300,7 @@ A link from one document of a course repository to another is **published as tex
 
 A relative link ending in `.md`, with or without a `#fragment`, is resolved against the linking document's directory and looked up in the table:
 
-- **A listed document** becomes `"<title>" (document available in the <Section> section)` — for example `"Killing bloat" (document available in the Resources section)`. The title is the one the course page shows, `Instructor — ` prefix included. The link's own text is dropped, whatever it said, so a link written ``[`../resources/killing-bloat.md`](../resources/killing-bloat.md)`` reads under the target's title like any other.
+- **A listed document** becomes `"<title>" (document available in the <Section> section)` — for example `"Killing bloat" (document available in the Resources section)`. The title is the one the course page shows, `Instructor — ` prefix included. The link's own text is dropped, whatever it said, so a link written ``[`../resources/killing-bloat.md`](../resources/killing-bloat.md)`` reads under the target's title like any other. A link to a heading in the linking document itself, spelled with its own path (`lab-1.md#appendix` from `lab-1.md`), is no exception: it reads as that document's own title.
 - **A document the table does not list** — or a path that climbs out of the repository — becomes its link text alone, with its formatting kept and no parenthetical. Nothing publishes the target, so there is nothing to name and nothing to click.
 
 **In-page anchors and web links stay links** — an in-page `#section` link and the 2026 course's Lecture 1 links out to aihero.dev both keep working — and so does a relative path that merely appears in a code span, because the rewrite is done to the rendered HTML, where a link is unambiguously an `<a>` with an `href`. A cross-reference the rewrite cannot find in the rendered page — an `<a>` its author never closed — stops the run while the document is read, rather than publishing the path.
@@ -314,11 +314,11 @@ What a link is allowed to mean turns on **who each end of it is for**, not on pu
 | student-facing | instructor material | **hard error** |
 | instructor material | anything published, either kind | text |
 | anything | a document the table does not list | link text alone |
-| anything | a published document that is hidden | text, with a **warning** |
+| anything | a published document that is hidden | text, like any other |
 
 Who it is for rather than whether it is hidden, because the 2026 course's C3 brief is the counterexample already in its table: it ships hidden and is student-facing all the same. A rule written about hidden documents would refuse the lecture that points at the brief and allow a brief that points at the answer key.
 
-**The hidden-link warning fires in bulk by construction.** Every instructor activity is hidden, so every link between two of them warns. A run of the 2026 course produces five at once, and they are reported as one count and one explanation over a list of links, rather than the same paragraph five times over.
+**A link to a hidden document is not warned about.** It is only text, so there is nothing for a reader who cannot see the target to click and be refused.
 
 **Every refusal happens while the plan is being built**, before anything is written to the course — so `npm run plan`, which applies nothing, is a complete link check.
 
