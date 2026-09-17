@@ -20,7 +20,6 @@ export {
   UnreadableFreeze,
   UnreadableVisibility,
   formatFreeze,
-  formatInstant,
 } from "./lib/deliverable.ts";
 export type { Deliverable, Freeze } from "./lib/deliverable.ts";
 

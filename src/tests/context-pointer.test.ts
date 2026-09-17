@@ -30,7 +30,6 @@ const TERMS = [
   "Instructor Material",
   "Manifest",
   "Section",
-  "Audit",
   "Wipe",
   "Deliverable",
   "Devoir",
@@ -44,7 +43,7 @@ const TERMS = [
 ];
 
 /** The decisions the publisher keeps, under the numbers they were taken under. */
-const ADRS = ["0002", "0003", "0004", "0005", "0007", "0011"];
+const ADRS = ["0002", "0003", "0004", "0005", "0007", "0011", "0012"];
 
 /** A `CONTEXT-MAP.md` naming the course's own context and the publisher's. */
 function contextMap(glossary: string, adrs: string): string {

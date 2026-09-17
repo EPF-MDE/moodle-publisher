@@ -14,7 +14,6 @@ import assert from "node:assert/strict";
 import {
   DEVOIR_SUBMISSION_FIELDS,
   devoirDateFields,
-  instantFromMoodleDateFields,
   moodleDateFields,
 } from "../packages/course/devoir-form.ts";
 import { DEVOIR_SUBMISSION } from "../packages/course/index.ts";
@@ -144,56 +143,5 @@ test("a Devoir's form is told what to collect and what to refuse", () => {
   assert.equal(
     new Set(DEVOIR_SUBMISSION_FIELDS.map((field) => field.selector)).size,
     DEVOIR_SUBMISSION_FIELDS.length
-  );
-});
-
-// Reading a Devoir's dates back off the form, which is the audit's half of the
-// same conversion. It is the direction that decides whether a live Devoir
-// agrees with the front matter, so getting it wrong either passes a Devoir
-// that is an hour adrift or fails one that is not.
-
-test("five numbers read off a form are the instant the front matter states", () => {
-  assert.deepEqual(
-    instantFromMoodleDateFields({
-      day: "10",
-      month: "9",
-      year: "2026",
-      hour: "20",
-      minute: "0",
-    }),
-    new Date("2026-09-10T20:00:00+02:00")
-  );
-});
-
-test("reading a date back is the exact inverse of writing it", () => {
-  // Both sides of the changeover, and midnight: whatever the form was told,
-  // reading the form says the same instant again. An audit built on anything
-  // less than this compares a Devoir against a rewritten copy of itself.
-  for (const written of [
-    "2026-09-10T20:00:00+02:00",
-    "2026-09-11T09:30:00+02:00",
-    "2026-01-15T13:00:00+01:00",
-    "2026-04-03T00:00:00+02:00",
-    "2026-12-31T23:59:00+01:00",
-  ]) {
-    const instant = new Date(written);
-    assert.deepEqual(
-      instantFromMoodleDateFields(moodleDateFields(instant)),
-      instant,
-      written
-    );
-  }
-});
-
-test("a date whose numbers cannot be read is unreadable, never guessed at", () => {
-  assert.equal(
-    instantFromMoodleDateFields({
-      day: "10",
-      month: "9",
-      year: "",
-      hour: "20",
-      minute: "0",
-    }),
-    undefined
   );
 });

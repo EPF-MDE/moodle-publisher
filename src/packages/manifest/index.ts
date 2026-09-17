@@ -43,7 +43,7 @@ export interface DevoirEntry {
   readonly moduleId: string;
   /**
    * Always the Deliverables section. Recorded all the same, because it is what
-   * the audit compares the live course against, and an activity somebody moved
+   * a reviewer compares the live course against, and an activity somebody moved
    * is exactly the thing that comparison is for.
    */
   readonly section: SectionName;
@@ -93,25 +93,6 @@ export function devoirEntryFor(
 ): DevoirEntry | undefined {
   const entry = manifest.entries[devoirKey(deliverableId)];
   return entry?.kind === "devoir" ? entry : undefined;
-}
-
-/**
- * Every Devoir in the manifest, with the id of the Deliverable it was
- * published for.
- *
- * The counterpart of {@link devoirEntryFor} for the direction that has no
- * Deliverable to start from: what was published once and is named by nothing
- * in the front matter any more. Reading the key back into an id is the same
- * knowledge {@link devoirKey} writes, kept in this one file.
- */
-export function devoirEntries(
-  manifest: Manifest
-): readonly (readonly [string, DevoirEntry])[] {
-  return Object.entries(manifest.entries).flatMap(([key, entry]) =>
-    entry.kind === "devoir" && key.startsWith(DEVOIR_KEY_PREFIX)
-      ? [[key.slice(DEVOIR_KEY_PREFIX.length), entry] as const]
-      : []
-  );
 }
 
 /** A markdown document published as a Moodle page. */
@@ -190,8 +171,8 @@ export function clearManifest(path: string): Manifest {
 /**
  * The page `source` was published as, if it was published at all.
  *
- * What `publish` and `audit` ask, and they ask it this way because they are
- * about documents: an entry recording a Devoir is not one.
+ * What `publish` asks, and it asks it this way because it is about
+ * documents: an entry recording a Devoir is not one.
  * Narrowing here, once, is what saves every caller from remembering that the
  * record holds more than pages. The counterpart of {@link devoirEntryFor},
  * and it reads a non-page entry the same way: as nothing recorded. A document

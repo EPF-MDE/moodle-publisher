@@ -50,9 +50,8 @@ export interface CourseItem {
   /**
    * Whatever the course calls the section this activity sits in — an arbitrary
    * string, not a {@link SectionName}. The instructor may rename or add
-   * sections at any time, and the audit's job is to report the difference from
-   * the manifest, which it cannot do if a section it does not recognise is
-   * quietly reported as one it does.
+   * sections at any time, and a section this program does not recognise is
+   * reported as what it is, never quietly as one it does.
    */
   readonly section: string;
   readonly visible: boolean;
@@ -60,9 +59,9 @@ export interface CourseItem {
    * Moodle's "available but not shown on the course page".
    *
    * A stealthed activity is not hidden: it is missing from the page and its
-   * URL still works for anyone who has one. The audit needs to tell the two
-   * apart, so the course reports them separately rather than folding stealth
-   * into `visible`.
+   * URL still works for anyone who has one. The driver refuses to leave an
+   * activity it created in that state, so the course reports the two
+   * separately rather than folding stealth into `visible`.
    */
   readonly stealth: boolean;
   /**
@@ -75,8 +74,6 @@ export interface CourseItem {
    * `readsAsDevoir` in `activities.ts`.
    */
   readonly devoir: boolean;
-  /** Enough of the rendered body for the audit to match excluded material. */
-  readonly body: string;
 }
 
 /** One section of the course page, as the course itself numbers and names it. */
@@ -336,37 +333,6 @@ export interface CreatedDevoir {
   readonly moduleId: string;
 }
 
-/**
- * What a Devoir in the course is actually collecting, and until when — read
- * back off the live activity rather than assumed from what was published.
- *
- * This is the half of a Devoir the course page does not show. Whether students
- * see it, what it is called and where it sits are on {@link CourseItem} like
- * any other activity's; what a Student may hand in and when it stops being
- * accepted are here, and they are only knowable by opening the activity's own
- * settings.
- *
- * The dates are instants, not the strings the front matter was written in. A
- * Freeze rewritten with the same instant spelled differently is not drift, and
- * a course cannot report a string nobody typed into it — Moodle stores a date
- * and renders it in the reader's zone, so the instant is the only thing there
- * is to compare.
- *
- * Either date may be absent: both are optional in Moodle, and a cut-off
- * somebody switched off is a Devoir that accepts work forever, which is
- * exactly the drift worth reporting.
- */
-export interface DevoirSettings {
-  /** As {@link DEVOIR_SUBMISSION.onlineText}, as the course has it now. */
-  readonly onlineText: boolean;
-  /** As {@link DEVOIR_SUBMISSION.fileUpload}, as the course has it now. */
-  readonly fileUpload: boolean;
-  /** What Moodle marks a Submission late against, if it is switched on. */
-  readonly due: Date | undefined;
-  /** What Moodle stops accepting at, if it is switched on. */
-  readonly cutOff: Date | undefined;
-}
-
 export interface CourseDriver {
   /** Reads the live course. Never mutates. */
   snapshot(): Promise<CourseSnapshot>;
@@ -434,18 +400,6 @@ export interface CourseDriver {
    * switched file upload on in comes back to online text only.
    */
   updateDevoir(devoir: DevoirUpdate): Promise<void>;
-  /**
-   * What the Devoir with this module id is collecting, and until when, or
-   * `undefined` if the course has no Devoir there.
-   *
-   * Reads and never writes: this is what the audit is built on, and an audit
-   * that touched the course would not be safe to run in the hour before a
-   * Freeze — which is the hour it exists for. `undefined` covers both an
-   * activity that is gone and one that is not a Devoir at all; either way
-   * there is nothing here to compare a Freeze against, and what the course
-   * page holds says which of the two it is.
-   */
-  readDevoir(moduleId: string): Promise<DevoirSettings | undefined>;
   /**
    * How many Submissions the Devoir at `moduleId` holds. Used only by `wipe`,
    * and only to refuse.

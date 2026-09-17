@@ -189,7 +189,7 @@ export class SectionMoved extends Error {
  *
  * Planning a `create` here would publish a second copy of the answer key, and
  * the copy the manifest does not know about is the one no later run would
- * re-hide: it would sit in the course, unmanaged, until the audit noticed it.
+ * re-hide: it would sit in the course, unmanaged, until a human noticed it.
  * So this aborts and asks for the ambiguity to be settled in Moodle, where
  * both copies can be seen, rather than guessing which one is canonical.
  */

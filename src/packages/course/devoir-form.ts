@@ -74,78 +74,6 @@ export function moodleDateFields(instant: Date): MoodleDateFields {
   };
 }
 
-/**
- * The instant five Moodle date numbers stand for, read as `Europe/Paris`
- * wall-clock time — the inverse of {@link moodleDateFields}.
- *
- * The inverse is worth having in the open for the reason the forward direction
- * is: what the audit compares a front-matter Freeze against is whatever a
- * human left in these five selects, and reading them in the wrong zone would
- * report a correct Devoir as an hour adrift — or, far worse, pass a Devoir
- * that is.
- *
- * `undefined` when any of the five is empty or is not a number, which is what
- * a selector pointing at the wrong control looks like: an unreadable date is
- * said to be unreadable rather than guessed at.
- *
- * Two passes, because the offset depends on the instant being worked out. The
- * first pass reads the offset at the wall-clock time treated as UTC, which is
- * within an hour or two of the answer; the second reads it at that answer,
- * which settles it for every instant except one inside a changeover hour.
- */
-export function instantFromMoodleDateFields(
-  fields: MoodleDateFields
-): Date | undefined {
-  const numbers = [
-    fields.year,
-    fields.month,
-    fields.day,
-    fields.hour,
-    fields.minute,
-  ].map((part) => (part.trim() === "" ? Number.NaN : Number(part.trim())));
-  // An empty select is unreadable and not zero. `Number("")` is 0, which would
-  // read a form with nothing chosen in it as the year 0 — a date the audit
-  // would then report as drift, in a message naming an instant nobody typed.
-  if (numbers.some((number) => Number.isNaN(number))) return undefined;
-  const [year, month, day, hour, minute] = numbers as [
-    number,
-    number,
-    number,
-    number,
-    number,
-  ];
-  const wall = Date.UTC(year, month - 1, day, hour, minute);
-  const first = new Date(wall - parisOffsetMs(new Date(wall)));
-  return new Date(wall - parisOffsetMs(first));
-}
-
-/** What `Europe/Paris` is ahead of UTC at `instant`, in milliseconds. */
-function parisOffsetMs(instant: Date): number {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: FREEZE_ZONE,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(instant);
-  const value = (type: Intl.DateTimeFormatPartTypes): number =>
-    Number(parts.find((part) => part.type === type)?.value ?? "0");
-  const wall = Date.UTC(
-    value("year"),
-    value("month") - 1,
-    value("day"),
-    value("hour"),
-    value("minute"),
-    value("second")
-  );
-  // Seconds and below are not in the wall clock reading, so the difference is
-  // taken against an instant truncated to the same precision.
-  return wall - Math.floor(instant.getTime() / 1000) * 1000;
-}
-
 /** One of the five selects behind a date, and the option to choose in it. */
 export interface DevoirDatePart {
   readonly selector: string;
@@ -201,15 +129,8 @@ function datePartSelectors(enabledSelector: string): MoodleDateFields {
 /**
  * One of the two dates a Devoir carries, addressed on the form: the checkbox
  * that turns it on, and the five selects behind it.
- *
- * Named as {@link DevoirSettings} names it, so that a date written into the
- * form and the same date read back out of it are the same date under one word.
- * This is the list the writing side maps over to answer and the reading side
- * maps over to ask, which is what makes it impossible for one of them to know
- * about a date the other does not.
  */
-export interface DevoirDateControls {
-  readonly what: "due" | "cutOff";
+interface DevoirDateControls {
   readonly enabledSelector: string;
   /** The five selects, each addressed; the values are what differ per use. */
   readonly parts: MoodleDateFields;
@@ -219,17 +140,13 @@ export interface DevoirDateControls {
  * Both of a Devoir's dates, as controls on the form.
  *
  * Due is what Moodle marks a Submission late against; cut-off is what it stops
- * accepting at. Both are set from the one Freeze and both are read back
- * against it, and having exactly these two in one list is what leaves no room
- * for the grace window nobody wrote down.
+ * accepting at. Both are set from the one Freeze, and having exactly these two
+ * in one list is what leaves no room for the grace window nobody wrote down.
  */
-export const DEVOIR_DATE_CONTROLS: readonly DevoirDateControls[] = (
-  [
-    { what: "due", enabledSelector: SELECTORS.assignDueDateEnabled },
-    { what: "cutOff", enabledSelector: SELECTORS.assignCutOffDateEnabled },
-  ] as const
-).map(({ what, enabledSelector }) => ({
-  what,
+const DEVOIR_DATE_CONTROLS: readonly DevoirDateControls[] = [
+  SELECTORS.assignDueDateEnabled,
+  SELECTORS.assignCutOffDateEnabled,
+].map((enabledSelector) => ({
   enabledSelector,
   parts: datePartSelectors(enabledSelector),
 }));

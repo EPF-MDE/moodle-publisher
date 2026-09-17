@@ -430,7 +430,7 @@ export function writeDayOneSet(
 
 /**
  * The banding anchors, as the fixture repository holds them: examiner-only
- * material with prose long enough for the audit to fingerprint.
+ * material, a few paragraphs of prose.
  */
 export const ANCHORS_MARKDOWN = `# C1 banding anchors
 

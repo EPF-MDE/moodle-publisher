@@ -6,11 +6,7 @@
 // `publisher.json` at its root; what stays here is what every course shares.
 // Who a document is *for* is the one thing not written in an entry — the
 // `--instructor` suffix on its filename says it, and nothing else does.
-import {
-  INSTRUCTOR_TITLE_PREFIX,
-  isInstructorMaterial,
-  publishedTitle,
-} from "./lib/entry.ts";
+import { isInstructorMaterial, publishedTitle } from "./lib/entry.ts";
 import { validate } from "./lib/guard.ts";
 import { readPublisherFile } from "./lib/publisher-file.ts";
 
@@ -26,7 +22,6 @@ export {
   NoGrid,
   UnreadablePublisherFile,
 } from "./lib/publisher-file.ts";
-export { isRevealed } from "./lib/reveal.ts";
 
 import type { SectionName } from "../course/index.ts";
 
@@ -98,10 +93,10 @@ export interface PublishedDocument {
   /**
    * `YYYY-MM-DD`, when a human reveals this document by hand on a known day.
    *
-   * Carried down from the table for the audit alone, which is the only thing
-   * that reads it: a document found visible before this date is a finding, and
-   * on or after it the audit reports what it saw and leaves it alone. Nothing
-   * that writes to the course looks at this.
+   * Carried down from the table so that the plan can say when a document it
+   * creates hidden is meant to be revealed, and a reviewer can check it is
+   * still hidden before that day. Nothing that writes to the course looks at
+   * this.
    */
   readonly revealedOn: string | undefined;
 }
@@ -112,7 +107,7 @@ export interface PublishedDocument {
  *
  * Throws when the file is missing or cannot be read, and — naming the document
  * — when an entry publishes to a section the course page does not have, to the
- * section the Devoirs live in, on a date the audit could not read, or under a
+ * section the Devoirs live in, on a reveal date that is not a date, or under a
  * title another document already has, so that a mistaken edit fails loudly
  * before anything runs.
  */
@@ -159,21 +154,6 @@ export function documentsToPublish(
       revealedOn: undefined,
     };
   });
-}
-
-/**
- * A document's title with the `Instructor — ` prefix taken back off: the title
- * the entry writes, and the one a copy somebody made by hand would carry,
- * because nothing they did put the prefix there.
- *
- * Here rather than in the audit so that the prefix stays one string known to
- * one package — whoever changes what the publisher writes changes what
- * recognises it, in the same file.
- */
-export function plainTitle(document: PublishedDocument): string {
-  return document.title.startsWith(INSTRUCTOR_TITLE_PREFIX)
-    ? document.title.slice(INSTRUCTOR_TITLE_PREFIX.length)
-    : document.title;
 }
 
 /**

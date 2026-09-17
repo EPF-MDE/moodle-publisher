@@ -99,12 +99,10 @@ test("a manifest holding Grade Items still reads, and the next write drops them"
   const published = workspace.readManifest().documents;
   addGradeItems(workspace);
 
-  // Read, by a plan and by an audit, and not refused.
+  // Read, by a plan, and not refused.
   const plan = await workspace.publisher(["publish"]);
   assert.equal(plan.code, 0, plan.stderr);
   assert.match(plan.stdout, /0 to create, 0 to update, 1 to skip/);
-  const audit = await workspace.publisher(["audit"]);
-  assert.equal(audit.code, 0, audit.stderr);
   assert.ok(workspace.readManifest().documents["C1"], "reading wrote nothing");
 
   // Written, by the next run that changes something.

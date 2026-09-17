@@ -8,8 +8,6 @@ import {
   readFrontMatter,
   readSource,
   rewriteImages,
-  fingerprintsForEntry,
-  proseForEntry,
 } from "./lib/markdown.ts";
 import { crossReferencesIn, linkKey, rewriteLinks } from "./lib/links.ts";
 
@@ -162,28 +160,4 @@ export function frontMatter(
   source: string
 ): FrontMatter | undefined {
   return readFrontMatter(repoRoot, source);
-}
-
-/**
- * Distinctive sentences from a document, used by the audit to recognise the
- * document's text in a live course even if someone retitled the activity.
- * `source` may name a file or, ending in `/`, a directory of them.
- */
-export function fingerprints(
-  repoRoot: string,
-  source: string
-): readonly string[] {
-  return fingerprintsForEntry(repoRoot, source);
-}
-
-/**
- * Every line of a document, as a reader of the published page sees it rather
- * than as the file spells it. `source` may name a file or, ending in `/`, a
- * directory of them.
- *
- * This is what the audit asks a student-facing document for when it has to
- * decide whether a phrase it recognised is really evidence of a leak.
- */
-export function prose(repoRoot: string, source: string): readonly string[] {
-  return proseForEntry(repoRoot, source);
 }
