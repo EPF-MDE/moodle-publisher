@@ -14,7 +14,7 @@ import { escape } from "./html.ts";
 
 import type { Deliverable } from "../../catalog/deliverables.ts";
 import type { PublishedDocument } from "../../catalog/index.ts";
-import type { DocumentEntry } from "../../manifest/index.ts";
+import type { FileResourceEntry } from "../../manifest/index.ts";
 
 /**
  * The document a Deliverable's front matter defines it in, and which its
@@ -44,18 +44,16 @@ export class DevoirBriefNotPublished extends Error {
 /**
  * A published document as a Devoir's link needs it: which activity it is, and
  * what kind, because Moodle serves each kind from its own URL. A brief is a
- * PDF, or a page an earlier publisher made and this one left standing.
+ * PDF.
  */
-export type DocumentActivity = Pick<DocumentEntry, "kind" | "moduleId">;
+export type DocumentActivity = Pick<FileResourceEntry, "kind" | "moduleId">;
 
 /**
- * The Moodle module that serves each kind of document entry. A record over the
- * whole union, so a kind added to the Manifest does not compile until it has a
- * URL here.
+ * The Moodle module that serves each kind of document activity. A record over
+ * every kind, so a kind added here does not compile until it has a URL.
  */
-const MODULE_OF: Readonly<Record<DocumentEntry["kind"], string>> = {
+const MODULE_OF: Readonly<Record<DocumentActivity["kind"], string>> = {
   "file-resource": "resource",
-  page: "page",
 };
 
 /** Where Moodle serves `activity`. */

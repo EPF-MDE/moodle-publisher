@@ -20,7 +20,11 @@ import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
 import { installSkills, SkillLinkRefused } from "./packages/skills/index.ts";
 import { readManifest } from "./packages/manifest/index.ts";
-import { buildPlan, formatPlan } from "./packages/publishing/plan.ts";
+import {
+  buildPlan,
+  formatPlan,
+  refuseRecordedPages,
+} from "./packages/publishing/plan.ts";
 import { applyPlan } from "./packages/publishing/apply.ts";
 import {
   applyWipe,
@@ -156,6 +160,9 @@ async function publish(apply: boolean): Promise<number> {
     loadCompetencies(config.repoRoot, catalog)
   );
   const manifest = readManifest(config.manifestPath);
+  // Pages an earlier publisher recorded are cleaned up by hand, and that is
+  // worth hearing before a browser is sitting in the course.
+  refuseRecordedPages(manifest);
 
   process.stdout.write(`Course ${config.courseId} at ${config.baseUrl}\n`);
 

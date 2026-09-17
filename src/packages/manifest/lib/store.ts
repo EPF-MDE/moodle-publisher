@@ -68,8 +68,8 @@ export function load(path: string): Entries {
  * kind it is.
  *
  * The default is what keeps a manifest committed before this program knew
- * about kinds working untouched: it is read as the pages it records, and says
- * so in the file the first time a run rewrites the entry. Only a kind the file
+ * about kinds readable: it is read as the pages it records, which publishing
+ * refuses by name and the Wipe clears. Only a kind the file
  * states can be anything else — there were no Devoirs in a manifest written
  * before there were kinds, so an entry that names its kind is
  * taken at its word and nothing else is inferred about it.

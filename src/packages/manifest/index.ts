@@ -25,13 +25,7 @@ import type { SectionName } from "../course/index.ts";
  * member here rather than as optional fields on another, so that reading an
  * entry never means guessing which fields its neighbours left empty.
  */
-export type ManifestEntry = DocumentEntry | DevoirEntry;
-
-/**
- * What a Published Document is recorded as: the PDF it was published as, or a
- * page an earlier publisher made.
- */
-export type DocumentEntry = FileResourceEntry | PageEntry;
+export type ManifestEntry = FileResourceEntry | DevoirEntry | PageEntry;
 
 /**
  * A Deliverable published as a Moodle Devoir.
@@ -90,7 +84,7 @@ export function devoirKey(deliverableId: string): string {
  * An entry under that key which is not a Devoir is reported as no entry at
  * all, so the caller's answer is "nothing has been published for this
  * Deliverable" — which is true, and is the reading that makes the run create
- * one rather than address a page as though it were a Devoir.
+ * one rather than address a PDF as though it were a Devoir.
  */
 export function devoirEntryFor(
   manifest: Manifest,
@@ -121,7 +115,10 @@ export interface FileResourceEntry {
 
 /**
  * A markdown document published as a Moodle page, by a publisher before
- * documents were published as PDFs. Nothing writes one any more.
+ * documents were published as PDFs. Nothing writes one any more, and nothing
+ * publishes from one: pages are not migrated. A Manifest still holding one is
+ * read so that publishing can refuse it by name ({@link pageSources}) and the
+ * Wipe can count it, and for nothing else.
  */
 export interface PageEntry {
   readonly kind: "page";
@@ -200,13 +197,13 @@ export function clearManifest(path: string): Manifest {
 }
 
 /**
- * What `source` was published as — a PDF, or a page an earlier publisher made
- * — if it was published at all.
+ * The PDF `source` was published as, if it was published at all.
  *
- * Both answer "is this document already in the course, and where?", which is
+ * It answers "is this document already in the course, and where?", which is
  * the question a run asks of a document. A Devoir entry is not a document, and
  * reads as nothing recorded: the counterpart of {@link devoirEntryFor}, which
- * reads a document's entry the same way.
+ * reads a document's entry the same way. Nor is a page: publishing refuses a
+ * Manifest holding one before it asks this ({@link pageSources}).
  *
  * There is deliberately no accessor that returns "whatever is under this key".
  * Every caller knows which kind it is asking about — it has a document in its
@@ -216,9 +213,18 @@ export function clearManifest(path: string): Manifest {
 export function documentEntryFor(
   manifest: Manifest,
   source: string
-): DocumentEntry | undefined {
+): FileResourceEntry | undefined {
   const entry = manifest.entries[source];
-  return entry?.kind === "file-resource" || entry?.kind === "page"
-    ? entry
-    : undefined;
+  return entry?.kind === "file-resource" ? entry : undefined;
+}
+
+/**
+ * The sources the Manifest records as pages, sorted: what an earlier publisher
+ * made, and this one does not publish from.
+ */
+export function pageSources(manifest: Manifest): readonly string[] {
+  return Object.entries(manifest.entries)
+    .filter(([, entry]) => entry.kind === "page")
+    .map(([source]) => source)
+    .sort();
 }
