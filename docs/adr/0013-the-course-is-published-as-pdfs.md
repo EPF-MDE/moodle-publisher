@@ -20,7 +20,7 @@ Instructor Material is a hidden PDF, decided by the `--instructor` suffix exactl
 
 - **ADR-0008's consequence "no deck is uploaded as a file, and there is no new kind of artifact" is superseded.** Every document is now uploaded as a file. Its decision still holds: a Lecture is written as a Runbook, and the Runbook and the Lecture are two Published Documents.
 - **ADR-0008's duplicated-pictures consequence is retired.** A picture is embedded in each PDF that shows it, so no activity keeps its own uploaded copy for another to point at.
-- **Until a changed PDF can be replaced (#24), a run never rewrites one.** A document that already has a Manifest entry is planned as a skip, even if its markdown, its pictures or its title in the table have changed. The plan counts it under "to skip", and republishing a changed document means deleting its PDF in Moodle first.
+- **A changed PDF is replaced in its own file resource.** When the hash of a document's markdown and pictures differs from its Manifest entry, the run swaps the file and keeps the module id, the place in the Section, the name and the visibility. An unchanged document uploads nothing. A retitle in the table is not in the hash, so it is not picked up yet: renaming the resource is left to the Instructor, by hand, until #36.
 - **A PDF opens with its title**, as the course page names it, `Instructor — ` prefix included.
 - **Pictures cost bytes in each PDF.** A diagram shown by two documents is inside both.
 - **ADR-0004's title** (*Instructor material is hidden per page*) stays as recorded history. Its decision holds per PDF.

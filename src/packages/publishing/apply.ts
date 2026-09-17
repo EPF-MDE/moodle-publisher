@@ -30,7 +30,7 @@ type DocumentActivityBySource = Map<string, DocumentActivity>;
 function knownActivities(plan: Plan): DocumentActivityBySource {
   const activities: DocumentActivityBySource = new Map();
   for (const item of plan.items) {
-    if (item.verb === "skip") {
+    if (item.verb !== "create") {
       activities.set(item.document.source, item.published);
     }
   }
@@ -113,6 +113,36 @@ async function create(
     `created  ${document.title} as ${item.fileName} (module ${created.moduleId})`
   );
   return created.moduleId;
+}
+
+/**
+ * Replaces the file of one changed document's PDF where it stands, and records
+ * the hash it now holds.
+ *
+ * The manifest keeps the module id, the Section, the title and the day the
+ * PDF was first published: only the file changed. The call carries no
+ * visibility, so a PDF the Instructor opened by hand stays open and a hidden
+ * one stays hidden.
+ */
+async function replace(
+  item: Extract<PlanItem, { verb: "replace" }>,
+  options: ApplyOptions
+): Promise<void> {
+  const { document, published } = item;
+  await options.driver.replaceFile({
+    moduleId: published.moduleId,
+    fileName: item.fileName,
+    html: printReady(document, item.rendered.html, options.footer),
+  });
+
+  recordPublished(options.manifestPath, document.source, {
+    ...published,
+    contentHash: item.rendered.contentHash,
+    updatedAt: new Date().toISOString(),
+  });
+  options.report(
+    `replaced ${document.title} as ${item.fileName} (module ${published.moduleId})`
+  );
 }
 
 /**
@@ -273,8 +303,8 @@ async function rewriteDevoir(
 }
 
 /**
- * Applies every create and hide in the plan, in order. Throws on the first
- * failure, having already recorded everything that succeeded before it.
+ * Applies every create, replace and hide in the plan, in order. Throws on the
+ * first failure, having already recorded everything that succeeded before it.
  */
 export async function applyPlan(
   plan: Plan,
@@ -288,6 +318,8 @@ export async function applyPlan(
     if (item.verb === "create") {
       const moduleId = await create(item, options);
       activities.set(item.document.source, { kind: "file-resource", moduleId });
+    } else if (item.verb === "replace") {
+      await replace(item, options);
     } else if (!item.hide) {
       options.report(`skip     ${item.document.title}`);
     }

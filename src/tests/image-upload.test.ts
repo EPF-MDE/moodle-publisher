@@ -132,7 +132,7 @@ test("running twice in a row leaves the course and the manifest unchanged", asyn
 
   assert.equal(first.code, 0, first.stderr);
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
   assert.equal(JSON.stringify(workspace.readCourse()), course);
   assert.equal(JSON.stringify(workspace.readManifest()), manifest);
 });

@@ -7,7 +7,6 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
 import {
-  AWAITS_REPLACE,
   makeWorkspace,
   writeDayOneSet,
   LECTURE_MARKDOWN,
@@ -45,7 +44,7 @@ function writeSetShowingDiagram(
   }
 }
 
-test("redrawing a diagram plans the document that shows it as an update", AWAITS_REPLACE, async () => {
+test("redrawing a diagram plans the document that shows it as a replace", async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -54,14 +53,14 @@ test("redrawing a diagram plans the document that shows it as an update", AWAITS
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /update .*Lecture 1/);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /replace .*Lecture 1/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
   // The verdict is visible before anything is applied, as every other verdict
   // is: reporting still applies nothing.
   assert.match(plan.stdout, /Nothing has been applied/);
 });
 
-test("redrawing one diagram marks every document that shows it", AWAITS_REPLACE, async () => {
+test("redrawing one diagram marks every document that shows it", async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -70,9 +69,9 @@ test("redrawing one diagram marks every document that shows it", AWAITS_REPLACE,
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /update .*Lecture 1/);
-  assert.match(plan.stdout, /update .*Lab 1/);
-  assert.match(plan.stdout, /0 to create, 2 to update, 1 to skip/);
+  assert.match(plan.stdout, /replace .*Lecture 1/);
+  assert.match(plan.stdout, /replace .*Lab 1/);
+  assert.match(plan.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
 });
 
 test("editing a picture no published document shows changes nothing", async () => {
@@ -84,10 +83,10 @@ test("editing a picture no published document shows changes nothing", async () =
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
 });
 
-test("a second consecutive run after a redrawn diagram reports zero changes", AWAITS_REPLACE, async () => {
+test("a second consecutive run after a redrawn diagram reports zero changes", async () => {
   const workspace = makeWorkspace();
   writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
   await workspace.publisher(["publish", "--apply"]);
@@ -97,9 +96,37 @@ test("a second consecutive run after a redrawn diagram reports zero changes", AW
   const second = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(first.code, 0, first.stderr);
-  assert.match(first.stdout, /0 to create, 2 to update, 1 to skip/);
+  assert.match(first.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
+});
+
+test("a redrawn diagram replaces the PDFs that show it, in their modules, and no other", async () => {
+  const workspace = makeWorkspace();
+  writeSetShowingDiagram(workspace, ["lectures/lecture-1.md", "labs/lab-1.md"]);
+  await workspace.publisher(["publish", "--apply"]);
+  const before = workspace.readCourse().items;
+  workspace.write("assets/workflow.png", REDRAWN);
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  const after = workspace.readCourse().items;
+  assert.deepEqual(
+    after.map((item) => item.moduleId),
+    before.map((item) => item.moduleId)
+  );
+  const changed = after
+    .filter((item, at) => item.body !== before[at]?.body)
+    .map((item) => item.name);
+  assert.deepEqual(changed, [
+    "Lecture 1 — Framing and decomposing",
+    "Lab 1 — Frame and decompose your own work",
+  ]);
+  const redrawn = Buffer.from(REDRAWN).toString("base64");
+  for (const item of after.filter((item) => changed.includes(item.name))) {
+    assert.ok(item.body.includes(redrawn), `${item.name} holds the old diagram`);
+  }
 });
 
 test("a picture that is not there yet holds its document back until it arrives", async () => {
@@ -122,7 +149,7 @@ test("a picture that is not there yet holds its document back until it arrives",
   assert.match(arrived.stdout, /3 PDFs to create/);
 });
 
-test("a diagram shown as HTML counts as much as one shown as markdown", AWAITS_REPLACE, async () => {
+test("a diagram shown as HTML counts as much as one shown as markdown", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -137,10 +164,10 @@ test("a diagram shown as HTML counts as much as one shown as markdown", AWAITS_R
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
 });
 
-test("a diagram named by a link definition counts too", AWAITS_REPLACE, async () => {
+test("a diagram named by a link definition counts too", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -155,7 +182,7 @@ test("a diagram named by a link definition counts too", AWAITS_REPLACE, async ()
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
 });
 
 test("a picture quoted in a code fence is shown to nobody, and counts for nothing", async () => {
@@ -173,10 +200,10 @@ test("a picture quoted in a code fence is shown to nobody, and counts for nothin
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
 });
 
-test("a diagram whose name has a space in it is found, however the link spells it", AWAITS_REPLACE, async () => {
+test("a diagram whose name has a space in it is found, however the link spells it", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/five phase workflow.png", DIAGRAM);
@@ -190,10 +217,10 @@ test("a diagram whose name has a space in it is found, however the link spells i
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
 });
 
-test("a link that sizes the same diagram twice does not confuse the verdict", AWAITS_REPLACE, async () => {
+test("a link that sizes the same diagram twice does not confuse the verdict", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   workspace.write("assets/workflow.png", DIAGRAM);
@@ -208,7 +235,7 @@ test("a link that sizes the same diagram twice does not confuse the verdict", AW
   const plan = await workspace.publisher(["publish"]);
 
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 to create, 1 to update, 2 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
 });
 
 test("a document showing no pictures still hashes to its markdown alone", async () => {
@@ -243,5 +270,5 @@ test("a picture hosted elsewhere leaves the verdict alone", async () => {
 
   assert.equal(applied.code, 0, applied.stderr);
   assert.equal(plan.code, 0, plan.stderr);
-  assert.match(plan.stdout, /0 PDFs to create, 3 to skip/);
+  assert.match(plan.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
 });

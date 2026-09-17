@@ -12,7 +12,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AWAITS_REPLACE,
   ANCHORS_MARKDOWN,
   DAY_ONE_ENTRIES,
   GRID_FRONT_MATTER,
@@ -388,7 +387,7 @@ test("two new documents linking to each other publish in one pass", async () => 
 // The title and Section are not in the markdown, so nothing about the linking
 // document changes when the table renames its target — and the PDF would keep
 // the old text for good if the hash could not see it.
-test("renaming a linked document republishes the documents that link to it", AWAITS_REPLACE, async () => {
+test("renaming a linked document republishes the documents that link to it", async () => {
   const workspace = makeWorkspace();
   writeLinkingLab(workspace, labLinking("../assessment-grid.md"));
   await workspace.publisher(["publish", "--apply"]);
