@@ -1,9 +1,6 @@
 // Implementation: private to the documents package.
 import { existsSync, readFileSync } from "node:fs";
-import { resolve, sep } from "node:path";
-
-import { pluginfileReference } from "../../course/index.ts";
-import type { PageImage } from "../../course/index.ts";
+import { extname, resolve, sep } from "node:path";
 
 import { contentHash } from "./content-hash.ts";
 import { parseFrontMatter, splitFrontMatter } from "./front-matter.ts";
@@ -62,12 +59,7 @@ export function readFrontMatter(
 }
 
 export function render(markdown: string): string {
-  const html = marked.parse(markdown, { async: false });
-  // Moodle's page activity renders tables without borders unless the theme is
-  // asked for them; `generaltable` is core Moodle's own table class.
-  return fitToColumn(
-    html.replaceAll("<table>", '<table class="generaltable">')
-  );
+  return fitToColumn(marked.parse(markdown, { async: false }));
 }
 
 /** Any `<img>`, however the picture came to be written in the document. */
@@ -120,74 +112,68 @@ function fitToColumn(html: string): string {
 /**
  * A document points a picture at a file this repository does not hold.
  *
- * Fatal, and fatal before anything is written. The picture rides in the
- * activity that shows it, so there is nothing to upload and nothing for the
- * reference to be rewritten to: the document would publish with a reference
- * Moodle cannot resolve, and what a student would meet is a broken image icon.
- * Finding that out in front of a class is the outcome this program exists to
- * prevent, so the run stops and names both halves of the fix — the document to
- * open, and the path to put there.
+ * Fatal, and fatal before anything is written. The picture is embedded in the
+ * PDF of the document that shows it, so there is nothing to embed: the
+ * document would publish with a picture missing, and what a student would meet
+ * is a broken image. Finding that out in front of a class is the outcome this
+ * program exists to prevent, so the run stops and names both halves of the fix
+ * — the document to open, and the path to put there.
  */
 export class MissingImage extends Error {
   constructor(source: string, path: string) {
     super(
       `Aborting: "${source}" shows the picture "${path}", and there is no such file in ` +
-        `this repository. It is uploaded with the page that shows it, so publishing would ` +
-        `leave students a broken image. Add the file at "${path}", or take the reference ` +
-        `out of the document, then run again. Nothing has been published.`
+        `this repository. It is embedded in the PDF of the document that shows it, so ` +
+        `publishing would leave students a broken image. Add the file at "${path}", or take ` +
+        `the reference out of the document, then run again. Nothing has been published.`
     );
     this.name = "MissingImage";
   }
-}
-
-/** The hash of one file's bytes, and nothing else. */
-function hashBytes(bytes: Buffer): string {
-  return contentHash([bytes]);
 }
 
 /** `src="…"` on an `<img>`, wherever the reference came from in the markdown. */
 const IMAGE_SRC = /(<img\b[^>]*?\bsrc\s*=\s*)(["'])([^"']*)\2/gi;
 
 /**
- * The name a picture is stored under in Moodle: its repository path, flattened.
- *
- * Not the file's own name. One document may show `assets/before/diagram.png`
- * and `assets/after/diagram.png`, and uploading both as `diagram.png` puts one
- * file in the activity — so both references show the same drawing, and the
- * document reads as if nothing had changed between them.
+ * The media type a picture is embedded under, by its extension. A browser
+ * sniffs raster formats whatever they are labelled, but draws an SVG only when
+ * it is labelled as one.
  */
-function uploadName(path: string): string {
-  return path.replaceAll("/", "-");
-}
+const MEDIA_TYPES: Readonly<Record<string, string>> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+};
 
-/** What a document publishes as: its HTML, and the pictures that go with it. */
-export interface RewrittenImages {
-  readonly html: string;
-  readonly images: readonly PageImage[];
+function mediaTypeOf(path: string): string {
+  return MEDIA_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream";
 }
 
 /**
- * Rewrites every reference to a picture in this repository so that it names
- * the copy uploaded with the page, and lists what has to be uploaded for those
- * references to mean anything.
+ * Embeds every picture in this repository that `html` shows, as a `data:` URL
+ * carrying the file's bytes, so that the document is self-contained: a PDF is
+ * printed from it, and nothing is uploaded beside the PDF.
  *
  * References to pictures hosted elsewhere are left exactly as they are: they
  * already point at something a browser can fetch, and this program does not
- * mirror the internet. Everything else is rewritten or refused — a reference
+ * mirror the internet. Everything else is embedded or refused — a reference
  * that is neither is a broken image nobody was told about.
  *
- * The rewrite is done on the rendered HTML rather than on the markdown so that
- * `![…](…)` and the `<img>` tags the lectures write when a diagram needs a
+ * The embedding is done on the rendered HTML rather than on the markdown so
+ * that `![…](…)` and the `<img>` tags the lectures write when a diagram needs a
  * width go through one rule, at the point where they have already become the
  * same thing.
  */
-export function rewriteImages(
+export function embedImages(
   repoRoot: string,
   source: string,
   html: string
-): RewrittenImages {
-  const images = new Map<string, PageImage>();
-  const rewritten = html.replaceAll(
+): string {
+  return html.replaceAll(
     IMAGE_SRC,
     (whole, before: string, quote: string, reference: string) => {
       const resolved = resolveReference(source, reference);
@@ -198,20 +184,11 @@ export function rewriteImages(
       ) {
         throw new MissingImage(source, resolved.path);
       }
-      const name = uploadName(resolved.path);
-      images.set(resolved.path, {
-        path: resolved.path,
-        absolutePath: pathInside(repoRoot, resolved.path),
-        name,
-        // Hashed here, where the file has just been established to exist, so
-        // that every picture the page shows arrives at the seam already able
-        // to say whether it is the copy the course holds.
-        contentHash: hashBytes(readFileSync(resolve(repoRoot, resolved.path))),
-      });
-      return `${before}${quote}${pluginfileReference(name)}${quote}`;
+      const bytes = readFileSync(pathInside(repoRoot, resolved.path));
+      const url = `data:${mediaTypeOf(resolved.path)};base64,${bytes.toString("base64")}`;
+      return `${before}${quote}${url}${quote}`;
     }
   );
-  return { html: rewritten, images: [...images.values()] };
 }
 
 /**
@@ -294,7 +271,7 @@ export function hashDocument(
  * The contents of a picture, or `undefined` if it is not there.
  *
  * Publishing no longer reaches this with a missing file — a document showing a
- * picture that is not in the repository is refused by {@link rewriteImages}
+ * picture that is not in the repository is refused by {@link embedImages}
  * before its hash is ever compared. The marker stays because the hash is
  * defined for any document, published or not, and a missing picture that reads
  * the same as an empty one would be a hash collision waiting for the day the

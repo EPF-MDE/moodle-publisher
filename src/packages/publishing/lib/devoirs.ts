@@ -10,9 +10,11 @@
 // Freeze, and links to that activity.
 import { formatFreeze } from "../../catalog/deliverables.ts";
 import { contentHash } from "../../documents/index.ts";
+import { escape } from "./html.ts";
 
 import type { Deliverable } from "../../catalog/deliverables.ts";
 import type { PublishedDocument } from "../../catalog/index.ts";
+import type { DocumentEntry } from "../../manifest/index.ts";
 
 /**
  * The document a Deliverable's front matter defines it in, and which its
@@ -40,14 +42,29 @@ export class DevoirBriefNotPublished extends Error {
 }
 
 /**
- * `&`, `<` and `>` as HTML entities, so a title with an ampersand or an angle
- * bracket in it publishes as the characters somebody typed.
+ * A published document as a Devoir's link needs it: which activity it is, and
+ * what kind, because Moodle serves each kind from its own URL. A brief is a
+ * PDF, or a page an earlier publisher made and this one left standing.
  */
-function escape(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+export type DocumentActivity = Pick<DocumentEntry, "kind" | "moduleId">;
+
+/**
+ * The Moodle module that serves each kind of document entry. A record over the
+ * whole union, so a kind added to the Manifest does not compile until it has a
+ * URL here.
+ */
+const MODULE_OF: Readonly<Record<DocumentEntry["kind"], string>> = {
+  "file-resource": "resource",
+  page: "page",
+};
+
+/** Where Moodle serves `activity`. */
+export function documentActivityUrl(
+  baseUrl: string,
+  activity: DocumentActivity
+): string {
+  const module = MODULE_OF[activity.kind];
+  return `${baseUrl.replace(/\/+$/, "")}/mod/${module}/view.php?id=${activity.moduleId}`;
 }
 
 /**
@@ -87,7 +104,7 @@ export function devoirDescription(
  * What stands in for the brief's URL while the description is being hashed.
  *
  * The stub carries a link to an activity, and a link is a course module id —
- * which changes only when the page it names is created again, and says nothing
+ * which changes only when the brief it names is created again, and says nothing
  * about whether the Deliverable was edited. So the description is hashed with
  * this in the href's place, for the reason `hashDocument` hashes what a link
  * *says* and never the module id it resolves to: what is being asked is

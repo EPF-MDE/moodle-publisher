@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  AWAITS_REPLACE,
   ANCHORS_SOURCE,
   DAY_ONE_ENTRIES,
   INSTRUCTOR_ENTRIES,
@@ -29,7 +30,7 @@ test("instructor material is created hidden, beside the documents it pairs with"
 
   assert.equal(result.code, 0, result.stderr);
   // Every section visible, including the two holding an answer key: hiding is
-  // a property of the page, and a section nobody hid is a section nobody can
+  // a property of the PDF, and a section nobody hid is a section nobody can
   // reveal by accident.
   assert.deepEqual(sectionsOf(workspace), [
     ["General", true],
@@ -74,11 +75,11 @@ test("a second run reports zero changes for instructor material too", async () =
   const result = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /0 to create, 0 to update, 5 to skip, 0 to hide/);
+  assert.match(result.stdout, /0 PDFs to create, 5 to skip, 0 to hide/);
   assert.doesNotMatch(result.stdout, /re-hid/);
 });
 
-test("editing a banding anchor updates the activity in place and leaves it hidden", async () => {
+test("editing a banding anchor updates the activity in place and leaves it hidden", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeInstructorSet(workspace);
   await workspace.publisher(["publish", "--apply"]);

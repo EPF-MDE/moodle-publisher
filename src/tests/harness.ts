@@ -102,6 +102,14 @@ export function pointContextAtPublisher(workspace: Workspace): void {
   linkSkills(workspace);
 }
 
+/**
+ * Marks a test that waits for replacing a changed document's PDF in the same
+ * module (#24). Until it lands a run leaves a published document alone, so
+ * these tests wait for it rather than being deleted with the page path they
+ * were written for.
+ */
+export const AWAITS_REPLACE = { skip: "replacing a changed PDF is #24" };
+
 /** The course every run in this suite is pointed at. */
 export const COURSE_ID = "4242";
 
@@ -482,34 +490,6 @@ export function writeInstructorSet(
   writeDayOneSet(workspace);
   workspace.write(ANCHORS_SOURCE, ANCHORS_MARKDOWN);
   workspace.writeCatalog({ published: [...DAY_ONE_ENTRIES, ...instructor] });
-}
-
-/**
- * A picture as the manifest records it. The hash is optional here for the same
- * reason it is optional in the manifest itself: entries written before pictures
- * were hashed have a URL and nothing else, and a test that could not express
- * that could not check what a run does about it.
- */
-export interface RecordedAsset {
-  readonly path: string;
-  readonly url: string;
-  readonly contentHash?: string;
-}
-
-/**
- * What the manifest recorded about the pictures published with `source`.
- *
- * Here rather than in each test file: reading it means reaching past the shape
- * {@link Workspace.readManifest} promises, and one cast the whole suite shares
- * is one place to correct if the file ever changes.
- */
-export function assetsFor(
-  workspace: Workspace,
-  source: string
-): readonly RecordedAsset[] {
-  const entry = workspace.readManifest().documents[source] as
-    { assets?: RecordedAsset[] } | undefined;
-  return entry?.assets ?? [];
 }
 
 /** A course's sections as `[name, visible]`, whichever shape the file uses. */

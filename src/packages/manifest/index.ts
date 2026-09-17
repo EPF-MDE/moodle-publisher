@@ -2,7 +2,7 @@
 // Moodle course module id, section, content hash and timestamps.
 //
 // It is committed to the repository, so publishing from a second machine
-// updates the existing activities instead of duplicating them, and a code
+// works from the existing activities instead of duplicating them, and a code
 // review shows what publishing did. It is written as each item succeeds, never
 // at the end of a run, so an interrupted run still leaves an accurate record.
 //
@@ -20,12 +20,18 @@ import type { PublishedAsset, SectionName } from "../course/index.ts";
  * The key is a repository-relative source path for everything that comes from
  * a file, and a `deliverable:` id for a Devoir. `kind` is what keeps them
  * apart: a Devoir carries a module id with different settings behind it, and
- * an entry that had to be asked "are you a page?" by looking for absent fields
- * would be an entry every reader guesses about. Each arrives as a new member here rather than as optional
- * fields on `PageEntry`, so that reading an entry never means guessing which
- * fields its neighbours left empty.
+ * an entry that had to be asked "are you a PDF?" by looking for absent fields
+ * would be an entry every reader guesses about. Each kind arrives as a new
+ * member here rather than as optional fields on another, so that reading an
+ * entry never means guessing which fields its neighbours left empty.
  */
-export type ManifestEntry = PageEntry | DevoirEntry;
+export type ManifestEntry = DocumentEntry | DevoirEntry;
+
+/**
+ * What a Published Document is recorded as: the PDF it was published as, or a
+ * page an earlier publisher made.
+ */
+export type DocumentEntry = FileResourceEntry | PageEntry;
 
 /**
  * A Deliverable published as a Moodle Devoir.
@@ -95,7 +101,29 @@ export function devoirEntryFor(
   return entry?.kind === "devoir" ? entry : undefined;
 }
 
-/** A markdown document published as a Moodle page. */
+/**
+ * A Published Document published as a PDF: a Moodle file resource in its
+ * Section.
+ *
+ * The hash is taken over the markdown and the pictures it shows — what the
+ * Instructor wrote — and never over the PDF's bytes, which a render is free to
+ * vary without anything having changed.
+ */
+export interface FileResourceEntry {
+  readonly kind: "file-resource";
+  readonly moduleId: string;
+  readonly section: SectionName;
+  /** What the course page names the resource, `Instructor — ` prefix and all. */
+  readonly title: string;
+  readonly contentHash: string;
+  readonly publishedAt: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * A markdown document published as a Moodle page, by a publisher before
+ * documents were published as PDFs. Nothing writes one any more.
+ */
 export interface PageEntry {
   readonly kind: "page";
   readonly moduleId: string;
@@ -122,10 +150,9 @@ export interface PageEntry {
  * The same thing a driver reports, except that its hash may be missing: this
  * file is committed, and the entries in it were written by earlier versions of
  * this program, one of which recorded a URL per picture and nothing else. The
- * type says so rather than asserting a field that is not in the file, because
- * what reads it — the plan, deciding what to upload — has an answer for the
- * absence: bytes whose hash nobody recorded cannot be called unchanged, so
- * they go up once and the record is complete from then on.
+ * type says so rather than asserting a field that is not in the file. Nothing
+ * reads it any more: pictures are embedded in each PDF, and this is kept only
+ * so that a page entry still on disk reads as what it is.
  */
 export type RecordedAsset = Omit<PublishedAsset, "contentHash"> & {
   readonly contentHash?: string;
@@ -169,36 +196,25 @@ export function clearManifest(path: string): Manifest {
 }
 
 /**
- * The page `source` was published as, if it was published at all.
+ * What `source` was published as — a PDF, or a page an earlier publisher made
+ * — if it was published at all.
  *
- * What `publish` asks, and it asks it this way because it is about
- * documents: an entry recording a Devoir is not one.
- * Narrowing here, once, is what saves every caller from remembering that the
- * record holds more than pages. The counterpart of {@link devoirEntryFor},
- * and it reads a non-page entry the same way: as nothing recorded. A document
- * and a Devoir cannot collide — their keys are shaped differently — so this is
- * not a case anyone has to plan for, it is the type saying that the plan for a
- * *document* only ever works in pages.
+ * Both answer "is this document already in the course, and where?", which is
+ * the question a run asks of a document. A Devoir entry is not a document, and
+ * reads as nothing recorded: the counterpart of {@link devoirEntryFor}, which
+ * reads a document's entry the same way.
  *
  * There is deliberately no accessor that returns "whatever is under this key".
  * Every caller knows which kind it is asking about — it has a document in its
  * hand, or a Deliverable — and one that did not would have to re-discover the
- * union at every use. What reads the manifest as a whole reads
- * {@link Manifest.entries}, and reads it as the mixed thing it is.
+ * union at every use.
  */
-export function pageFor(
+export function documentEntryFor(
   manifest: Manifest,
   source: string
-): PageEntry | undefined {
+): DocumentEntry | undefined {
   const entry = manifest.entries[source];
-  return entry?.kind === "page" ? entry : undefined;
-}
-
-/** Every page in the manifest, with the source path it was published from. */
-export function pages(
-  manifest: Manifest
-): readonly (readonly [string, PageEntry])[] {
-  return Object.entries(manifest.entries).flatMap(([source, entry]) =>
-    entry.kind === "page" ? [[source, entry] as const] : []
-  );
+  return entry?.kind === "file-resource" || entry?.kind === "page"
+    ? entry
+    : undefined;
 }

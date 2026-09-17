@@ -7,7 +7,7 @@ import {
   hashDocument,
   readFrontMatter,
   readSource,
-  rewriteImages,
+  embedImages,
 } from "./lib/markdown.ts";
 import { crossReferencesIn, linkKey, linksAsText } from "./lib/links.ts";
 
@@ -15,8 +15,6 @@ import type { CrossReference, LinkTarget } from "./lib/links.ts";
 import type { FrontMatter } from "./lib/front-matter.ts";
 
 export type { CrossReference, LinkTarget } from "./lib/links.ts";
-
-import type { PageImage } from "../course/index.ts";
 
 export { contentHash } from "./lib/content-hash.ts";
 export type { HashedPart } from "./lib/content-hash.ts";
@@ -26,9 +24,9 @@ export type { FrontMatter, FrontMatterValue } from "./lib/front-matter.ts";
 
 export interface RenderedDocument {
   /**
-   * The HTML that goes into the page activity's body, with every reference to
-   * a picture in this repository already pointing at the copy that goes up
-   * with the page, and every cross-reference already turned into text.
+   * The document's body as HTML, with every picture in this repository it
+   * shows already embedded in it, and every cross-reference already turned
+   * into text.
    */
   readonly html: string;
   /**
@@ -44,15 +42,10 @@ export interface RenderedDocument {
    * catalog's business.
    */
   readonly links: readonly CrossReference[];
-  /**
-   * The pictures the HTML above now names, to be uploaded with the page. Empty
-   * for a document that shows none, which is most of them.
-   */
-  readonly images: readonly PageImage[];
 }
 
 /**
- * A cross-reference the rendered page still carries as a link.
+ * A cross-reference the rendered document still carries as a link.
  *
  * Not a mistake the table can make: every cross-reference has an answer, even
  * if the answer is "nothing publishes that". It means the rewrite did not
@@ -65,7 +58,7 @@ export class UnrewrittenCrossReference extends Error {
   constructor(source: string, link: CrossReference) {
     super(
       `Aborting: "${source}" links to "${link.href}", and that link could not be turned into ` +
-        `text, so the published page would carry the path. An <a> that is never closed is the ` +
+        `text, so the published PDF would carry the path. An <a> that is never closed is the ` +
         `usual cause: close it, or write the link in markdown, and run again.`
     );
     this.name = "UnrewrittenCrossReference";
@@ -102,20 +95,19 @@ export function renderDocument(
   // does not hold, and it happens here — in the reading half of a run, before
   // the plan is even reported — so that the refusal comes before anything is
   // written to the course.
-  const withImages = rewriteImages(repoRoot, source, render(markdown));
+  const withImages = embedImages(repoRoot, source, render(markdown));
   // Keyed by `linkKey` on both sides, which is the spelling the document and
   // the rendered attribute can both be reduced to.
   const targets = new Map(
     links.map((link) => [linkKey(link.href), targetOf(link)])
   );
-  const { html, rewritten } = linksAsText(withImages.html, targets);
+  const { html, rewritten } = linksAsText(withImages, targets);
   // Asked of the rewrite rather than of the table: a link is text when the
-  // page no longer carries it, not when the table had something to say.
+  // document no longer carries it, not when the table had something to say.
   const missed = links.find((link) => !rewritten.has(linkKey(link.href)));
   if (missed !== undefined) throw new UnrewrittenCrossReference(source, missed);
   return {
     html,
-    images: withImages.images,
     contentHash: hashDocument(repoRoot, source, markdown, links, targetOf),
     links,
   };

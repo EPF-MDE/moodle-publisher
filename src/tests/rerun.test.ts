@@ -1,11 +1,12 @@
 // Re-running the publisher, which is the thing that has to become boring: a
-// changed document updates its own activity in place, everything else is
-// skipped, and a run with nothing to do says so.
+// document already in the course is skipped, and a run with nothing to do says
+// so.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { DELIVERABLE_SECTION } from "../packages/course/index.ts";
 import {
+  AWAITS_REPLACE,
   makeWorkspace,
   writeDayOneSet,
   writeGrid,
@@ -24,12 +25,12 @@ test("a second consecutive run reports zero changes", async () => {
   const second = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(second.code, 0, second.stderr);
-  assert.match(second.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(second.stdout, /0 PDFs to create, 3 to skip/);
   // Three documents and two Devoirs, none of them made twice.
   assert.equal(workspace.readCourse().items.length, 5);
 });
 
-test("a changed document is planned as an update before anything is applied", async () => {
+test("a changed document is planned as an update before anything is applied", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -51,7 +52,7 @@ test("a changed document is planned as an update before anything is applied", as
   );
 });
 
-test("editing one document updates exactly that activity, keeping its module id", async () => {
+test("editing one document updates exactly that activity, keeping its module id", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -85,7 +86,7 @@ test("editing one document updates exactly that activity, keeping its module id"
   assert.equal(untouched.length, 4);
 });
 
-test("an update refreshes the hash and keeps the first publication date", async () => {
+test("an update refreshes the hash and keeps the first publication date", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -103,7 +104,7 @@ test("an update refreshes the hash and keeps the first publication date", async 
   assert.notEqual(second["updatedAt"], first["updatedAt"]);
 });
 
-test("an interrupted run of updates leaves an accurate manifest, and re-running finishes it", async () => {
+test("an interrupted run of updates leaves an accurate manifest, and re-running finishes it", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -178,7 +179,7 @@ test("a document moved to another section in the table aborts rather than report
   assert.deepEqual(workspace.readCourse().items, before.items);
 });
 
-test("an update leaves visibility alone: revealing is the instructor's call", async () => {
+test("an update leaves visibility alone: revealing is the instructor's call", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -209,7 +210,7 @@ const RENAMED_LECTURE = DAY_ONE_ENTRIES.map((entry) =>
     : entry
 );
 
-test("retitling an entry in the table renames the activity, leaving its body alone", async () => {
+test("retitling an entry in the table renames the activity, leaving its body alone", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -251,7 +252,7 @@ test("retitling an entry in the table renames the activity, leaving its body alo
   );
 });
 
-test("a run after a rename has nothing left to do", async () => {
+test("a run after a rename has nothing left to do", AWAITS_REPLACE, async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
@@ -261,5 +262,5 @@ test("a run after a rename has nothing left to do", async () => {
   const third = await workspace.publisher(["publish", "--apply"]);
 
   assert.equal(third.code, 0, third.stderr);
-  assert.match(third.stdout, /0 to create, 0 to update, 3 to skip/);
+  assert.match(third.stdout, /0 PDFs to create, 3 to skip/);
 });

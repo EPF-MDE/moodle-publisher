@@ -5,33 +5,35 @@
 // the same command again.
 import { DELIVERABLE_SECTION } from "../course/index.ts";
 import { devoirKey, recordPublished } from "../manifest/index.ts";
-import { pageUrl } from "./lib/cross-references.ts";
-import { devoirContentHash, devoirDescription } from "./lib/devoirs.ts";
+import {
+  documentActivityUrl,
+  devoirContentHash,
+  devoirDescription,
+} from "./lib/devoirs.ts";
+import { printReady } from "./lib/print-ready.ts";
 import { sectionsToCreate } from "./plan.ts";
 
-import type {
-  CourseDriver,
-  PageImage,
-  PublishedAsset,
-} from "../course/index.ts";
+import type { CourseDriver } from "../course/index.ts";
+import type { DocumentActivity } from "./lib/devoirs.ts";
 import type { DevoirPlanItem, Plan, PlanItem } from "./plan.ts";
 
 /**
- * The course module id each document was published as, by source: everything
- * the manifest recorded, plus everything this run has created so far.
+ * The activity each document was published as, by source: everything the
+ * manifest recorded, plus everything this run has created so far.
  *
  * Only a Devoir asks, for the brief its description links to. A document's own
  * links are text and need no module id.
  */
-type ModuleIdBySource = Map<string, string>;
+type DocumentActivityBySource = Map<string, DocumentActivity>;
 
-function knownModuleIds(plan: Plan): ModuleIdBySource {
-  const moduleIds: ModuleIdBySource = new Map();
+function knownActivities(plan: Plan): DocumentActivityBySource {
+  const activities: DocumentActivityBySource = new Map();
   for (const item of plan.items) {
-    if (item.verb !== "create")
-      moduleIds.set(item.document.source, item.published.moduleId);
+    if (item.verb === "skip") {
+      activities.set(item.document.source, item.published);
+    }
   }
-  return moduleIds;
+  return activities;
 }
 
 export interface ApplyOptions {
@@ -50,7 +52,7 @@ export interface ApplyOptions {
  * publishing adds sections and never reshuffles a course somebody else is
  * arranging.
  *
- * It happens before the first page goes in, and here rather than inside each
+ * It happens before the first PDF goes in, and here rather than inside each
  * driver, so there is one rule — take the section that is there, add it when it
  * is not, abort when two of them share the name — instead of one rule per
  * transport, only one of which the tests can see.
@@ -66,118 +68,48 @@ async function ensureSections(
 }
 
 /**
- * What the manifest records about the pictures that went up with a document.
- *
- * A document showing none records nothing at all — the field goes out
- * `undefined` and the manifest drops it — rather than an empty list. Its entry
- * then stays byte-for-byte what it was, and the first run after pictures
- * existed does not rewrite every line of a file that is read in diffs.
- *
- * Written on every update, not only when there is something to write: a
- * document that has lost its last picture has to lose the record of it too, or
- * the manifest goes on naming a URL nothing points at.
- */
-function assetsOf(assets: readonly PublishedAsset[]): {
-  assets: readonly PublishedAsset[] | undefined;
-} {
-  return { assets: assets.length === 0 ? undefined : assets };
-}
-
-/**
- * Says where each picture that went up this time ended up, one line each, as
- * it happened.
- *
- * Only the ones that travelled. A document showing twenty-eight pictures and
- * changing a sentence would otherwise report twenty-eight uploads that did not
- * happen, and the output an instructor uses to tell a slow run from a fast one
- * would say the same thing either way. What the course serves every picture at
- * goes to the manifest regardless.
- */
-function reportUploads(
-  sent: readonly PageImage[],
-  assets: readonly PublishedAsset[],
-  options: ApplyOptions
-): void {
-  const paths = new Set(sent.map((image) => image.path));
-  for (const asset of assets) {
-    if (!paths.has(asset.path)) continue;
-    options.report(`uploaded ${asset.path} (served at ${asset.url})`);
-  }
-}
-
-/**
- * Creates one page, with the pictures it shows, and records it. Returns the id
+ * Creates one document's PDF in its Section and records it. Returns the id
  * Moodle gave it, which is what a Devoir's link to its brief becomes.
  *
- * The HTML and pictures are the document exactly as the plan read it.
+ * The body is the document exactly as the plan read it.
  */
-async function create(item: PlanItem, options: ApplyOptions): Promise<string> {
-  const created = await options.driver.createPage({
-    name: item.document.title,
-    section: item.document.section,
-    html: item.rendered.html,
-    images: item.rendered.images,
-    upload: item.upload,
+async function create(
+  item: Extract<PlanItem, { verb: "create" }>,
+  options: ApplyOptions
+): Promise<string> {
+  const { document } = item;
+  const created = await options.driver.createFileResource({
+    name: document.title,
+    section: document.section,
+    fileName: item.fileName,
+    html: printReady(document, item.rendered.html),
     // The one place visibility is *written* for a document that is not being
     // re-hidden. Which value it is was decided by the catalog, which owns the
     // policies; this passes it on and has no opinion, so there is no second
     // reading of the rule here to drift from the first.
     //
-    // Instructor material and the C3 brief arrive false, so neither is visible
-    // for a moment between being created and being hidden. After this line the
-    // document is the instructor's, and the only thing this program can still
-    // do to it is conceal it — and only if its policy is `enforced-hidden`.
-    visible: item.document.visibleOnCreate,
+    // Instructor material and reveal-dated documents arrive false, so neither
+    // is visible for a moment between being created and being hidden. After
+    // this line the document is the instructor's, and the only thing this
+    // program can still do to it is conceal it — and only if its policy is
+    // `enforced-hidden`.
+    visible: document.visibleOnCreate,
   });
 
   const now = new Date().toISOString();
-  recordPublished(options.manifestPath, item.document.source, {
-    kind: "page",
+  recordPublished(options.manifestPath, document.source, {
+    kind: "file-resource",
     moduleId: created.moduleId,
-    section: item.document.section,
+    section: document.section,
+    title: document.title,
     contentHash: item.rendered.contentHash,
     publishedAt: now,
     updatedAt: now,
-    ...assetsOf(created.assets),
   });
   options.report(
-    `created  ${item.document.title} (module ${created.moduleId})`
+    `created  ${document.title} as ${item.fileName} (module ${created.moduleId})`
   );
-  reportUploads(item.upload, created.assets, options);
   return created.moduleId;
-}
-
-/**
- * Rewrites one page where it stands and records the new hash.
- *
- * The manifest keeps the module id and the section it already had: the
- * activity did not move, and the first publication date is a fact about the
- * course that a later edit does not change. Recording the catalog's section
- * here instead would leave the manifest describing a place the activity is not.
- */
-async function update(
-  item: Extract<PlanItem, { verb: "update" }>,
-  options: ApplyOptions
-): Promise<void> {
-  const { published } = item;
-  const assets = await options.driver.updatePage({
-    moduleId: published.moduleId,
-    name: item.document.title,
-    html: item.rendered.html,
-    images: item.rendered.images,
-    upload: item.upload,
-  });
-
-  recordPublished(options.manifestPath, item.document.source, {
-    ...published,
-    contentHash: item.rendered.contentHash,
-    updatedAt: new Date().toISOString(),
-    ...assetsOf(assets),
-  });
-  options.report(
-    `updated  ${item.document.title} (module ${published.moduleId})`
-  );
-  reportUploads(item.upload, assets, options);
 }
 
 /**
@@ -199,9 +131,9 @@ async function hide(item: PlanItem, options: ApplyOptions): Promise<void> {
  * Publishes the Devoirs: creates the ones the course does not hold, rewrites
  * the ones whose Deliverable has been edited, and records each as it succeeds.
  *
- * Last in the run, after every page has been written, because a
+ * Last in the run, after every document has been published, because a
  * Devoir's description links to the brief and the brief's module id only
- * exists once the page has been saved. A brief that is not published at all is
+ * exists once its PDF is in the course. A brief that is not published at all is
  * refused while the plan is built, so by here every one of these lookups has
  * an answer.
  *
@@ -217,7 +149,7 @@ async function hide(item: PlanItem, options: ApplyOptions): Promise<void> {
  */
 async function publishDevoirs(
   plan: Plan,
-  moduleIds: ModuleIdBySource,
+  activities: DocumentActivityBySource,
   options: ApplyOptions
 ): Promise<void> {
   for (const devoir of plan.devoirs) {
@@ -225,13 +157,12 @@ async function publishDevoirs(
       options.report(`skip     devoir ${devoir.deliverable.title}`);
       continue;
     }
-    // The brief's own page, with no fragment: the link goes to the document,
-    // and the id for it is known because the page was published earlier in
-    // this same run.
+    // The brief's own activity: the id for it is known because the brief was
+    // published earlier in this same run, or recorded by an earlier one.
     const html = devoirDescription(
       devoir.deliverable,
       devoir.brief,
-      pageUrl(plan.baseUrl, briefModuleId(devoir, moduleIds), "")
+      documentActivityUrl(plan.baseUrl, briefActivity(devoir, activities))
     );
     if (devoir.verb === "update") {
       await rewriteDevoir(devoir, html, options);
@@ -250,19 +181,19 @@ async function publishDevoirs(
  * because the alternative to an answer is a hand-in box whose only sentence
  * points at nothing.
  */
-function briefModuleId(
+function briefActivity(
   devoir: Extract<DevoirPlanItem, { verb: "create" | "update" }>,
-  moduleIds: ModuleIdBySource
-): string {
-  const moduleId = moduleIds.get(devoir.brief.source);
-  if (moduleId === undefined) {
+  activities: DocumentActivityBySource
+): DocumentActivity {
+  const activity = activities.get(devoir.brief.source);
+  if (activity === undefined) {
     throw new Error(
       `Aborting: the Devoir for "${devoir.deliverable.id}" links to "${devoir.brief.source}", and this ` +
         `run has no module id for it. Nothing has been recorded for the Devoir. ` +
         `Run publish again — the brief is created first, and its id is what the link needs.`
     );
   }
-  return moduleId;
+  return activity;
 }
 
 /**
@@ -272,7 +203,7 @@ function briefModuleId(
  * of this, one line below — so a stack trace and a grep each name one thing.
  *
  * The one place a Devoir's visibility is written, exactly as
- * {@link create} is for a page: after this call the Devoir is the
+ * {@link create} is for a document: after this call the Devoir is the
  * instructor's, and nothing in this program writes its visibility again.
  */
 async function makeDevoir(
@@ -309,8 +240,7 @@ async function makeDevoir(
  *
  * The manifest keeps the module id and the day it was first published: the
  * activity did not move, and an edit does not change when the Devoir first
- * appeared in the course. The same reading {@link update} makes for a page,
- * and here it matters more — the module id is what every Submission handed in
+ * appeared in the course. The module id is what every Submission handed in
  * hangs off.
  */
 async function rewriteDevoir(
@@ -340,8 +270,8 @@ async function rewriteDevoir(
 }
 
 /**
- * Applies every create, update and hide in the plan, in order. Throws on the
- * first failure, having already recorded everything that succeeded before it.
+ * Applies every create and hide in the plan, in order. Throws on the first
+ * failure, having already recorded everything that succeeded before it.
  */
 export async function applyPlan(
   plan: Plan,
@@ -349,18 +279,17 @@ export async function applyPlan(
 ): Promise<void> {
   await ensureSections(plan, options);
 
-  const moduleIds = knownModuleIds(plan);
+  const activities = knownActivities(plan);
 
   for (const item of plan.items) {
     if (item.verb === "create") {
-      moduleIds.set(item.document.source, await create(item, options));
-    } else if (item.verb === "update") {
-      await update(item, options);
+      const moduleId = await create(item, options);
+      activities.set(item.document.source, { kind: "file-resource", moduleId });
     } else if (!item.hide) {
       options.report(`skip     ${item.document.title}`);
     }
     await hide(item, options);
   }
 
-  await publishDevoirs(plan, moduleIds, options);
+  await publishDevoirs(plan, activities, options);
 }
