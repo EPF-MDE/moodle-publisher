@@ -13,7 +13,7 @@ import { renderDocument } from "../documents/index.ts";
 import { devoirEntryFor, documentEntryFor } from "../manifest/index.ts";
 import { checkCrossReferences } from "./lib/cross-references.ts";
 import { DevoirBriefNotPublished, devoirContentHash } from "./lib/devoirs.ts";
-import { pdfFileName } from "./lib/print-ready.ts";
+import { pdfFileName, printedHash } from "./lib/print-ready.ts";
 
 import type {
   CourseItem,
@@ -48,6 +48,12 @@ interface PlannedDocument {
    * document is rendered once per run.
    */
   readonly rendered: RenderedDocument;
+  /**
+   * What the manifest records for the PDF: the rendered document's hash, with
+   * the print layout folded in. Compared here and written by applying, so the
+   * two cannot disagree about what "changed" means.
+   */
+  readonly contentHash: string;
   /** The name the PDF is stored under: the source's basename with `.pdf`. */
   readonly fileName: string;
   /**
@@ -230,6 +236,7 @@ export function buildPlan(input: PlanInput): Plan {
       targets.get(link.target)
     );
     const fileName = pdfFileName(document.source);
+    const contentHash = printedHash(rendered.html, rendered.contentHash);
     const published = documentEntryFor(manifest, document.source);
     // The activity the manifest points at, as the course holds it now. Absent
     // means the record outlived what it recorded: the activity was deleted in
@@ -241,7 +248,14 @@ export function buildPlan(input: PlanInput): Plan {
       assertNotAlreadyInCourse(document, snapshot);
       // Created hidden when the policy says so, so there is no moment between
       // being created and being hidden. Nothing to re-hide.
-      return { document, rendered, fileName, hide: false, verb: "create" };
+      return {
+        document,
+        rendered,
+        contentHash,
+        fileName,
+        hide: false,
+        verb: "create",
+      };
     }
     // Only asked of an activity that is standing. A document whose activity
     // was deleted so it could be published elsewhere has already been created
@@ -256,18 +270,34 @@ export function buildPlan(input: PlanInput): Plan {
     }
     const hide =
       document.visibility === "enforced-hidden" && standing.visible === true;
-    // Changed is decided by the hash of the markdown and the pictures it
-    // shows, never by the render. A changed PDF has its file replaced in the
-    // same module, so its place in the Section, Moodle's logs and Students'
-    // bookmarks survive. A page an earlier publisher made is left standing:
-    // it has no file to replace.
+    // Changed is decided by the hash of the markdown, the pictures it shows
+    // and the print layout, never by the render. A changed PDF has its file
+    // replaced in the same module, so its place in the Section, Moodle's logs
+    // and Students' bookmarks survive. A page an earlier publisher made is
+    // left standing: it has no file to replace.
     if (
       published.kind === "file-resource" &&
-      published.contentHash !== rendered.contentHash
+      published.contentHash !== contentHash
     ) {
-      return { document, rendered, fileName, hide, verb: "replace", published };
+      return {
+        document,
+        rendered,
+        contentHash,
+        fileName,
+        hide,
+        verb: "replace",
+        published,
+      };
     }
-    return { document, rendered, fileName, hide, verb: "skip", published };
+    return {
+      document,
+      rendered,
+      contentHash,
+      fileName,
+      hide,
+      verb: "skip",
+      published,
+    };
   });
 
   // After the items, so that a run refused over a link has already read every

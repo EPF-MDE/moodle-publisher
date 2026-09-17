@@ -6,9 +6,23 @@
 // it is laid out on included.
 import { basename, extname } from "node:path";
 
+import { contentHash } from "../../documents/index.ts";
 import { escape } from "./html.ts";
 
 import type { PublishedDocument } from "../../catalog/index.ts";
+
+/**
+ * How a printed page is put together, as the hash records it: the table's
+ * title stands in for the document's own leading heading. Changing that
+ * changes every PDF it applies to, so it is hashed.
+ */
+const PRINT_LAYOUT_VERSION = "table-title-only";
+
+/**
+ * The `h1` a rendered body opens with, and the space around it. An `h1` holds
+ * no other `h1`, so the first closing tag is its own.
+ */
+const LEADING_H1 = /^\s*<h1[\s>][\s\S]*?<\/h1>\s*/i;
 
 /**
  * What a Student's download is called: the source's basename with `.pdf`, so
@@ -100,10 +114,29 @@ img { max-width: 100%; height: auto; break-inside: avoid; }
 }
 
 /**
+ * What the manifest records for a PDF printed from `body`: the document's own
+ * hash, with the print layout folded in when the layout changes the page.
+ *
+ * Without it, PDFs printed before the document's leading heading was dropped
+ * would keep printing the title twice until their markdown changed. Folded in
+ * only when the body opens with an `h1`, so a document the layout does not
+ * touch keeps the hash it always had and is not reprinted for nothing.
+ */
+export function printedHash(body: string, documentHash: string): string {
+  if (!LEADING_H1.test(body)) return documentHash;
+  return contentHash([documentHash, `\0print:${PRINT_LAYOUT_VERSION}\0`]);
+}
+
+/**
  * The document the PDF is printed from: the title the course page shows, at
  * the top, then the rendered body — links already in their text form and
  * pictures already embedded, so nothing beside it needs fetching — laid out by
  * the print stylesheet, with `footer` at the foot of every page.
+ *
+ * The table's title is the one title. A body that opens with its own `h1`
+ * loses that `h1`, and only that one: it would print the title a second time,
+ * not always spelled the same. Later `h1`s, and a leading heading of any other
+ * level, are the document's own and stay.
  */
 export function printReady(
   document: PublishedDocument,
@@ -121,7 +154,7 @@ export function printReady(
     "</head>",
     "<body>",
     `<h1 class="document-title">${title}</h1>`,
-    body,
+    body.replace(LEADING_H1, ""),
     "</body>",
     "</html>",
     "",

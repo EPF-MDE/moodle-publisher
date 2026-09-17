@@ -3,6 +3,9 @@
 // as the resource's body.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { writeFileSync } from "node:fs";
+
+import { renderDocument } from "../packages/documents/index.ts";
 
 import {
   DAY_ONE_ENTRIES,
@@ -59,6 +62,17 @@ test("Instructor Material and reveal-dated documents are created hidden, the res
   assert.equal(itemNamed(workspace, "Instructor — C1 banding anchors")?.visible, false);
 });
 
+/** What follows the `<body>` tag of a printed document. */
+function afterBodyTag(body: string): string {
+  const [, rest = ""] = body.split(/<body[^>]*>/);
+  return rest.trimStart();
+}
+
+/** Every `h1` in a printed document, tag and all. */
+function headingsOne(body: string): string[] {
+  return body.match(/<h1[\s>][\s\S]*?<\/h1>/g) ?? [];
+}
+
 test("the HTML handed to the course opens with the title and holds the rendered body", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
@@ -68,13 +82,132 @@ test("the HTML handed to the course opens with the title and holds the rendered 
   const body = itemNamed(workspace, LECTURE)?.body ?? "";
   assert.match(body, /^<!doctype html>/i);
   assert.match(body, /<title>Lecture 1 — Framing and decomposing<\/title>/);
-  // The title is the first thing a reader meets on the first page.
-  const [, afterBodyTag = ""] = body.split(/<body[^>]*>/);
+  // The title is the first thing a reader meets on the first page, and the
+  // only h1 there: the document's own leading heading is dropped.
   assert.match(
-    afterBodyTag.trimStart(),
-    /^<h1[^>]*>Lecture 1 — Framing and decomposing<\/h1>/
+    afterBodyTag(body),
+    /^<h1 class="document-title">Lecture 1 — Framing and decomposing<\/h1>\s*<p>Framing is saying/
   );
+  assert.equal(headingsOne(body).length, 1);
   assert.match(body, /<li>A brief an agent can act on names the file, the seam and the check.<\/li>/);
+});
+
+// The table's title is the one title: the document's own leading heading
+// would print it a second time, and not always spelled the same.
+test("a document opening with its own heading prints the table title alone", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write(
+    "lectures/lecture-1.md",
+    "# Lecture 1: framing, and decomposing\n\nFraming comes first.\n"
+  );
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const body = itemNamed(workspace, LECTURE)?.body ?? "";
+  assert.deepEqual(headingsOne(body), [
+    '<h1 class="document-title">Lecture 1 — Framing and decomposing</h1>',
+  ]);
+  assert.doesNotMatch(body, /framing, and decomposing/);
+  assert.match(
+    afterBodyTag(body),
+    /^<h1 class="document-title">[^<]*<\/h1>\s*<p>Framing comes first\.<\/p>/
+  );
+});
+
+test("a document with no leading heading prints its body whole under the table title", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write(
+    "lectures/lecture-1.md",
+    "Framing comes first.\n\n## Why\n\n# Not a title\n"
+  );
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const body = itemNamed(workspace, LECTURE)?.body ?? "";
+  assert.match(
+    afterBodyTag(body),
+    /^<h1 class="document-title">Lecture 1 — Framing and decomposing<\/h1>\s*<p>Framing comes first\.<\/p>\s*<h2>Why<\/h2>\s*<h1>Not a title<\/h1>/
+  );
+});
+
+test("a document opening with a lower heading keeps it", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write("lectures/lecture-1.md", "## Before we start\n\nFraming.\n");
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const body = itemNamed(workspace, LECTURE)?.body ?? "";
+  assert.match(
+    afterBodyTag(body),
+    /^<h1 class="document-title">[^<]*<\/h1>\s*<h2>Before we start<\/h2>/
+  );
+});
+
+test("a later heading in a document that opens with one is kept", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write(
+    "lectures/lecture-1.md",
+    "# Lecture 1\n\nFraming.\n\n# Part two\n\nDecomposing.\n"
+  );
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const body = itemNamed(workspace, LECTURE)?.body ?? "";
+  assert.deepEqual(headingsOne(body), [
+    '<h1 class="document-title">Lecture 1 — Framing and decomposing</h1>',
+    "<h1>Part two</h1>",
+  ]);
+});
+
+// PDFs printed before the leading heading was dropped still show the title
+// twice, and their markdown has not changed: the print layout is in the hash so
+// that the next run reprints them, once.
+test("a PDF printed with the old layout is replaced once, and then left alone", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const targets = new Map(
+    DAY_ONE_ENTRIES.map((entry) => [
+      entry.source,
+      { title: entry.title, section: entry.section },
+    ])
+  );
+  // What the manifest held before the layout was hashed: the document's own.
+  const manifest = workspace.readManifest();
+  for (const [source, entry] of Object.entries(manifest.documents)) {
+    if (entry["kind"] !== "file-resource") continue;
+    entry["contentHash"] = renderDocument(workspace.root, source, (link) =>
+      targets.get(link.target)
+    ).contentHash;
+  }
+  writeFileSync(workspace.manifestPath, JSON.stringify(manifest, null, 2));
+
+  const first = await workspace.publisher(["publish", "--apply"]);
+  const second = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(first.code, 0, first.stderr);
+  assert.match(first.stdout, /0 PDFs to create, 3 to replace, 0 to skip/);
+  assert.equal(second.code, 0, second.stderr);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
+});
+
+// The layout only reprints what it changes: a document that never opened with
+// a heading prints as it always did, and keeps the hash it always had.
+test("a document with no leading heading keeps its document hash", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  workspace.write("labs/lab-1.md", "Clone the repository.\n");
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(
+    workspace.readManifest().documents["labs/lab-1.md"]?.["contentHash"],
+    renderDocument(workspace.root, "labs/lab-1.md", () => undefined).contentHash
+  );
 });
 
 test("a title is escaped as text in the printed document", async () => {

@@ -105,7 +105,7 @@ async function create(
     moduleId: created.moduleId,
     section: document.section,
     title: document.title,
-    contentHash: item.rendered.contentHash,
+    contentHash: item.contentHash,
     publishedAt: now,
     updatedAt: now,
   });
@@ -137,7 +137,7 @@ async function replace(
 
   recordPublished(options.manifestPath, document.source, {
     ...published,
-    contentHash: item.rendered.contentHash,
+    contentHash: item.contentHash,
     updatedAt: new Date().toISOString(),
   });
   options.report(

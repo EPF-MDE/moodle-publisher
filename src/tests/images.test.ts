@@ -241,6 +241,9 @@ test("a link that sizes the same diagram twice does not confuse the verdict", as
 test("a document showing no pictures still hashes to its markdown alone", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
+  // No leading heading, so the print layout has nothing to fold in either.
+  const lecture = "Framing is saying what \"done\" means.\n";
+  workspace.write("lectures/lecture-1.md", lecture);
 
   await workspace.publisher(["publish", "--apply"]);
 
@@ -252,7 +255,7 @@ test("a document showing no pictures still hashes to its markdown alone", async 
       "contentHash"
     ];
   const markdownAlone = createHash("sha256")
-    .update(LECTURE_MARKDOWN, "utf8")
+    .update(lecture, "utf8")
     .digest("hex");
   assert.equal(recorded, `sha256:${markdownAlone}`);
 });
