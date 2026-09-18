@@ -12,15 +12,15 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 **Instructor Material**: A Published Document named with an `--instructor` suffix, published as a hidden PDF into the Section its Student counterpart sits in — or, where it has none, into the Section its reader is already in — and which no Student-facing document may link to. The suffix is what says so; there is no other place that does. It may be an answer key beside a Student-facing document or the source one is written from, and the publisher treats both the same (ADR-0004).
 
-**Manifest**: The committed record of what has been published and where it landed, keyed by repository source path and kept in the course repository. It records each Published Document as the PDF it was published as: its module id, Section, title, and a hash of its markdown and the pictures it shows, never of the PDF. It is what makes re-running boring: publishing works from what it already made instead of duplicating it.
+**Manifest**: The committed record of what has been published and where it landed, keyed by repository source path and kept in the course repository. It records each Published Document as the PDF it was published as: its module id, Section, title, and a hash of its markdown and the pictures it shows, never of the PDF; for the Assessment Grid, the markdown is the assembled one. It is what makes re-running boring: publishing works from what it already made instead of duplicating it.
 
-**Section**: A named part of the Moodle course page — `Assessment`, `Deliverables`, `Lectures`, `Labs`, `Autonomy`, `Resources` — the same six in every EPF course, in that order, and not configurable. Most are named by the document whose PDF lands in them. One is not: `Deliverables` is filled from the grid's Deliverables, and a document naming it aborts the run (ADR-0005). Publishing adds Sections, all of them visible; it never reshuffles them.
+**Section**: A named part of the Moodle course page — `Assessment`, `Deliverables`, `Lectures`, `Labs`, `Autonomy`, `Resources` — the same six in every EPF course, in that order, and not configurable. Most are named by the document whose PDF lands in them. One is not: `Deliverables` is filled from the Grid Source's Deliverables, and a document naming it aborts the run (ADR-0005). Publishing adds Sections, all of them visible; it never reshuffles them.
 
 **Wipe**: Emptying the Course so it can be built again. The only destructive operation here, and it refuses outright to delete a Devoir that holds Submissions.
 
 ### Handing in
 
-**Deliverable**: Something required from a Student by a stated instant. Each is defined once, in the front matter of the grid `publisher.json` names, with the Competencies it serves, and its `id` is written down rather than computed. _Avoid_: assignment, task, homework, rendu
+**Deliverable**: Something required from a Student by a stated instant. Each is defined once, in the Grid Source's front matter, with the Competencies it serves, and its `id` is written down rather than computed. _Avoid_: assignment, task, homework, rendu
 
 **Devoir**: The Moodle activity that carries one Deliverable — Moodle's own word, and what Students see. It accepts online text only; no file is ever uploaded. _Avoid_: assignment, assign, activity (too broad)
 
@@ -32,7 +32,13 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 ### Grading
 
-**Competency**: One independently graded capability of a Course, declared per course in the `competencies:` block of the grid's front matter, one title per line, beside the Deliverables that serve it; its id — `C1`, `C2`, … — is its place in that block, and there is no default set. _Avoid_: skill (reserved for agent skills), criterion, learning outcome
+**Assessment Grid**: The document a Student reads to learn how the Course is assessed, published into the `Assessment` Section. It is never written whole: the publisher assembles it at publish time from the Grid Source and the Grid Frame. _Avoid_: rubric, grading grid, template
+
+**Grid Source**: The course-written part of the Assessment Grid, the file `publisher.json` names as `grid`. Its front matter declares the Competencies, the Deliverables, the programme, the term and the Oral; its prose holds one block per Competency, headed by the Competency's id alone, and nothing the Grid Frame says. _Avoid_: grid template, the grid (when the published document is meant)
+
+**Grid Frame**: The part of the Assessment Grid the publisher owns, identical in every EPF course: the opening line naming the course, programme and term, the Band legend and the two gaps, how the Oral verifies a provisional Band, each Freeze and the Extension sentence, how the Feedback Letter is made, each Competency's heading, and what a Resit means. It prints no title of its own. It is everything a Student reads except the bodies of the Competency blocks. Where it states a course's facts, such as each Freeze, the Oral, the programme or a Competency's title, it writes them from `publisher.json` and the Grid Source's front matter, never from prose. A course can neither drop nor reword it; it changes only when the pinned publisher does. _Avoid_: template, boilerplate
+
+**Competency**: One independently graded capability of a Course, declared per course in the `competencies:` block of the Grid Source's front matter, one title per line, beside the Deliverables that serve it; its id — `C1`, `C2`, … — is its place in that block, and there is no default set. _Avoid_: skill (reserved for agent skills), criterion, learning outcome
 
 **Band**: One of five ordered verdicts on one Competency: `Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding`; the scale is fixed, built into the publisher and the same in every course. There is no numeric score, no average and no /20. _Avoid_: grade, mark, score, note
 
@@ -40,7 +46,7 @@ This glossary ships with the package. A course repository reaches it, and the AD
 
 **Feedback Letter**: The Instructor's written account to one Student of their Bands and the reasons for them, or of what would reach the next Band. There is one per Student, kept as a secret gist: the Instructor's correspondence with that Student, not course material. It is drafted before the Oral and revised after it, and its revision history shows the verdict before and after. An agent may draft it and argue for a Band, but a Band appears in it only once the Instructor has stated it. _Avoid_: gist, report, transcript, feedback (on its own)
 
-**Banding Anchors**: Worked example answers for one Competency, written as Instructor Material: what falls short, what Solid sounds like, what Outstanding adds, and the near-misses. They let the Instructor place a Student's answer within the time the Oral allows, and they are read with the grid's Solid column when a Feedback Letter is drafted. _Avoid_: assessment examples, model answers, rubric
+**Banding Anchors**: Worked example answers for one Competency, written as Instructor Material: what falls short, what Solid sounds like, what Outstanding adds, and the near-misses. They let the Instructor place a Student's answer within the time the Oral allows, and they are read with the Grid Source's Solid row when a Feedback Letter is drafted. _Avoid_: assessment examples, model answers, rubric
 
 ## Retired terms
 
@@ -51,4 +57,4 @@ Do not reintroduce these.
 - **Phase** — a batch of material a run published up to. Every Published Document publishes on every run; a document that must not appear yet carries a reveal date and ships hidden (ADR-0007).
 - **Audit** — the command that read the live Course and compared it against the course repository. A human now reviews the Course by eye instead, against the checklist in [docs/human-review-checklist.md](./docs/human-review-checklist.md), which covers what a human did by hand in Moodle: revealed Instructor Material, a hand-edited Freeze (ADR-0012).
 - **Page**, as what a Published Document is published as — documents were Moodle pages, written through the page editor, until the publisher's `v3`. Every one is now a PDF (ADR-0013).
-- **Probe Sheet**, **Probes**, **Grade Item** and **Enrolment** — the Oral's prefilled sheet, its yes/no questions, the hidden gradebook column it was imported into, and the enrolled Student it was prepared for. The Feedback Letter replaced all four. No tool writes a Band into Moodle, and the grid's Solid column is what a Student's work is read against (ADR-0011).
+- **Probe Sheet**, **Probes**, **Grade Item** and **Enrolment** — the Oral's prefilled sheet, its yes/no questions, the hidden gradebook column it was imported into, and the enrolled Student it was prepared for. The Feedback Letter replaced all four. No tool writes a Band into Moodle, and the Grid Source's Solid row is what a Student's work is read against (ADR-0011).
