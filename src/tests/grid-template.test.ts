@@ -74,13 +74,14 @@ test("the template's front matter declares Competencies and Deliverables, and no
   assert.doesNotMatch(frontMatter, /^probes:/m);
 });
 
-test("the template holds the Band legend, the two gaps, the Oral and the Resit section", () => {
+test("the template holds the Band legend, the two gaps, the Oral, the Feedback Letter and the Resit section", () => {
   const { body } = parts(shippedTemplate());
 
   assertInOrder(body, BAND_ROWS);
   assert.match(body, /_justification_/);
   assert.match(body, /_knowing the limits_/);
   assert.match(body, /provisional Band/);
+  assert.match(body, /^## Your Feedback Letter$/m);
   assert.match(body, /^## Resit$/m);
 });
 
