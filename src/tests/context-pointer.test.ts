@@ -93,7 +93,7 @@ test("the glossary says Competencies are declared per course and the Band scale 
   const entry = (term: string): string =>
     glossary.match(new RegExp(`^\\*\\*${term}\\*\\*:.*$`, "m"))?.[0] ?? "";
   assert.match(entry("Competency"), /declared/);
-  assert.match(entry("Competency"), /grid/);
+  assert.match(entry("Competency"), /Grid Source/);
   assert.match(entry("Band"), /every course/);
 });
 
