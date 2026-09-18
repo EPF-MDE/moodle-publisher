@@ -172,6 +172,20 @@ export function devoirDateFields(
   }));
 }
 
+/**
+ * The optional dates a Devoir's form is told to switch off, by their enabling
+ * checkbox.
+ *
+ * The grading reminder is the one Moodle turns on by itself, a fortnight from
+ * today, and Moodle rejects a reminder earlier than the due date — so left
+ * alone it sends back the form of any Devoir whose Freeze is further out than
+ * that. It is not a date a Deliverable states, so it is unticked on every
+ * create and every update rather than guessed at.
+ */
+export const DEVOIR_DATES_OFF: readonly string[] = [
+  SELECTORS.assignGradingDueDateEnabled,
+];
+
 /** One submission-plugin checkbox on the form, and what it is set to. */
 export interface DevoirSubmissionField {
   /** The setting this control is, named as {@link DEVOIR_SUBMISSION} names it. */
