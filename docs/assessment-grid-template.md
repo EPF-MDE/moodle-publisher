@@ -52,6 +52,18 @@ Your work is read before your Oral, and the Instructor arrives with a provisiona
 
 **Freeze:** \<what> must be handed in by **\<time> on \<date>**. Anything handed in later is not read. An Extension is granted to one named Student, in Moodle, and you are told so by name — there is no extra time anybody gets silently.
 
+## Your Feedback Letter
+
+The Bands reach you in a **Feedback Letter**: the Instructor's written account, to you alone, of your Band on each Competency and the reasons for it.
+
+1. **Your work is read at the Freeze.** What you handed in to the Devoir is read as it stood at the Freeze, or at the end of your Extension. Anything pushed later is set aside.
+2. **An agent reads it against this grid.** For each Competency, an agent checks your work against the **Solid** row, line by line, and cites the evidence for what it finds: a file, a commit, an issue or pull request, or the output of a command it ran on your work. What it cannot reach, such as a private repository or a dead link, is reported to the Instructor and never counted against you.
+3. **The Instructor gives the Band, not the agent.** The agent argues for a Band; the Instructor checks the argument and decides. A Band appears in your letter only once the Instructor has stated it.
+4. **The letter is a secret GitHub gist,** reachable only through its link. It gives each Band, what works with the evidence behind it, and what is missing for the next Band. Sometimes it gives leads towards the next Band instead, without the answers.
+5. **It is drafted before your Oral and revised after it,** in the same gist, so its history shows the verdict before and after. You receive the link after the Oral, so that you come to defend your work, not a verdict.
+
+Using an agent in your own work is not a reproach: working with agents is part of what is assessed. What is assessed is your ability to defend what the agent produced, and only the Oral shows that.
+
 ---
 
 ## C1 — \<Competency title>
