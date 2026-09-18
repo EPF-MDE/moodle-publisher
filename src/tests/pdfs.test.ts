@@ -208,8 +208,10 @@ test("a PDF printed with the old layout is replaced once, and then left alone", 
   const first = await workspace.publisher(["publish", "--apply"]);
   const second = await workspace.publisher(["publish", "--apply"]);
 
+  // The lecture and the lab open with a heading; the grid, a Grid Source, opens
+  // with its first Competency block and printed as it always did.
   assert.equal(first.code, 0, first.stderr);
-  assert.match(first.stdout, /0 PDFs to create, 3 to replace, 0 to skip/);
+  assert.match(first.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
   assert.equal(second.code, 0, second.stderr);
   assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
 });

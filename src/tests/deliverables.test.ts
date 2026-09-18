@@ -20,6 +20,7 @@ import {
   BOTH_DELIVERABLES as BOTH,
   THREE_COMPETENCIES,
   GRID_MARKDOWN,
+  GRID_FACTS,
   GRID_TITLE,
   gridDefining,
   itemNamed,
@@ -184,7 +185,7 @@ test("a grid defining no Deliverables aborts, naming the grid", async () => {
   const workspace = makeWorkspace();
   workspace.write(
     "labs/lab-1.md",
-    `---\n${THREE_COMPETENCIES}\n---\n\n${GRID_MARKDOWN}`
+    `---\n${GRID_FACTS}\n${THREE_COMPETENCIES}\n---\n\n${GRID_MARKDOWN}`
   );
   workspace.writeCatalog({
     grid: "labs/lab-1.md",

@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   GRID_MARKDOWN,
+  GRID_FACTS,
   GRID_SOURCE,
   gridDefining,
   makeWorkspace,
@@ -89,7 +90,7 @@ test("a grid with no competencies block aborts every command that reads it, nami
   // fixture course's Competencies for every grid that does not.
   workspace.write(
     GRID_SOURCE,
-    `---\n${deliverableServing("C1, C2")}\n---\n\n${GRID_MARKDOWN}`
+    `---\n${GRID_FACTS}\n${deliverableServing("C1, C2")}\n---\n\n${GRID_MARKDOWN}`
   );
 
   for (const command of [["publish", "--apply"], ["publish"], ["check"]]) {
