@@ -197,9 +197,6 @@ Competency ${index + 1} is read in the work the Student hands in.
   ).join("\n");
 }
 
-/** The body of the fixture grid: a block for each of its three Competencies. */
-export const GRID_MARKDOWN = competencyBlocks(3);
-
 export const INTERVIEW_MARKDOWN = `# Oral interview script
 
 Ask the student to walk through the commit that introduced the seeded fixture bug.
@@ -339,6 +336,11 @@ export const THREE_COMPETENCIES = `competencies:
   - Extending and constraining an agent
   - Recovering from failure`;
 
+/** The body of the fixture grid: a block for each of its Competencies. */
+export const GRID_MARKDOWN = competencyBlocks(
+  declaredCompetencies(THREE_COMPETENCIES)
+);
+
 /** The two Deliverables of this course, as the real grid's front matter defines them. */
 export const BOTH_DELIVERABLES = `deliverables:
   - id: c1-1
@@ -390,12 +392,12 @@ export function writeGrid(
   frontMatter: string = GRID_FRONT_MATTER,
   markdown?: string
 ): void {
-  const competencies = /^competencies:/m.test(frontMatter)
+  const withCompetencies = /^competencies:/m.test(frontMatter)
     ? frontMatter
     : `${THREE_COMPETENCIES}\n${frontMatter}`;
-  const declared = /^programme:/m.test(competencies)
-    ? competencies
-    : `${GRID_FACTS}\n${competencies}`;
+  const declared = /^programme:/m.test(withCompetencies)
+    ? withCompetencies
+    : `${GRID_FACTS}\n${withCompetencies}`;
   const body = markdown ?? competencyBlocks(declaredCompetencies(declared));
   workspace.write(GRID_SOURCE, `---\n${declared}\n---\n\n${body}`);
 }
