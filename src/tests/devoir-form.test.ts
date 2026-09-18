@@ -12,6 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DEVOIR_DATES_OFF,
   DEVOIR_SUBMISSION_FIELDS,
   devoirDateFields,
   moodleDateFields,
@@ -144,4 +145,23 @@ test("a Devoir's form is told what to collect and what to refuse", () => {
     new Set(DEVOIR_SUBMISSION_FIELDS.map((field) => field.selector)).size,
     DEVOIR_SUBMISSION_FIELDS.length
   );
+});
+
+test("the grading reminder is switched off, so no default date contradicts the Freeze", () => {
+  // Moodle ticks "Remind me to grade by" on a new Devoir and dates it a
+  // fortnight from today, and refuses to save a reminder earlier than the due
+  // date. A Freeze more than a fortnight out was therefore a form Moodle sent
+  // back with an error, and the run timed out waiting for the course page
+  // (complex-web-services, a Freeze on 4 January 2027 against a reminder on
+  // 2 October 2026). Written off on every create and every update, so no
+  // Freeze, near or far, can land before it.
+  assert.deepEqual(DEVOIR_DATES_OFF, ["#id_gradingduedate_enabled"]);
+  // Not also one of the dates set from the Freeze: a control both ticked and
+  // unticked is whichever the driver happened to reach last.
+  const set = devoirDateFields(freeze("2027-01-04T09:00:00+01:00")).map(
+    (date) => date.enabledSelector
+  );
+  for (const off of DEVOIR_DATES_OFF) {
+    assert.ok(!set.includes(off), `${off} is both set and switched off`);
+  }
 });

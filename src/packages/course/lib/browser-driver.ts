@@ -35,6 +35,7 @@ import {
   readsAsHoldingSubmissions,
 } from "../activities.ts";
 import {
+  DEVOIR_DATES_OFF,
   DEVOIR_SUBMISSION_FIELDS,
   FREEZE_ZONE,
   devoirDateFields,
@@ -984,6 +985,45 @@ export async function openBrowserCourse(
     return control;
   }
 
+  /**
+   * Clicks "save and return to course" and waits for the course page, or for
+   * Moodle to send the form back.
+   *
+   * A form Moodle rejects re-renders at `modedit.php` with an error under the
+   * field it objects to, and never reaches the course page. Waiting for the
+   * course URL alone turned that into a thirty-second timeout that said
+   * nothing; the errors on the form say which field and why, so they are what
+   * the run aborts with.
+   */
+  async function saveAndReturnToCourse(what: string): Promise<void> {
+    await page.locator(SELECTORS.activitySubmitAndReturn).click();
+    const errors = page
+      .locator(SELECTORS.formFieldError)
+      .filter({ visible: true });
+    const outcome = await Promise.race([
+      page
+        .waitForURL(/\/course\/view\.php/, { waitUntil: "domcontentloaded" })
+        .then(() => "saved" as const),
+      errors
+        .first()
+        .waitFor({ state: "visible" })
+        .then(() => "sent back" as const),
+    ]);
+    if (outcome === "saved") {
+      return;
+    }
+    const reasons = await errors.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const field = node.id.replace(/^id_error_/, "");
+        return `${field}: ${node.textContent?.trim() ?? ""}`;
+      })
+    );
+    throw new Error(
+      `Aborting: ${what} — Moodle sent the form back instead of saving it ` +
+        `(${reasons.join("; ")}). Nothing was saved.`
+    );
+  }
+
   /** Chooses an option on a select that a collapsed fieldset may be hiding. */
   async function selectPossiblyCollapsed(
     selector: string,
@@ -1141,6 +1181,14 @@ export async function openBrowserCourse(
     for (const date of devoirDateFields(devoir.freeze)) {
       await setOptionalDate(date, what);
     }
+    for (const selector of DEVOIR_DATES_OFF) {
+      const enabled = await writableField(
+        selector,
+        what,
+        "a date Moodle set by default cannot be switched off"
+      );
+      await enabled.uncheck();
+    }
     // Both answers are typed, rather than "hidden" typed and "shown" left to
     // the form's default: creating is the one moment this program decides
     // whether students can see a Devoir, and it says which it decided either
@@ -1153,10 +1201,7 @@ export async function openBrowserCourse(
       );
     }
 
-    await page.locator(SELECTORS.activitySubmitAndReturn).click();
-    await page.waitForURL(/\/course\/view\.php/, {
-      waitUntil: "domcontentloaded",
-    });
+    await saveAndReturnToCourse(what);
     assertNotOnLoginHost(page, watch);
     await assertInConfiguredCourse(page, options);
   }
@@ -1399,10 +1444,7 @@ export async function openBrowserCourse(
       );
     }
 
-    await page.locator(SELECTORS.activitySubmitAndReturn).click();
-    await page.waitForURL(/\/course\/view\.php/, {
-      waitUntil: "domcontentloaded",
-    });
+    await saveAndReturnToCourse(what);
     assertNotOnLoginHost(page, watch);
     await assertInConfiguredCourse(page, options);
     return readItems(page);

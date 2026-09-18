@@ -41,6 +41,12 @@ export const SELECTORS = {
    * new activity instead and leaves us off the course page, where the module
    * id is read from. */
   activitySubmitAndReturn: "#id_submitbutton2",
+  /**
+   * A settings form's error under one of its fields: core's `invalid-feedback`,
+   * shown only when Moodle has sent the form back. Read to say *why* a save
+   * did not reach the course page, instead of timing out waiting for it.
+   */
+  formFieldError: ".form-control-feedback.invalid-feedback",
   /** Availability, set only when creating. There is no update path for it. */
   activityVisible: "#id_visible",
   // --- the Devoir form (mod_assign), at /course/modedit.php?add=assign -----
@@ -86,6 +92,12 @@ export const SELECTORS = {
    */
   assignDueDateEnabled: "#id_duedate_enabled",
   assignCutOffDateEnabled: "#id_cutoffdate_enabled",
+  /**
+   * "Remind me to grade by", which Moodle ticks on a new Devoir and dates a
+   * fortnight from today. It refuses to save one earlier than the due date,
+   * so it is switched off rather than left to contradict a later Freeze.
+   */
+  assignGradingDueDateEnabled: "#id_gradingduedate_enabled",
   // --- the file resource form (mod_resource), at /course/modedit.php?add=resource
   //
   // Recorded with codegen against course 14707 (issue #28). Name, visibility
