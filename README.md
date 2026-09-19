@@ -29,6 +29,8 @@ npx moodle-publisher install-browser  # once per machine: the Chromium the publi
 npx moodle-publisher install-skills   # once per course repository: links the publisher's agent skills
 
 npx moodle-publisher check  # checks the course repository; no Moodle, no browser, writes nothing
+npx moodle-publisher render assessment-grid.md
+                        # prints one document as it would be uploaded; no Moodle, no session
 
 npm run plan            # reports what would happen; applies nothing
 npm run apply           # publishes
@@ -44,6 +46,8 @@ npm run wipe -- --course <id> --apply   # empties the course
 ```
 
 `check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a Grid Source that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a Grid Source that still has the retired `probes:` block, a Grid Source missing its programme, term or Oral or whose Competency blocks are wrong ([below](#the-assessment-grid)) — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+
+`render <source>` prints one Published Document as the PDF a publish would upload, so it can be read before it is published: the Assessment Grid assembled from the Grid Frame and the Grid Source ([below](#the-assessment-grid)), or any other document. `<source>` is a path the `published` table lists, as the table writes it; any other path is refused, naming it. The repository is read exactly as `check` reads it, with the same refusals, so a repository `check` refuses renders nothing. The PDF is written beside the run captures, as `runs/<run>/<name>.pdf`, or to the path given with `--out <path>`, and the command prints where it went. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, prints in a headless Chromium ([installed once](#the-browser)) that opens no Moodle page, and writes nothing to the manifest or the course. Its footer is dated today.
 
 `check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
@@ -270,7 +274,7 @@ deliverables:
 ---
 ```
 
-The front matter is never printed. The Grid Frame prints no title of its own: the PDF opens with the title the `published` table gives the grid, as every Published Document's does. A cross-reference or a picture in a Competency block is published as in any other document.
+The front matter is never printed. To read the grid as Students will, before publishing, run `npx moodle-publisher render <grid>`. The Grid Frame prints no title of its own: the PDF opens with the title the `published` table gives the grid, as every Published Document's does. A cross-reference or a picture in a Competency block is published as in any other document.
 
 **A course can neither drop nor reword the Grid Frame; it changes when the pinned publisher does.** The Manifest's hash for the grid is taken over the assembled markdown, so moving the pin to a tag with a new Grid Frame makes the next publish `replace` the Assessment Grid in its module, keeping its module id, Section place and visibility, and leaves every other document at `skip`. A tag whose Grid Frame is unchanged changes nothing. Retitling a Competency or moving a `due` replaces the Assessment Grid the same way.
 

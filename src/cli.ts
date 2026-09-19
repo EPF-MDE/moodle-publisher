@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// The command line. Five commands:
+// The command line. Six commands:
 //
 //   install-browser     install the Chromium the browser driver launches, once per machine
 //   install-skills      link the publisher's agent skills into .claude/skills, once
 //   check               check the course repository without Moodle; writes nothing
+//   render <source>     print one Published Document as it would be uploaded, without Moodle
 //   publish [--apply]   report the plan; apply only when explicitly asked
 //   wipe --course <id>  empty the course back to one section; --apply to do it
 //
 // This is the seam the tests drive: they run these commands against the fake
 // driver with the repository root pointed at a temporary directory of fixture
 // documents.
-import { join } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import { documentsToPublish, loadCatalog } from "./packages/catalog/index.ts";
 import { loadCompetencies } from "./packages/catalog/competencies.ts";
@@ -19,6 +21,7 @@ import { loadGridFacts } from "./packages/catalog/grid-facts.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
+import { printPdf } from "./packages/course/print.ts";
 import { installSkills, SkillLinkRefused } from "./packages/skills/index.ts";
 import { readManifest } from "./packages/manifest/index.ts";
 import {
@@ -34,9 +37,11 @@ import {
   formatWipePlan,
 } from "./packages/publishing/wipe.ts";
 import { checkRepository, formatCheck } from "./packages/publishing/check.ts";
+import { renderForPrint } from "./packages/publishing/render.ts";
 import {
   MissingConfiguration,
   readConfig,
+  readRenderConfig,
   repositoryRoot,
 } from "./config.ts";
 
@@ -53,6 +58,10 @@ const USAGE = `Usage:
   publisher check                          Check this course repository without Moodle: publisher.json, the grid, every
                                            document rendered, every link and picture resolved. Needs no site, no course
                                            id and no session, opens no browser and writes nothing.
+  publisher render <source> [--out <path>] Print one document the published table lists, the assessment grid assembled, to
+                                           the PDF a publish would upload: beside the run captures, or at --out <path>.
+                                           Reads the repository as check does. Needs no site, no course id and no
+                                           session, and writes nothing to the manifest or the course.
   publisher publish [--apply]              Report the plan for every document publisher.json names. Applies nothing unless --apply is given.
   publisher wipe --course <id> [--apply]   Empty the course back to its top section. Deletes nothing unless --apply is given.
 `;
@@ -109,6 +118,74 @@ async function withDriver(
 function check(): number {
   process.stdout.write(`${formatCheck(checkRepository(repositoryRoot()))}\n`);
   return 0;
+}
+
+/**
+ * Prints one Published Document as a run would upload it, and writes that file
+ * and nothing else.
+ *
+ * Only what printing needs is read from the configuration — no site, no course
+ * id, no session — so a preview is made on any machine. The PDF goes where the
+ * Instructor said, or beside the run captures. The fake driver prints no PDF:
+ * it writes the print-ready HTML the PDF would be printed from, which is what
+ * the tests read, as they read it off the fake course after a publish.
+ *
+ * `CI` is not refused here, as the browser driver refuses it: printing opens
+ * no Moodle page and touches no course, attended or not.
+ */
+async function render(source: string, out: string | undefined): Promise<number> {
+  const config = readRenderConfig();
+  const printed = renderForPrint(
+    config.repoRoot,
+    source,
+    config.now ?? new Date()
+  );
+  const fake = config.driver === "fake";
+  const fileName = fake
+    ? printed.fileName.replace(/\.pdf$/, ".html")
+    : printed.fileName;
+  const path =
+    out === undefined
+      ? join(config.runsRoot, runStamp(), fileName)
+      : resolve(out);
+  const contents = fake ? printed.html : await printPdf(printed.html);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, contents);
+  process.stdout.write(
+    `Rendered ${printed.title} to ${path}\n` +
+      (fake ? "The fake driver prints no PDF: this is the HTML it is printed from.\n" : "") +
+      "\nNothing was read from Moodle, and nothing was written to the manifest or the course.\n"
+  );
+  return 0;
+}
+
+/**
+ * The source `render` was given and where to write it, or `undefined` when the
+ * arguments are anything but one source and an optional `--out <path>`.
+ */
+function renderArguments(
+  argv: readonly string[]
+): { source: string; out: string | undefined } | undefined {
+  const sources: string[] = [];
+  let out: string | undefined;
+  for (let at = 0; at < argv.length; at += 1) {
+    const argument = argv[at] as string;
+    if (argument === "--out") {
+      const value = argv[at + 1];
+      if (out !== undefined || value === undefined || value.startsWith("--"))
+        return undefined;
+      out = value;
+      at += 1;
+    } else if (argument.startsWith("--")) {
+      return undefined;
+    } else {
+      sources.push(argument);
+    }
+  }
+  const [source] = sources;
+  return sources.length === 1 && source !== undefined
+    ? { source, out }
+    : undefined;
 }
 
 /**
@@ -360,6 +437,17 @@ async function main(argv: readonly string[]): Promise<number> {
         return 2;
       }
       return check();
+    case "render": {
+      const parsed = renderArguments(rest);
+      if (parsed === undefined) {
+        process.stderr.write(
+          `Aborting: render takes one source and, optionally, --out <path>. ` +
+            `It was given: ${rest.length === 0 ? "nothing" : rest.join(" ")}.\n\n${USAGE}`
+        );
+        return 2;
+      }
+      return render(parsed.source, parsed.out);
+    }
     case "wipe":
       return wipe(rest);
     default:

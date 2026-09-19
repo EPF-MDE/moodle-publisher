@@ -21,11 +21,22 @@ import { assertSkillLinks } from "../skills/index.ts";
 import { assertContextPointer } from "./lib/context-map.ts";
 import { buildPlan } from "./plan.ts";
 
+import type { Catalog } from "../catalog/index.ts";
+import type { Competency } from "../catalog/competencies.ts";
+import type { Plan } from "./plan.ts";
+
 /** What a check read, for the one line that says it passed. */
 export interface CheckReport {
   readonly documents: number;
   readonly deliverables: number;
   readonly competencies: number;
+}
+
+/** What a check read: the catalog, the Competencies and the plan built from them. */
+export interface CheckedRepository {
+  readonly catalog: Catalog;
+  readonly competencies: readonly Competency[];
+  readonly plan: Plan;
 }
 
 /**
@@ -43,6 +54,20 @@ export interface CheckReport {
  * moved, instructor material already there — which no repository can answer.
  */
 export function checkRepository(repoRoot: string): CheckReport {
+  const { competencies, plan } = readCheckedRepository(repoRoot);
+  return {
+    documents: plan.items.length,
+    deliverables: plan.devoirs.length,
+    competencies: competencies.length,
+  };
+}
+
+/**
+ * The repository at `repoRoot` read as {@link checkRepository} reads it, with
+ * the same refusals, and what it read kept: what `render` prints from, so a
+ * preview is refused wherever a check is.
+ */
+export function readCheckedRepository(repoRoot: string): CheckedRepository {
   const catalog = loadCatalog(repoRoot);
   const competencies = loadCompetencies(repoRoot, catalog);
   const deliverables = loadDeliverables(repoRoot, catalog, competencies);
@@ -67,11 +92,7 @@ export function checkRepository(repoRoot: string): CheckReport {
   loadFeedbackLetter(catalog);
   assertContextPointer(repoRoot);
   assertSkillLinks(repoRoot);
-  return {
-    documents: plan.items.length,
-    deliverables: plan.devoirs.length,
-    competencies: competencies.length,
-  };
+  return { catalog, competencies, plan };
 }
 
 /** `1 document` / `2 documents`, so the verdict reads as a sentence. */
