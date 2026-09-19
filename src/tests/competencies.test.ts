@@ -12,7 +12,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  GRID_MARKDOWN,
+  competencyBlocks,
+  GRID_FACTS,
   GRID_SOURCE,
   gridDefining,
   makeWorkspace,
@@ -86,10 +87,11 @@ ${deliverableServing("C1, C2")}`
 test("a grid with no competencies block aborts every command that reads it, naming the block", async () => {
   const workspace = makeWorkspace();
   // Written out by hand rather than through the harness, which declares the
-  // fixture course's Competencies for every grid that does not.
+  // fixture course's Competencies for every grid that does not. Declaring none,
+  // it has no Competency block either.
   workspace.write(
     GRID_SOURCE,
-    `---\n${deliverableServing("C1, C2")}\n---\n\n${GRID_MARKDOWN}`
+    `---\n${GRID_FACTS}\n${deliverableServing("C1, C2")}\n---\n\n${competencyBlocks(0)}`
   );
 
   for (const command of [["publish", "--apply"], ["publish"], ["check"]]) {

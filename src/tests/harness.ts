@@ -173,15 +173,29 @@ export interface Workspace {
   ): Promise<CommandResult>;
 }
 
-export const GRID_MARKDOWN = `# Assessment Grid
+/**
+ * The body of a Grid Source declaring `count` Competencies: one block per
+ * Competency, headed by its id alone, each holding a Band table with the five
+ * Bands as rows, in order. Nothing else: the rest of what a Student reads is
+ * the Grid Frame's (ADR-0014).
+ */
+export function competencyBlocks(count: number): string {
+  return Array.from(
+    { length: count },
+    (_, index) => `## C${index + 1}
 
-Three competencies, each graded independently on a five band scale with no average.
+Competency ${index + 1} is read in the work the Student hands in.
 
-| Band | What it means |
-| ---- | ------------- |
-| Basic | The competency is demonstrated mechanically. |
-| Solid | The junior engineer I would be OK to hire. |
-`;
+| Band | What it looks like |
+| --- | --- |
+| **Resit** | The work was not done. |
+| **Needs Work** | The work exists, and the competency is not demonstrated. |
+| **Basic** | The competency is demonstrated mechanically. |
+| **Solid** | The junior engineer I would be OK to hire. |
+| **Outstanding** | All of Solid, plus knowing where it stops holding. |
+`
+  ).join("\n");
+}
 
 export const INTERVIEW_MARKDOWN = `# Oral interview script
 
@@ -322,6 +336,11 @@ export const THREE_COMPETENCIES = `competencies:
   - Extending and constraining an agent
   - Recovering from failure`;
 
+/** The body of the fixture grid: a block for each of its Competencies. */
+export const GRID_MARKDOWN = competencyBlocks(
+  declaredCompetencies(THREE_COMPETENCIES)
+);
+
 /** The two Deliverables of this course, as the real grid's front matter defines them. */
 export const BOTH_DELIVERABLES = `deliverables:
   - id: c1-1
@@ -334,6 +353,16 @@ export const BOTH_DELIVERABLES = `deliverables:
     due: 2026-09-11T09:30:00+02:00
     visible: false`;
 
+/**
+ * What a Grid Source's front matter states about the course besides its
+ * Competencies and Deliverables: the programme, the term and the Oral.
+ */
+export const GRID_FACTS = `programme: Ingénieur 4A
+term: Autumn 2026
+oral:
+  length: 20 minutes
+  when: 14 and 15 September 2026`;
+
 /** The front matter of the fixture grid: both Deliverables. */
 export const GRID_FRONT_MATTER = BOTH_DELIVERABLES;
 
@@ -341,8 +370,8 @@ export const GRID_FRONT_MATTER = BOTH_DELIVERABLES;
 export const GRID_TITLE = "Assessment Grid — how you are graded";
 
 /**
- * Rewrites the grid with `frontMatter` above `markdown`, leaving the catalog
- * alone.
+ * Rewrites the grid, a Grid Source with `frontMatter` above `markdown`,
+ * leaving the catalog alone.
  *
  * What editing a Deliverable is: the definitions live in the front matter of a
  * document that is already published, so a test that changes a title or a
@@ -352,18 +381,31 @@ export const GRID_TITLE = "Assessment Grid — how you are graded";
  *
  * The course's {@link THREE_COMPETENCIES} are declared above whatever
  * `frontMatter` defines, unless it declares a `competencies:` block of its own:
- * every grid needs one, and most tests are about something else. A test about a
+ * every grid needs one, and most tests are about something else. So are the
+ * {@link GRID_FACTS}, unless it states a `programme:` of its own. A test about a
  * grid declaring none writes the file itself.
+ *
+ * `markdown` defaults to one block per Competency the front matter declares.
  */
 export function writeGrid(
   workspace: Workspace,
   frontMatter: string = GRID_FRONT_MATTER,
-  markdown: string = GRID_MARKDOWN
+  markdown?: string
 ): void {
-  const declared = /^competencies:/m.test(frontMatter)
+  const withCompetencies = /^competencies:/m.test(frontMatter)
     ? frontMatter
     : `${THREE_COMPETENCIES}\n${frontMatter}`;
-  workspace.write(GRID_SOURCE, `---\n${declared}\n---\n\n${markdown}`);
+  const declared = /^programme:/m.test(withCompetencies)
+    ? withCompetencies
+    : `${GRID_FACTS}\n${withCompetencies}`;
+  const body = markdown ?? competencyBlocks(declaredCompetencies(declared));
+  workspace.write(GRID_SOURCE, `---\n${declared}\n---\n\n${body}`);
+}
+
+/** How many titles the `competencies:` block of `frontMatter` lists. */
+function declaredCompetencies(frontMatter: string): number {
+  const block = frontMatter.split(/^competencies:\n/m)[1] ?? "";
+  return block.match(/^(?:  - .*\n?)*/)?.[0].match(/^  - /gm)?.length ?? 0;
 }
 
 /**

@@ -113,7 +113,7 @@ test("an interrupted run of replaces leaves an accurate manifest, and re-running
   writeGrid(
     workspace,
     GRID_FRONT_MATTER,
-    `${GRID_MARKDOWN}\n| Strong | Rare. |\n`
+    `${GRID_MARKDOWN}\nStrong work here is rare.\n`
   );
   workspace.write("lectures/lecture-1.md", `${LECTURE_MARKDOWN}\n- More.\n`);
   workspace.write("labs/lab-1.md", `${LAB_MARKDOWN}\n- More.\n`);
