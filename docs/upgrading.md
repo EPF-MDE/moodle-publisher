@@ -12,7 +12,7 @@ So the grid a course copied from an earlier publisher states all of that a secon
 2. **Add the course's facts to the front matter**, beside `competencies:` and `deliverables:`, each as the old grid's prose states it and printed as written:
    - `programme` and `term`, from the opening line (`**EPF · Ingénieur 4A · Autumn 2026**` gives `Ingénieur 4A` and `Autumn 2026`);
    - `oral:` with `length` and `when`, from the account of the Oral (`The Oral — 20 minutes, individual, on 14 and 15 December 2026` gives `20 minutes` and `14 and 15 December 2026`). The Grid Frame prints them as "The Oral — individual, `<length>`, `<when>` —".
-3. **Keep each Competency block, re-headed by its id alone.** `## C1 — Framing and decomposing work` becomes `## C1`: the Grid Frame writes the title from `competencies:`. Keep everything under the heading down to the next `## `: the fiche quote, the Subject, the expected evidence, the Band table with its five rows and the Oral question.
+3. **Keep each Competency block, re-headed by its id alone.** `## C1 — Framing and decomposing work` becomes `## C1`: the Grid Frame writes the title from `competencies:`. Keep everything under the heading down to the next `## `: the fiche quote, the Subject, the expected evidence, the Band table with its five rows and the Oral question. Drop a `---` rule that ends a block: the Grid Frame prints its own rules between the blocks.
 4. **Delete everything else**: the `# ` title, the opening line, _How this course is assessed_, _How the Bands are given_ with its Freeze lines, _Your Feedback Letter_, _Resit_, and the `---` rules between them. The Grid Frame says all of it.
 5. **Run `npx moodle-publisher check`** and fix what it names until it passes.
 
@@ -22,7 +22,7 @@ Three things are the Instructor's to decide, so ask rather than pick:
 - A Competency title the old heading writes differently from `competencies:`. The `competencies:` title is the one printed.
 - Anything in the deleted sections that is the course's own rather than the shared text: a remark about this course's Oral, say. The Grid Frame cannot be reworded, so it belongs in a Competency block, in another Published Document, or nowhere.
 
-**The first publish afterwards replaces the Assessment Grid, and nothing else.** `npx moodle-publisher publish` plans `replace` on the grid, keeping its module id, Section place and visibility, so Student bookmarks and Moodle's logs survive, and `skip` on every other Published Document. Read the plan before `--apply`. Every later publish replaces the grid only when its assembly changes: an edit to a block, a retitled Competency, a moved `due`, or a new Grid Frame brought by a later tag.
+**The first publish afterwards replaces the Assessment Grid, and nothing else.** `npx moodle-publisher publish` plans `replace` on the Assessment Grid, keeping its module id, Section place and visibility, so Student bookmarks and Moodle's logs survive, and `skip` on every other Published Document. Read the plan before `--apply`. Every later publish replaces the Assessment Grid only when its assembly changes: an edit to a block, a retitled Competency, a moved `due`, or a new Grid Frame brought by a later tag.
 
 ### A worked example
 

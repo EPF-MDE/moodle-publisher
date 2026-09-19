@@ -272,7 +272,7 @@ deliverables:
 
 The front matter is never printed. The Grid Frame prints no title of its own: the PDF opens with the title the `published` table gives the grid, as every Published Document's does. A cross-reference or a picture in a Competency block is published as in any other document.
 
-**A course can neither drop nor reword the Grid Frame; it changes when the pinned publisher does.** The Manifest's hash for the grid is taken over the assembled markdown, so moving the pin to a tag with a new Grid Frame makes the next publish `replace` the Assessment Grid in its module, keeping its module id, Section place and visibility, and leaves every other document at `skip`. A tag whose Grid Frame is unchanged changes nothing. Retitling a Competency or moving a `due` replaces the grid the same way.
+**A course can neither drop nor reword the Grid Frame; it changes when the pinned publisher does.** The Manifest's hash for the grid is taken over the assembled markdown, so moving the pin to a tag with a new Grid Frame makes the next publish `replace` the Assessment Grid in its module, keeping its module id, Section place and visibility, and leaves every other document at `skip`. A tag whose Grid Frame is unchanged changes nothing. Retitling a Competency or moving a `due` replaces the Assessment Grid the same way.
 
 **A Grid Source in the wrong shape is refused**, by every command that reads the catalog, `check` included, before any browser opens and with the same message from `check` as from `publish`:
 
@@ -329,7 +329,7 @@ deliverables:
 
 Which document defines the Deliverables is the catalog's `grid`: one Grid Source, from whose front matter the Competencies are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
 
-The Assessment Grid states **one Freeze line per Deliverable**, in `due` order, naming the Deliverable by its `title` and giving its time and date in `Europe/Paris` — `20:00 on Thursday 10 September 2026` — followed by the Extension sentence. Moving a `due` moves both the Devoir and that line, and replaces the grid on the next publish.
+The Assessment Grid states **one Freeze line per Deliverable**, in `due` order, naming the Deliverable by its `title` and giving its time and date in `Europe/Paris` — `20:00 on Thursday 10 September 2026` — followed by the Extension sentence. Moving a `due` moves both the Devoir and that line, and replaces the Assessment Grid on the next publish.
 
 `publish` also reports every Deliverable and states each **Freeze in full** — the weekday, the date, the time, the zone and the instant — so a wrong date is caught by reading the plan rather than by a student at a deadline. The section is stated once, in the heading over them, rather than repeated down a column: it is the same constant for every Devoir, and what is worth checking against the timetable on that page is the Freeze.
 

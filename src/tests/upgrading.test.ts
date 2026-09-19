@@ -60,24 +60,23 @@ test("the note for the assembled Assessment Grid says what to move, keep and del
   const notes = shippedNotes();
 
   for (const said of [
-    /Grid Source/,
-    /Grid Frame/,
-    /programme/,
-    /term/,
-    /oral:/,
-    /## C1/,
-    /check/,
-    /replace/,
-    /module id/,
+    /\*\*Add the course's facts to the front matter\*\*/,
+    /`programme` and `term`/,
+    /`oral:` with `length` and `when`/,
+    /`## C1 — [^`]+` becomes `## C1`/,
+    /\*\*Delete everything else\*\*/,
+    /\*\*Run `npx moodle-publisher check`\*\*/,
+    /plans `replace` on the Assessment Grid, keeping its module id/,
   ]) {
     assert.match(notes, said);
   }
 });
 
-test("the full grid the note starts from is refused by check", async () => {
+test("the full grid the note starts from is refused by check, for the Grid Frame text the note deletes", async () => {
   const result = await checkWithGrid(example("before"));
 
   assert.equal(result.code, 1, result.stdout);
+  assert.match(result.stderr, /has a "## How this course is assessed" heading/);
 });
 
 test("the Grid Source the note ends on passes check", async () => {
