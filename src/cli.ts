@@ -154,11 +154,8 @@ async function publish(apply: boolean): Promise<number> {
   // refusal it can raise is about the repository: a duplicated id, a Freeze
   // that is not in Paris, a competency the grid does not declare. None of them
   // is worth finding out with a browser sitting in the course.
-  const deliverables = loadDeliverables(
-    config.repoRoot,
-    catalog,
-    loadCompetencies(config.repoRoot, catalog)
-  );
+  const competencies = loadCompetencies(config.repoRoot, catalog);
+  const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
   const manifest = readManifest(config.manifestPath);
   // Pages an earlier publisher recorded are cleaned up by hand, and that is
   // worth hearing before a browser is sitting in the course.
@@ -171,6 +168,7 @@ async function publish(apply: boolean): Promise<number> {
       repoRoot: config.repoRoot,
       baseUrl: config.baseUrl,
       deliverables,
+      grid: { source: catalog.grid, competencies },
       documents: documentsToPublish(catalog),
       manifest,
       snapshot: await driver.snapshot(),

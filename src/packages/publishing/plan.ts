@@ -9,7 +9,7 @@
 // re-hidden — and no record on disk can answer that.
 import { formatFreeze } from "../catalog/deliverables.ts";
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../course/index.ts";
-import { renderDocument } from "../documents/index.ts";
+import { renderAssessmentGrid, renderDocument } from "../documents/index.ts";
 import {
   devoirEntryFor,
   documentEntryFor,
@@ -25,8 +25,13 @@ import type {
   SectionName,
 } from "../course/index.ts";
 import type { PublishedDocument } from "../catalog/index.ts";
+import type { Competency } from "../catalog/competencies.ts";
 import type { Deliverable } from "../catalog/deliverables.ts";
-import type { RenderedDocument } from "../documents/index.ts";
+import type {
+  CrossReference,
+  LinkTarget,
+  RenderedDocument,
+} from "../documents/index.ts";
 import type {
   DevoirEntry,
   FileResourceEntry,
@@ -251,6 +256,15 @@ export interface PlanInput extends CrossReferenceInput {
    * course is opened, and the plan is built with the course already open.
    */
   readonly deliverables: readonly Deliverable[];
+  /**
+   * The catalog's grid: its source, and the Competencies it declares, already
+   * read and checked for the reason the Deliverables are. The document the
+   * table lists under this source is published assembled (ADR-0014).
+   */
+  readonly grid: {
+    readonly source: string;
+    readonly competencies: readonly Competency[];
+  };
 }
 
 /**
@@ -275,10 +289,20 @@ export function buildPlan(input: PlanInput): Plan {
       { title: document.title, section: document.section },
     ])
   );
+  const targetOf = (link: CrossReference): LinkTarget | undefined =>
+    targets.get(link.target);
   const items = documents.map((document): PlanItem => {
-    const rendered = renderDocument(repoRoot, document.source, (link) =>
-      targets.get(link.target)
-    );
+    // The Assessment Grid a Student reads is the Grid Frame with the course's
+    // Competency blocks written into it; every other document is its markdown.
+    const rendered =
+      document.source === input.grid.source
+        ? renderAssessmentGrid(
+            repoRoot,
+            document.source,
+            input.grid.competencies,
+            targetOf
+          )
+        : renderDocument(repoRoot, document.source, targetOf);
     const fileName = pdfFileName(document.source);
     const printedHash = hashPrinted(rendered.html, rendered.contentHash);
     const published = documentEntryFor(manifest, document.source);
