@@ -53,7 +53,7 @@ test("applying creates the grid in the Assessment section, tables and all", asyn
   assert.equal(item?.visible, true);
   assert.match(item?.body ?? "", /<table/);
   assert.match(item?.body ?? "", /<th>Band<\/th>/);
-  assert.match(item?.body ?? "", /<td>Solid<\/td>/);
+  assert.match(item?.body ?? "", /<td><strong>Solid<\/strong><\/td>/);
 });
 
 test("the manifest records source, module, section and hash", async () => {
