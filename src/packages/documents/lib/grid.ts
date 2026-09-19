@@ -12,6 +12,8 @@ import { readFileSync } from "node:fs";
 
 import { marked } from "./gfm.ts";
 
+import type { Token, Tokens } from "marked";
+
 /** One Competency as the grid declares it: its id, and its title. */
 export interface GridCompetency {
   readonly id: string;
@@ -67,25 +69,73 @@ function gridFrame(): string {
 }
 
 /**
- * The Grid Source's body as its Competency blocks, by the id each is headed
- * with, each block without its heading.
+ * One `##` part of a Grid Source's body, as written: its heading, and the
+ * first column of each table under it.
+ */
+export interface GridBlock {
+  /** The heading's text, without its `## `. */
+  readonly heading: string;
+  /**
+   * For each table in the block, in order, the first cell of each of its rows,
+   * as plain text. Which table is the Band table, and what its cells have to
+   * say, is the catalog's business.
+   */
+  readonly tables: readonly (readonly string[])[];
+}
+
+/** A `##` part of a body: its heading, and the tokens under it. */
+interface HeadedPart {
+  readonly heading: string;
+  readonly tokens: readonly Token[];
+}
+
+/**
+ * The `##` parts of `body`, in the order it writes them, a repeated heading as
+ * many times as it is written. What comes before the first is in none.
  *
  * Split on the `##` headings a markdown reader finds, so a heading written in
  * a fenced block is the code it is and does not open a block.
  */
-function blocksOf(body: string): ReadonlyMap<string, string> {
-  const blocks = new Map<string, string>();
-  let current: string | undefined;
+function partsOf(body: string): readonly HeadedPart[] {
+  const parts: { heading: string; tokens: Token[] }[] = [];
   for (const token of marked.lexer(body)) {
     if (token.type === "heading" && token.depth === 2) {
-      const id: string = token.text.trim();
-      blocks.set(id, blocks.get(id) ?? "");
-      current = id;
+      parts.push({ heading: token.text.trim(), tokens: [] });
       continue;
     }
-    if (current !== undefined) {
-      blocks.set(current, `${blocks.get(current) ?? ""}${token.raw}`);
-    }
+    parts.at(-1)?.tokens.push(token);
+  }
+  return parts;
+}
+
+/** A table cell as a reader reads it: without its emphasis. */
+function plainText(cell: Tokens.TableCell): string {
+  return cell.text.replace(/[*_`]/g, "").trim();
+}
+
+/** The `##` parts of a Grid Source's `body`, as written, in order. */
+export function gridBlocks(body: string): readonly GridBlock[] {
+  return partsOf(body).map(({ heading, tokens }) => ({
+    heading,
+    tables: tokens
+      .filter((token): token is Tokens.Table => token.type === "table")
+      .map((table) =>
+        table.rows.map(([first]) =>
+          first === undefined ? "" : plainText(first)
+        )
+      ),
+  }));
+}
+
+/**
+ * The Grid Source's body as its Competency blocks, by the id each is headed
+ * with, each block without its heading.
+ */
+function blocksOf(body: string): ReadonlyMap<string, string> {
+  const blocks = new Map<string, string>();
+  for (const { heading, tokens } of partsOf(body)) {
+    const written = tokens.map((token) => token.raw).join("");
+    blocks.set(heading, `${blocks.get(heading) ?? ""}${written}`);
   }
   return blocks;
 }
