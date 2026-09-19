@@ -106,6 +106,31 @@ test("the feedback-letter skill writes in English, from publisher.json, and neve
   assert.doesNotMatch(text, /Salut|Prénom|Bon travail|Pourquoi pas/);
 });
 
+// The Assessment Grid is assembled (ADR-0014): the titles and the Solid rows
+// a skill reads are in the Grid Source, and a Band table has rows, not columns.
+test("both skills read the Grid Source's Solid row, in the glossary's words", () => {
+  for (const name of SKILLS) {
+    const text = skillText(name);
+
+    assert.match(text, /Grid Source/, `${name} names the Grid Source`);
+    assert.match(text, /Solid row/, `${name} reads the Solid row`);
+    assert.doesNotMatch(text, /Solid column/, `${name} reads a Solid column`);
+    assert.doesNotMatch(text, /\brubric\b/i, `${name} says rubric`);
+  }
+});
+
+test("the feedback-letter skill takes each Competency's title from competencies: and its Solid row from its block", () => {
+  const skill = readFileSync(
+    join(installedPublisher(), "skills", "feedback-letter", "SKILL.md"),
+    "utf8"
+  );
+  const [, readTheCourse = ""] = /## 0\. Read the course\n([\s\S]*?)\n## 1\./.exec(skill) ?? [];
+
+  assert.match(readTheCourse, /`competencies:`/);
+  assert.match(readTheCourse, /`## C1`/);
+  assert.match(readTheCourse, /Grid Frame/);
+});
+
 test("install-skills links each skill into .claude/skills, relatively, with no Moodle configured", async () => {
   const workspace = installedRepository();
 

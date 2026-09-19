@@ -14,7 +14,7 @@ Drawn from the first letters Instructors sent. This template is the reference: f
 
 ## Voice
 
-A letter from `<signature>` to one Student, in English: direct, warm, second person. Short bullets, each opening with a **bold claim** followed by its evidence. Name each Competency with its id and its title from the grid the first time it appears, for example `C2 (<title as the grid writes it>)`. Write the Band names exactly as the grid does.
+A letter from `<signature>` to one Student, in English: direct, warm, second person. Short bullets, each opening with a **bold claim** followed by its evidence. Name each Competency with its id and its title the first time it appears, for example `C2 (<title>)`, with the title as `competencies:` writes it. Write the Band names exactly as the Assessment Grid does.
 
 ## Verdict letter
 
@@ -29,7 +29,7 @@ Hi <First-name>,
 - <bold claim.> <evidence: file, issue, commit, passage, command output>
 
 **Why not <next Band>:**
-- <the missing criterion, in the grid's own terms>
+- <the missing criterion, in the Solid row's own terms>
 
 <Optional: a catch-up section, only when the Instructor offers one, with the Oral questions and one or two follow-ups taken from the weakest points.>
 <Optional: a risk to fix, such as a committed secret, and how to fix it.>
@@ -48,8 +48,8 @@ When a document in the Student's work reads as largely agent-written, say so in 
 For a Student close to the next Band. It gives leads, never the answers.
 
 - A title: `# Step 1 — <from where to where>`.
-- A context block: the evidence read, the grid reference (the Competencies and the target column), the Instructor's Oral remarks quoted as given, and what the re-read found, with the date it was read.
-- A section per Competency: the grid's target criterion quoted, what the work shows today, then **numbered leads** phrased as questions or tests the Student runs themselves, and the Oral question that will check it.
+- A context block: the evidence read, the Assessment Grid reference (the Competencies and the target Band), the Instructor's Oral remarks quoted as given, and what the re-read found, with the date it was read.
+- A section per Competency: the target Band's criterion quoted from the Grid Source, what the work shows today, then **numbered leads** phrased as questions or tests the Student runs themselves, and the Oral question that will check it.
 - `## Reminders`: justification counts for more than artifacts.
 - `## Skills worth trying in your next session`: the agent skills that fit the leads, when the course teaches any.
 - `## Stuck or unclear?`: asking for clarification is welcome and never counts against you.

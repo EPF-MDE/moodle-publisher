@@ -15,6 +15,8 @@ npm install --save-dev github:epf-mde/moodle-publisher#<tag>
 npx moodle-publisher publish      # the binary takes the commands below
 ```
 
+**Moving the pin is the upgrade.** A release that asks a course repository to change something says what, once, in [docs/upgrading.md](./docs/upgrading.md), which ships in the package: an agent upgrading a course reads it at `node_modules/@epf-mde/moodle-publisher/docs/upgrading.md`.
+
 **Run it from the course repository's root.** The directory the command is started in is the repository root: the documents are read from there, and the course's run state is kept there — `moodle-manifest.json` (committed), `.env` and `runs/` (both git-ignored in the course repository: the configuration and a session's captures). Nothing is kept beside the publisher, which once installed is inside `node_modules`, where the next install would delete it. `PUBLISHER_REPO_ROOT` names another root, and `PUBLISHER_MANIFEST`, `PUBLISHER_ENV_FILE` and `MOODLE_RUN_DIR` each still move one file. The Moodle session stays outside git, in `~/.config/epf-moodle-publisher/`.
 
 The browser the publisher drives is installed once per machine, by the publisher, as [below](#the-browser). Working on the publisher itself, `npm run <command>` from this repository runs the same commands from source; this checkout holds no course, so point `PUBLISHER_REPO_ROOT` at one, and the run state follows it there.
@@ -41,7 +43,7 @@ npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
 ```
 
-`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a grid that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a grid that still has the retired `probes:` block, a grid whose Competency blocks are wrong ([below](#the-assessment-grid)) — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a Grid Source that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a Grid Source that still has the retired `probes:` block, a Grid Source missing its programme, term or Oral or whose Competency blocks are wrong ([below](#the-assessment-grid)) — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
 
 `check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
@@ -79,7 +81,7 @@ That ordering is the point of reading the file at all. Publishing to the wrong c
 
 The package ships two skills for the agent an Instructor grades with, under `skills/`:
 
-- **`feedback-letter`** reads one Student's work against the grid's Solid column and the Competency's Banding Anchors, argues for a Band per Competency, and drafts the Instructor's Feedback Letter as a secret gist, always in English. It is drafted before the Oral and revised in the same gist after it. A Band goes into the letter only once the Instructor has stated it (ADR-0011).
+- **`feedback-letter`** reads one Student's work against each Competency's Solid row in the Grid Source and its Banding Anchors, argues for a Band per Competency, and drafts the Instructor's Feedback Letter as a secret gist, always in English. It is drafted before the Oral and revised in the same gist after it. A Band goes into the letter only once the Instructor has stated it (ADR-0011).
 - **`banding-anchors`** writes the Banding Anchors for one Competency: worked example oral answers, as Instructor Material, named `<id>-banding-anchors--instructor.md` by default.
 
 Both are invoked only by the user (`/feedback-letter`, `/banding-anchors`). A course repository links them rather than copying them, so moving the pinned tag updates them, as it updates the glossary:
@@ -174,7 +176,7 @@ Moving a document from one section to another is not something the publisher doe
 
 ## Sections
 
-The course page's sections are a fixed list, in the order students read them: **Assessment, Deliverables, Lectures, Labs, Autonomy, Resources**. `Deliverables` is second so that the grid stating the Freeze and the section enforcing it are adjacent; it is also the one section no document may name, because what is in it is decided by the Deliverables the grid defines. A student looking for how they are graded should not have to scroll past every lab brief to find it, so the order is the publisher's, not the order the table happens to be written in.
+The course page's sections are a fixed list, in the order students read them: **Assessment, Deliverables, Lectures, Labs, Autonomy, Resources**. `Deliverables` is second so that the Assessment Grid stating each Freeze and the section enforcing it are adjacent; it is also the one section no document may name, because what is in it is decided by the Deliverables the Grid Source defines. A student looking for how they are graded should not have to scroll past every lab brief to find it, so the order is the publisher's, not the order the table happens to be written in.
 
 **Every section the publisher creates is created visible**, including the ones holding an answer key. Hiding is a property of the activity, not of the room it stands in — see [Instructor material](#instructor-material).
 
@@ -220,13 +222,13 @@ There is no undo, and deleted Moodle activities do not come back. What there is 
 }
 ```
 
-`course` is the Course's name as its Students know it, printed at the foot of every page of every PDF. `grid` is the repository-relative path of the assessment grid, which the Competencies and the Deliverables are read from. An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
+`course` is the Course's name as its Students know it, printed at the foot of every page of every PDF. `grid` is the repository-relative path of the Grid Source, which the Competencies, the Deliverables and the course's other facts are read from, and which is published as the Assessment Grid ([below](#the-assessment-grid)). An entry in `published` names a document's source, the human title it is published under and its section, and may name a `revealedOn` date, which makes it ship hidden for the instructor to open by hand. What every course shares stays in the publisher: the six Sections, the reserved `Deliverables` Section, `Europe/Paris` and the naming of instructor material.
 
-**A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `course`, `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the grid's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
+**A mistaken edit stops the run before the browser opens.** A missing or unparseable `publisher.json`, one whose `course`, `grid` or `published` is missing or of the wrong kind, an entry without its `source`, `title` or `section`, an entry naming a Section the course page does not have (the message lists the Sections), an entry naming `Deliverables` — whose contents are the Grid Source's Deliverables and nothing else — a `revealedOn` that is not `YYYY-MM-DD`, and two documents published under the same title once the `Instructor — ` prefix is derived: each aborts, naming the entry.
 
 Membership is by explicit entry; nothing is discovered by walking a directory. **A document the table does not name is not published** — in the 2026 course, the C3 fixture generator under `script/`, notes nobody meant anyone to read — and a link to one of them is published as its link text alone. There is no list of things that must never be published, because there is nothing a document has to be taken off.
 
-**Who a document is for is not in the table.** A source path ending in `--instructor.md` is material for examiners, and nothing else says so: the file sits beside the student document it pairs with — in the 2026 course, `labs/lab-3-oral--instructor.md` next to `labs/lab-3-oral.md`, `c1-assessment-examples--instructor.md` next to `assessment-grid.md` — and everything that follows from the suffix is derived at publish time. See [Instructor material](#instructor-material).
+**Who a document is for is not in the table.** A source path ending in `--instructor.md` is material for examiners, and nothing else says so: the file sits beside the student document it pairs with — in the 2026 course, `labs/lab-3-oral--instructor.md` next to `labs/lab-3-oral.md`, `c1-banding-anchors--instructor.md` next to `assessment-grid.md` — and everything that follows from the suffix is derived at publish time. See [Instructor material](#instructor-material).
 
 **That question is also what decides a link.** See [Cross-references](#cross-references): the rules are written against who each end of a link is for, not against publishability and not against hiddenness.
 
@@ -244,15 +246,48 @@ The table is checked against the repository it sits in, so a source path that is
 
 ## The assessment grid
 
-The Assessment Grid a Student reads is assembled at publish time ([ADR-0014](./docs/adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md)). The **Grid Frame**, [docs/grid-frame.md](./docs/grid-frame.md), ships in the package and holds what is the same in every EPF course: the legend of the five Bands, the two gaps (_justification_ and _knowing the limits_), how the Oral checks a provisional Band and the Freeze, how the Feedback Letter is made, and the Resit section. The course's grid, the file its `publisher.json` names as `grid`, holds the front matter and one block per Competency, headed by its id alone (`## C1`). The publisher prints the Frame with those blocks written into it, in `C1…Cn` order, each headed `C1 — <title>` from `competencies:`. The front matter is never printed, and the PDF's title is the one the `published` table gives the grid.
+The Assessment Grid a Student reads is never written whole: the publisher assembles it at publish time from two parts ([ADR-0014](./docs/adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md)).
 
-The grid's body is split at its `## ` headings, and every command that reads the catalog, `check` included, refuses it, naming the Competency or the heading, when a declared Competency has no block, when a block is headed by a Competency `competencies:` does not declare (a renumbering mistake, most often), when one Competency has two blocks, when a block's Band table does not have the five Bands as rows in order (`Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding`), and above all when it has no Solid row, or when any other `## ` heading is written. The Solid row is what a Student's work is read against when their Feedback Letter is drafted ([ADR-0011](./docs/adr/0011-the-feedback-letter-replaces-the-probe-sheet.md)), so no Competency is published without one.
+- The **Grid Source** is the course's part: the file `publisher.json` names as `grid`. Its front matter declares the [Competencies](#competencies), the [Deliverables](#deliverables), the programme, the term and the Oral. Its prose holds one block per Competency, headed by the Competency's id alone (`## C1`), and nothing else.
+- The **Grid Frame** is the publisher's part, the same in every EPF course: the opening line naming the course, programme and term, the legend of the five Bands and the two gaps (_justification_ and _knowing the limits_), how the Oral verifies a provisional Band, each Freeze and the Extension sentence, how the Feedback Letter is made, each Competency's heading, and the Resit section. It is [docs/grid-frame.md](./docs/grid-frame.md), shipped in the package, so an Instructor reads what their Students read around their blocks at `node_modules/@epf-mde/moodle-publisher/docs/grid-frame.md`.
 
-The package ships a starting point for the course's part: [docs/assessment-grid-template.md](./docs/assessment-grid-template.md). A course copies it, by hand, to the path its `publisher.json` names as `grid`, and fills in the placeholders written `<like this>`: front matter with a `competencies:` and a `deliverables:` block that `check` accepts as written, and one block per Competency: the fiche quote, the Subject, the expected evidence, the five Band rows and the Oral question.
+The publisher prints the Grid Frame with the course's facts and blocks written into it. The opening line is `<course> · EPF <programme> · <term>`, from `publisher.json`'s `course` and the front matter's `programme` and `term`. The Oral is stated as "individual, `<length>`, `<when>`", from `oral:`'s `length` and `when`. Each Freeze is written from its Deliverable's `due` (see [Deliverables](#deliverables)). The blocks come in `C1…Cn` order, whatever order the Grid Source writes them in, each headed `C1 — <title>` with its title from `competencies:`. Each field is printed as written, and none is defaulted:
+
+```yaml
+---
+programme: Ingénieur 4A
+term: Autumn 2026
+oral:
+  length: 20 minutes
+  when: 14 and 15 September 2026
+competencies:
+  - Framing and decomposing work
+deliverables:
+  - id: c1-1
+    title: Your repository — C1
+    competencies: [C1]
+    due: 2026-09-10T20:00:00+02:00
+---
+```
+
+The front matter is never printed. The Grid Frame prints no title of its own: the PDF opens with the title the `published` table gives the grid, as every Published Document's does. A cross-reference or a picture in a Competency block is published as in any other document.
+
+**A course can neither drop nor reword the Grid Frame; it changes when the pinned publisher does.** The Manifest's hash for the grid is taken over the assembled markdown, so moving the pin to a tag with a new Grid Frame makes the next publish `replace` the Assessment Grid in its module, keeping its module id, Section place and visibility, and leaves every other document at `skip`. A tag whose Grid Frame is unchanged changes nothing. Retitling a Competency or moving a `due` replaces the grid the same way.
+
+**A Grid Source in the wrong shape is refused**, by every command that reads the catalog, `check` included, before any browser opens and with the same message from `check` as from `publish`:
+
+- a `programme`, a `term`, an `oral:` block, or its `length` or `when`, missing or not text, naming the field;
+- a declared Competency with no block, naming it;
+- a block headed by a Competency `competencies:` does not declare (a renumbering mistake, most often), naming it;
+- two blocks for one Competency;
+- a block whose Band table does not have the five Bands as rows in order (`Resit`, `Needs Work`, `Basic`, `Solid`, `Outstanding`), and above all one with no Solid row. The Solid row is what a Student's work is read against when their Feedback Letter is drafted ([ADR-0011](./docs/adr/0011-the-feedback-letter-replaces-the-probe-sheet.md)), so no Competency is published without one;
+- any other `## ` heading, naming it. A heading inside a fenced code block is code, not a heading.
+
+The package ships a starting point: the **Grid Source starter**, [docs/grid-source-starter.md](./docs/grid-source-starter.md). A course copies it once, by hand, to the path its `publisher.json` names as `grid`, and fills in the placeholders written `<like this>`: the front matter, with one Competency and one Deliverable, and one Competency block with the fiche quote, the Subject, the expected evidence, the five Band rows and the Oral question. As copied, placeholders and all, it passes `check`. A course that copied the full grid an earlier publisher shipped converts it once, following [docs/upgrading.md](./docs/upgrading.md).
 
 ## Competencies
 
-A course is graded on the **Competencies** its grid declares, in a `competencies:` block of the grid's front matter, beside the Deliverables that serve them:
+A course is graded on the **Competencies** its Grid Source declares, in a `competencies:` block of its front matter, beside the Deliverables that serve them:
 
 ```yaml
 ---
@@ -263,15 +298,15 @@ competencies:
 ---
 ```
 
-Each is written as its title alone. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` refer to that id. Reordering the list renumbers them, so add a Competency at the end. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course.
+Each is written as its title alone, and the Grid Frame prints it as its block's heading. Its **id is generated from its place**: `C1` for the first, `C2` for the second, and so on. A Deliverable's `competencies` refer to that id. Reordering the list renumbers them, so add a Competency at the end. A course graded on two or five is published exactly as one graded on three. The five Bands and their scale are not declared anywhere: they are EPF's, the same for every course.
 
-Every mistake here **aborts before the course is opened**: a grid with no `competencies:` block, a Competency with no title, and a Deliverable serving a Competency the grid does not declare.
+Every mistake here **aborts before the course is opened**: a Grid Source with no `competencies:` block, a Competency with no title, and a Deliverable serving a Competency the grid does not declare.
 
-A grid that still has a `probes:` block **aborts every command**, naming [ADR-0011](./docs/adr/0011-the-feedback-letter-replaces-the-probe-sheet.md): the publisher no longer prepares the Oral, so delete the block. Its Solid column is what a Student's work is read against. The Grade Items and the `Bands` scale an earlier version made in a live course stay where they are; whether to delete those gradebook columns is the Instructor's call, made by hand. The manifest still reads the entries it recorded for them, and the next run that writes it leaves them out.
+A Grid Source that still has a `probes:` block **aborts every command**, naming [ADR-0011](./docs/adr/0011-the-feedback-letter-replaces-the-probe-sheet.md): the publisher no longer prepares the Oral, so delete the block. Each Competency's Solid row is what a Student's work is read against. The Grade Items and the `Bands` scale an earlier version made in a live course stay where they are; whether to delete those gradebook columns is the Instructor's call, made by hand. The manifest still reads the entries it recorded for them, and the next run that writes it leaves them out.
 
 ## Deliverables
 
-A **Deliverable** is something required from a student by a stated instant. Each is defined **once**, in the front matter of the assessment grid — the one document that already states every Freeze in its prose, one screen below. That is the point of putting them there: the instant students read and the instant Moodle will enforce are checked against each other by eye, in one diff. The 2026 course has exactly two, in `assessment-grid.md`, and in it the alternative shipped `14:00` to the live course while two other files said `20:00`.
+A **Deliverable** is something required from a student by a stated instant. Each is defined **once**, in the front matter of the Grid Source, and its `due` is its **Freeze**. That one `due` is written twice by the publisher and never by hand: into the Devoir, whose due date and cut-off date enforce it, and into the Assessment Grid, whose Grid Frame states it. So the Freeze a Student reads is the instant the Devoir closes, and the two cannot drift. They did when both were written by hand: the 2026 course shipped `14:00` to the live course while two of its files said `20:00`.
 
 ```yaml
 ---
@@ -292,9 +327,11 @@ deliverables:
 
 `id` is **authored, never computed from position**: it is what the published Devoir will be recorded under, so inserting a Deliverable above another one must not rename it. `visible` defaults to true and is the only defaulted field. There is no `link_kind`: the 2026 course's two Deliverables are both repository URLs, and nothing distinguishes them by link kind.
 
-Which document defines the Deliverables is the catalog's `grid`: one assessment grid, from whose front matter the Competencies are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
+Which document defines the Deliverables is the catalog's `grid`: one Grid Source, from whose front matter the Competencies are read too. The same doctrine as the table above, for the same reason: nothing is discovered by noticing that a document happens to carry front matter, and a grid that defines no Deliverables aborts, naming it, rather than quietly publishing no Devoir.
 
-`publish` reports every Deliverable and states each **Freeze in full** — the weekday, the date, the time, the zone and the instant — so a wrong date is caught by reading the plan rather than by a student at a deadline. The section is stated once, in the heading over them, rather than repeated down a column: it is the same constant for every Devoir, and what is worth checking against the timetable on that page is the Freeze.
+The Assessment Grid states **one Freeze line per Deliverable**, in `due` order, naming the Deliverable by its `title` and giving its time and date in `Europe/Paris` — `20:00 on Thursday 10 September 2026` — followed by the Extension sentence. Moving a `due` moves both the Devoir and that line, and replaces the grid on the next publish.
+
+`publish` also reports every Deliverable and states each **Freeze in full** — the weekday, the date, the time, the zone and the instant — so a wrong date is caught by reading the plan rather than by a student at a deadline. The section is stated once, in the heading over them, rather than repeated down a column: it is the same constant for every Devoir, and what is worth checking against the timetable on that page is the Freeze.
 
 Everything that can go wrong here **aborts, before the course is opened, naming the Deliverable**:
 
@@ -303,11 +340,11 @@ Everything that can go wrong here **aborts, before the course is opened, naming 
 | Two Deliverables share an `id` | Refuses, naming both by title and by the document they are written in |
 | `due` has no offset, or an offset that is not `Europe/Paris`'s on that day | Refuses, saying which offset Paris was on |
 | `due` cannot be read, or is absent | Refuses. Nothing is defaulted |
-| A competency the grid does not declare | Refuses, naming it and the Deliverable |
+| A competency the Grid Source does not declare | Refuses, naming it and the Deliverable |
 | `visible` written as anything but `true` or `false` | Refuses. `visible: fasle` must not read as "visible" — in the 2026 course, `c3-1` is the one that ships hidden |
 | A published document naming the `Deliverables` section | Refuses, naming the document. Nothing but a Deliverable lands there |
 
-The front matter is read by the publisher and never published: the PDF a student reads starts with its title and then the first heading.
+The front matter is read by the publisher and never published: the Assessment Grid a student reads starts with its title and then the Grid Frame's opening line.
 
 ## Cross-references
 

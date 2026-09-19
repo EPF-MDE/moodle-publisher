@@ -8,7 +8,7 @@ It replaces the retired `audit` command ([ADR-0012](./adr/0012-the-course-is-rev
 
 - The course in Moodle, signed in as the Instructor, with editing on so hidden and stealthed activities are marked.
 - The course repository's `publisher.json`: every Published Document, its title, its Section and any `revealedOn` date.
-- The front matter of the assessment grid `publisher.json` names: every Deliverable, its title, its `due` (the Freeze) and whether it is `visible`.
+- The front matter of the Grid Source, the file `publisher.json` names as `grid`: every Deliverable, its title, its `due` (the Freeze) and whether it is `visible`.
 - `moodle-manifest.json`: the module id each document and each Devoir was published as. A module id is in the activity's URL (`…?id=<module id>`), and it stays the same when somebody renames or moves the activity.
 
 ## The checklist
@@ -31,7 +31,7 @@ Instructor Material is every entry whose source ends in `--instructor.md`. Its t
 
 Every Devoir is in the `Deliverables` Section. Open each one's **Settings** to check it, and leave without saving.
 
-- [ ] **Every Devoir is present, closes at the Freeze its front matter states, and collects online text and no file.** For each Deliverable in the grid's front matter:
+- [ ] **Every Devoir is present, closes at the Freeze its front matter states, and collects online text and no file.** For each Deliverable in the Grid Source's front matter:
   - the course has its Devoir, under the Deliverable's title, at the module id the manifest records;
   - **Due date** and **Cut-off date** are both enabled, and both are the Deliverable's `due`, to the minute, read in `Europe/Paris`;
   - under **Submission types**, **Online text** is ticked and **File submissions** is not.
