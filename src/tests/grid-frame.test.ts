@@ -6,11 +6,15 @@
 // other document is printed as it always was.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  GRID_FRONT_MATTER,
+  GRID_MARKDOWN,
+  GRID_SOURCE,
   GRID_TITLE,
+  THREE_COMPETENCIES,
   competencyBlocks,
   installedPublisher,
   itemNamed,
@@ -218,4 +222,78 @@ test("the Grid Frame uses the glossary's words, not the ones it rules out", () =
 
   assert.doesNotMatch(frame, ruledOut);
   assert.doesNotMatch(frame, /\/\s*20\b/);
+});
+
+// The grid's Manifest hash is taken over the assembled grid, so what the Grid
+// Frame brings reaches the course, and nothing else is disturbed.
+
+test("publishing the grid again leaves it alone", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+
+  const second = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(second.code, 0, second.stderr);
+  assert.match(second.stdout, /skip .*Assessment Grid/);
+  assert.match(second.stdout, /0 PDFs to create, 0 to replace, 3 to skip/);
+});
+
+// What a new Grid Frame looks like to a course that published under the old
+// one: a Manifest entry for the grid hashed over another assembly. The
+// installed package is shared by every test, so its Frame is not rewritten.
+test("a grid hashed over another assembly is replaced in its module, and nothing else is", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const before = workspace.readCourse().items;
+  const manifest = workspace.readManifest();
+  const grid = manifest.documents[GRID_SOURCE];
+  assert.ok(grid);
+  grid["contentHash"] = `sha256:${"0".repeat(64)}`;
+  writeFileSync(workspace.manifestPath, JSON.stringify(manifest, null, 2));
+
+  const plan = await workspace.publisher(["publish"]);
+  const applied = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(plan.code, 0, plan.stderr);
+  assert.match(plan.stdout, /replace .*Assessment Grid/);
+  assert.match(plan.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
+  assert.equal(applied.code, 0, applied.stderr);
+  const after = workspace.readCourse().items;
+  assert.deepEqual(
+    after.map((item) => item.moduleId),
+    before.map((item) => item.moduleId)
+  );
+  const others = (items: typeof after) =>
+    items.filter((item) => item.name !== GRID_TITLE);
+  assert.deepEqual(others(after), others(before));
+  const gridIn = (items: typeof after) =>
+    items.find((item) => item.name === GRID_TITLE);
+  const replaced = gridIn(after);
+  const was = gridIn(before);
+  assert.equal(replaced?.section, was?.section);
+  assert.equal(replaced?.visible, was?.visible);
+  assert.equal(
+    workspace.readManifest().documents[GRID_SOURCE]?.["moduleId"],
+    grid["moduleId"]
+  );
+});
+
+test("retitling a Competency in competencies: replaces the grid and nothing else", async () => {
+  const workspace = makeWorkspace();
+  writeDayOneSet(workspace);
+  await workspace.publisher(["publish", "--apply"]);
+  const retitled = THREE_COMPETENCIES.replace(
+    "Recovering from failure",
+    "Recovering from a failed run"
+  );
+  writeGrid(workspace, `${retitled}\n${GRID_FRONT_MATTER}`, GRID_MARKDOWN);
+
+  const second = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(second.code, 0, second.stderr);
+  assert.match(second.stdout, /replace .*Assessment Grid/);
+  assert.match(second.stdout, /0 PDFs to create, 1 to replace, 2 to skip/);
+  assert.match(printedGrid(workspace), /<h2>C3 — Recovering from a failed run<\/h2>/);
 });

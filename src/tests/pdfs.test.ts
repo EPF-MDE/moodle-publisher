@@ -9,6 +9,7 @@ import { renderDocument } from "../packages/documents/index.ts";
 
 import {
   DAY_ONE_ENTRIES,
+  GRID_SOURCE,
   INSTRUCTOR_ENTRIES,
   LECTURE_MARKDOWN,
   itemNamed,
@@ -196,9 +197,12 @@ test("a PDF printed with the old layout is replaced once, and then left alone", 
     ])
   );
   // What the manifest held before the layout was hashed: the document's own.
+  // The Assessment Grid opens with the Grid Frame's course line, so it printed
+  // as it always did; and its hash is taken over its assembly, which
+  // `renderDocument` does not make, so its entry is left as it was recorded.
   const manifest = workspace.readManifest();
   for (const [source, entry] of Object.entries(manifest.documents)) {
-    if (entry["kind"] !== "file-resource") continue;
+    if (entry["kind"] !== "file-resource" || source === GRID_SOURCE) continue;
     entry["contentHash"] = renderDocument(workspace.root, source, (link) =>
       targets.get(link.target)
     ).contentHash;
@@ -208,9 +212,7 @@ test("a PDF printed with the old layout is replaced once, and then left alone", 
   const first = await workspace.publisher(["publish", "--apply"]);
   const second = await workspace.publisher(["publish", "--apply"]);
 
-  // The lecture and the lab open with a heading. The grid, a Grid Source, opens
-  // with its first Competency block, so it prints as it always did and keeps
-  // its hash.
+  // The lecture and the lab open with a heading, so they are reprinted once.
   assert.equal(first.code, 0, first.stderr);
   assert.match(first.stdout, /0 PDFs to create, 2 to replace, 1 to skip/);
   assert.equal(second.code, 0, second.stderr);
