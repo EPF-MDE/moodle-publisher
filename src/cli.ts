@@ -129,6 +129,9 @@ function check(): number {
  * Instructor said, or beside the run captures. The fake driver prints no PDF:
  * it writes the print-ready HTML the PDF would be printed from, which is what
  * the tests read, as they read it off the fake course after a publish.
+ *
+ * `CI` is not refused here, as the browser driver refuses it: printing opens
+ * no Moodle page and touches no course, attended or not.
  */
 async function render(source: string, out: string | undefined): Promise<number> {
   const config = readRenderConfig();
