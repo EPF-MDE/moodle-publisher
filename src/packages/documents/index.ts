@@ -182,11 +182,12 @@ export function frontMatter(
 }
 
 /**
- * The `##` sections of the Grid Source at `source`, in the order it writes
- * them, each with its heading and the first column of its first table.
+ * The `##` parts of the Grid Source at `source`, in the order it writes them,
+ * each with its heading and the first column of each of its tables.
  *
  * The reading only, as for {@link frontMatter}: which headings a Grid Source
- * may write, and what its Band table has to say, are the catalog's to decide.
+ * may write, which table is a block's Band table and what it has to say, are
+ * the catalog's to decide.
  */
 export function readGridBlocks(
   repoRoot: string,

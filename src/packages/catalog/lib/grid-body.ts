@@ -83,12 +83,13 @@ export class StrayGridHeading extends Error {
   }
 }
 
-/** A Competency block with no table in it. */
+/** A Competency block with no table whose rows name a Band. */
 export class MissingBandTable extends Error {
   constructor(grid: string, id: string) {
     super(
       `Refusing to start: the block for ${id} in "${grid}" has no Band table. Each block ` +
-        `holds a table with the five Bands as rows, in order: ${BANDS.join(", ")}.`
+        `holds a table with the five Bands as rows, in order, each Band written alone in ` +
+        `its row's first cell: ${BANDS.join(", ")}.`
     );
     this.name = "MissingBandTable";
   }
@@ -120,8 +121,15 @@ export class MisorderedBands extends Error {
   }
 }
 
-/** Throws unless `rows`, a block's Band table, has the five Bands, in order. */
-function assertBands(grid: string, id: string, rows: readonly string[] | undefined): void {
+/**
+ * Throws unless the Band table among `tables`, the first whose rows name a
+ * Band, has the five Bands as rows, in order.
+ *
+ * Found by what it says rather than by its place, so a block may show another
+ * table, of evidence say, above its Bands.
+ */
+function assertBands(grid: string, id: string, tables: readonly (readonly string[])[]): void {
+  const rows = tables.find((table) => table.some((row) => BANDS.includes(row)));
   if (rows === undefined) throw new MissingBandTable(grid, id);
   if (!rows.includes(SOLID)) throw new MissingSolidRow(grid, id);
   const inOrder =
@@ -140,14 +148,14 @@ export function assertCompetencyBlocks(
   competencies: readonly Competency[]
 ): void {
   const seen = new Set<string>();
-  for (const { heading, rowHeads } of blocks) {
+  for (const { heading, tables } of blocks) {
     if (!COMPETENCY_ID.test(heading)) throw new StrayGridHeading(grid, heading);
     if (!isDeclared(competencies, heading)) {
       throw new UndeclaredCompetencyBlock(grid, heading, competencies);
     }
     if (seen.has(heading)) throw new DuplicateCompetencyBlock(grid, heading);
     seen.add(heading);
-    assertBands(grid, heading, rowHeads);
+    assertBands(grid, heading, tables);
   }
   const missing = competencies.find((competency) => !seen.has(competency.id));
   if (missing !== undefined) throw new MissingCompetencyBlock(grid, missing);

@@ -142,6 +142,18 @@ test("the harness's default Grid Source passes check", async () => {
   assert.equal(result.code, 0, result.stderr);
 });
 
+test("a table written above the Band table is not read as the Band table", async () => {
+  const [c1, c2, c3] = threeBlocks();
+  const evidence = `| Evidence | Where |\n| --- | --- |\n| A plan | The repository |\n\n`;
+  const workspace = gridWithBody(
+    [c1, c2.replace("| Band |", `${evidence}| Band |`), c3].join("")
+  );
+
+  const result = await check(workspace);
+
+  assert.equal(result.code, 0, result.stderr);
+});
+
 test("a heading written in a fenced block opens no block", async () => {
   const [c1, c2, c3] = threeBlocks();
   const workspace = gridWithBody(
