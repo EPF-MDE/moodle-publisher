@@ -229,6 +229,36 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   };
 }
 
+/**
+ * What `render` reads of the configuration, and the whole of it: which driver
+ * prints, where the run captures go, and the day a PDF's footer states.
+ *
+ * No site, no course id and no session: a preview is made on any machine, and
+ * a render that asked for a course id would be asking for one it never uses.
+ */
+export interface RenderConfig {
+  readonly repoRoot: string;
+  readonly runsRoot: string;
+  readonly driver: DriverName;
+  /** As {@link Config.now}: honoured for the fake driver only. */
+  readonly now: Date | undefined;
+}
+
+export function readRenderConfig(
+  rawEnv: NodeJS.ProcessEnv = process.env
+): RenderConfig {
+  const env = resolveEnv(rawEnv);
+  const repoRoot = repositoryRoot(rawEnv);
+  const driver: DriverName =
+    env["PUBLISHER_DRIVER"] === "fake" ? "fake" : "browser";
+  return {
+    repoRoot,
+    runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
+    driver,
+    now: driver === "fake" ? readNow(env["PUBLISHER_NOW"]) : undefined,
+  };
+}
+
 /** The overriding instant, or undefined for the clock. Never a fallback. */
 function readNow(raw: string | undefined): Date | undefined {
   if (raw === undefined || raw.trim() === "") return undefined;

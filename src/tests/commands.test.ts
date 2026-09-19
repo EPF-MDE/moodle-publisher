@@ -27,7 +27,7 @@ test("the help names every command, and not audit", async () => {
   const result = await workspace.publisher(["--help"]);
 
   assert.equal(result.code, 0);
-  const commands = ["install-browser", "install-skills", "check", "publish", "wipe"];
+  const commands = ["install-browser", "install-skills", "check", "render", "publish", "wipe"];
   for (const command of commands) {
     assert.match(result.stderr, new RegExp(`publisher ${command}\\b`), command);
   }
