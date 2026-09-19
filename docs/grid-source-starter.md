@@ -1,10 +1,14 @@
 ---
-# A template, shipped with the publisher, for a course repository to copy and
-# adapt by hand. Copy it to the path `publisher.json` names as its `grid`, then
-# replace everything written <like this>, below and in the prose. Once copied,
-# it is the course's own. Everything else a Student reads in the Assessment Grid
-# is the Grid Frame, `docs/grid-frame.md`, which the publisher prints around the
-# Competency blocks below (ADR-0014).
+# A Grid Source starter, shipped with the publisher (ADR-0014). Copy it to the
+# path `publisher.json` names as its `grid`, then replace everything written
+# <like this>, below and in the prose, and run `moodle-publisher check`. Once
+# copied, it is the course's own Grid Source.
+#
+# It is not the Assessment Grid a Student reads: the publisher assembles that at
+# publish time, printing the Grid Frame, `docs/grid-frame.md` in the installed
+# publisher, around the Competency blocks below. Moving the pinned tag brings
+# its new Grid Frame, and the next publish replaces the Assessment Grid. So
+# write here only what is the course's own: nothing the Grid Frame says.
 #
 # The course's facts the Grid Frame states, each printed as written: the grid
 # opens with "<course> · EPF <programme> · <term>", and its account of the Oral
@@ -17,13 +21,14 @@ oral:
 
 # The Competencies this course is assessed on, one title per line. Each one's
 # id is its place in this block — C1, C2, … — so a Competency is only ever
-# added at the end: reordering the block renumbers them. Each block below is
-# headed by its id alone: the publisher writes the title beside it.
+# added at the end: reordering the block renumbers them. Each has one block
+# below, headed by its id alone: the publisher writes the title beside it.
 competencies:
   - <Competency title>
-  - <Competency title>
 
-# The Deliverables, defined once. The publisher reads this block.
+# The Deliverables, defined once. The publisher publishes a Devoir for each,
+# and the Grid Frame states each one's Freeze, by its title, from its `due`:
+# the Freeze a Student reads is the one the Devoir enforces.
 #
 # Ids are written down, never computed from position: renaming one makes a new
 # Devoir. Each `due` is a Freeze, written in Europe/Paris time with the offset
@@ -32,7 +37,7 @@ competencies:
 deliverables:
   - id: <deliverable-id>
     title: <Deliverable title>
-    competencies: [C1, C2]
+    competencies: [C1]
     due: 2026-12-11T18:00:00+01:00
 ---
 
@@ -56,27 +61,5 @@ deliverables:
 | **Basic** | \<The thing is done, mechanically: what exists and can be shown.> |
 | **Solid** | \<The thing is done, and justified: what the Student can say about why. This row is what the work is read against.> |
 | **Outstanding** | All of Solid, plus \<knowing the limits: where the approach stops holding, and why.> |
-
-**Oral question:** _"\<The one question the Oral opens this Competency with.>"_
-
-## C2
-
-> _Fiche statement: "\<the Competency as the fiche states it>"_
-
-\<What this Competency asks of a Student.>
-
-**Subject:** \<what the Student works on to demonstrate it.>
-
-**Expected evidence**
-
-- \<A concrete artifact the work leaves behind.>
-
-| Band | What it looks like |
-| --- | --- |
-| **Resit** | \<The work was not done.> |
-| **Needs Work** | \<The work exists, and the Competency is not demonstrated.> |
-| **Basic** | \<The thing is done, mechanically.> |
-| **Solid** | \<The thing is done, and justified.> |
-| **Outstanding** | All of Solid, plus \<knowing the limits.> |
 
 **Oral question:** _"\<The one question the Oral opens this Competency with.>"_

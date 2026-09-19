@@ -1,6 +1,6 @@
 ---
 name: feedback-letter
-description: Read one Student's work against the assessment grid, argue for a Band per Competency, and draft or revise the Instructor's Feedback Letter as a secret gist.
+description: Read one Student's work against each Competency's Solid row in the Grid Source, argue for a Band per Competency, and draft or revise the Instructor's Feedback Letter as a secret gist.
 disable-model-invocation: true
 ---
 
@@ -18,10 +18,12 @@ The letter is drafted before the Oral and revised after it, in the same gist, so
   "feedbackLetter": { "course": "<course name>", "prefix": "<kebab-case-prefix>", "signature": "<first name>" }
   ```
 
-- **The grid** `publisher.json` names under `grid`. From its front matter take the Competencies (their ids are their places: `C1`, `C2`, …, and their titles are as written) and the Deliverables, each with the Competencies it serves and its `due`, which is its **Freeze**. From its body take, per Competency, the **Solid** column and the next Band up.
-- **The Banding Anchors** for each Competency in scope, when the course has them: files listed in `publisher.json` or kept beside the grid, usually named `<id>-banding-anchors--instructor.md`. They are read together with the Solid column. When a Competency has none, the Solid column alone is the standard.
+- **The Grid Source**, the file `publisher.json` names under `grid`. It is the course's part of the Assessment Grid: the publisher prints the Grid Frame around it, and the Grid Frame's shared text (the Band legend, the Oral, the Feedback Letter, Resit) is not a standard to read work against, so it is not read here.
+  - From its front matter, take the Competencies from `competencies:`: their ids are their places (`C1`, `C2`, …) and their titles are as written there. Take the Deliverables from `deliverables:`, each with the Competencies it serves and its `due`, which is its **Freeze**.
+  - From its body, take each Competency's block, headed by its id alone (`## C1`), and in its Band table the **Solid** row and the row of the next Band up.
+- **The Banding Anchors** for each Competency in scope, when the course has them: files listed in `publisher.json` or kept beside the Grid Source, usually named `<id>-banding-anchors--instructor.md`. They are read together with the Solid row. When a Competency has none, the Solid row alone is the standard.
 
-Done when you can name every Competency in scope with its title, its Freeze, and its Solid criteria as separate lines.
+Done when you can name every Competency in scope with its title, its Freeze, and the criteria of its Solid row as separate lines.
 
 ## 1. Take the brief
 
@@ -35,7 +37,7 @@ From the Instructor's message, collect:
 - the **angle**: a _verdict_ (these Bands, and why), or _hints_ (how to reach the next Band, without the answers);
 - whether to offer a catch-up (only if told to).
 
-When the grid declares no Deliverables for a Competency in scope, there is no Freeze to read the work at: ask which instant to read it at. Ask for everything still missing in a single question.
+When the Grid Source declares no Deliverable for a Competency in scope, there is no Freeze to read the work at: ask which instant to read it at. Ask for everything still missing in a single question.
 
 Done when every item above has a value.
 
@@ -45,7 +47,7 @@ The evidence is whatever the Submissions and the Instructor's links point to, an
 
 For a _verdict_, read the work as it stood at the Freeze of the Deliverable that serves the Competency, or at the Student's Extension, and name anything later that you set aside. For _hints_ after an Oral, read the current state and record the date you read it.
 
-Read one Competency at a time, down to the Solid column, the Banding Anchors and the next Band up. Where the grid asks for something that runs (a command that fails, a hook that blocks), run the Student's own command rather than trusting what their documents say about it.
+Read one Competency at a time, down to the Solid row, the Banding Anchors and the next Band up. Where a row asks for something that runs (a command that fails, a hook that blocks), run the Student's own command rather than trusting what their documents say about it.
 
 Mark every Solid criterion of every Competency in scope as one of:
 
