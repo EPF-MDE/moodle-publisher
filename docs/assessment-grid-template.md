@@ -6,6 +6,15 @@
 # is the Grid Frame, `docs/grid-frame.md`, which the publisher prints around the
 # Competency blocks below (ADR-0014).
 #
+# The course's facts the Grid Frame states, each printed as written: the grid
+# opens with "<course> · EPF <programme> · <term>", and its account of the Oral
+# reads "The Oral — individual, <length>, <when> — …". None is defaulted.
+programme: <programme, e.g. Ingénieur 4A>
+term: <term, e.g. Autumn 2026>
+oral:
+  length: <length, e.g. 20 minutes>
+  when: <when, e.g. 14 and 15 December 2026>
+
 # The Competencies this course is assessed on, one title per line. Each one's
 # id is its place in this block — C1, C2, … — so a Competency is only ever
 # added at the end: reordering the block renumbers them. Each block below is

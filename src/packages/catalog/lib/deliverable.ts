@@ -18,7 +18,7 @@
 import { frontMatter } from "../../documents/index.ts";
 
 import { idsOf, isDeclared } from "./competency.ts";
-import { formatFreeze, readFreeze } from "./freeze.ts";
+import { formatFreeze, freezeAsRead, readFreeze } from "./freeze.ts";
 import { nonEmptyString } from "./scalar.ts";
 
 import type { Competency } from "./competency.ts";
@@ -329,5 +329,5 @@ function readDue(
   throw new UnreadableFreeze(source, id, due);
 }
 
-export { formatFreeze };
+export { formatFreeze, freezeAsRead };
 export type { Freeze };

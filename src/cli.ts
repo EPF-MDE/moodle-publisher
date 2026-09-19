@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { documentsToPublish, loadCatalog } from "./packages/catalog/index.ts";
 import { loadCompetencies } from "./packages/catalog/competencies.ts";
 import { loadDeliverables } from "./packages/catalog/deliverables.ts";
+import { loadGridFacts } from "./packages/catalog/grid-facts.ts";
 import { createFakeDriver } from "./packages/course/fake.ts";
 import { createBrowserDriver } from "./packages/course/browser.ts";
 import { installBrowser } from "./packages/course/browser-install.ts";
@@ -152,10 +153,12 @@ async function publish(apply: boolean): Promise<number> {
   const catalog = loadCatalog(config.repoRoot);
   // Read here, with the tables and before the driver is opened, because every
   // refusal it can raise is about the repository: a duplicated id, a Freeze
-  // that is not in Paris, a competency the grid does not declare. None of them
-  // is worth finding out with a browser sitting in the course.
+  // that is not in Paris, a competency the grid does not declare, a programme
+  // the Grid Frame has nothing to print for. None of them is worth finding out
+  // with a browser sitting in the course.
   const competencies = loadCompetencies(config.repoRoot, catalog);
   const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
+  const facts = loadGridFacts(config.repoRoot, catalog);
   const manifest = readManifest(config.manifestPath);
   // Pages an earlier publisher recorded are cleaned up by hand, and that is
   // worth hearing before a browser is sitting in the course.
@@ -168,7 +171,12 @@ async function publish(apply: boolean): Promise<number> {
       repoRoot: config.repoRoot,
       baseUrl: config.baseUrl,
       deliverables,
-      gridSource: { source: catalog.grid, competencies },
+      gridSource: {
+        source: catalog.grid,
+        course: catalog.course,
+        competencies,
+        facts,
+      },
       documents: documentsToPublish(catalog),
       manifest,
       snapshot: await driver.snapshot(),

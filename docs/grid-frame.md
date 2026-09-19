@@ -4,12 +4,17 @@
   course's Competency blocks, which it writes in place of the slot below the
   Feedback Letter, each headed `## Cn — <title>` from the Grid Source's `competencies:`.
 
+  Every other `{{slot}}` is one of the course's facts, written as the course
+  states it: the course from `publisher.json`, the programme, the term and the
+  Oral from the Grid Source's front matter, and one Freeze line per Deliverable,
+  in `due` order, its time and date in Europe/Paris.
+
   A course can neither drop nor reword it: it changes when the pinned publisher
   does. It prints no title of its own: the PDF opens with the title the
   `published` table gives the grid (ADR-0013).
 -->
 
-**EPF** · how your work in this course is assessed, how each Band is given, and what each Competency asks of you.
+**{{course}} · EPF {{programme}} · {{term}}** · how your work in this course is assessed, how each Band is given, and what each Competency asks of you.
 
 ---
 
@@ -29,9 +34,13 @@ The gap between **Basic** and **Solid** is _justification_. The gap between **So
 
 ## How the Bands are given
 
-Your work is read before your Oral, and the Instructor arrives with a provisional Band per Competency. The Oral, which is individual, does not discover your work: it **verifies** that the work is yours and that you understand it. A strong piece of work you cannot defend moves down. A modest one defended with real understanding moves up.
+Your work is read before your Oral, and the Instructor arrives with a provisional Band per Competency. The Oral — individual, {{oral length}}, {{oral when}} — does not discover your work: it **verifies** that the work is yours and that you understand it. A strong piece of work you cannot defend moves down. A modest one defended with real understanding moves up.
 
-**Freeze:** each Deliverable must be handed in to its Devoir by its Freeze. Anything handed in later is not read. An Extension is granted to one named Student, in Moodle, and you are told so by name — there is no extra time anybody gets silently.
+Each Deliverable must be handed in to its Devoir by its Freeze, in Paris time:
+
+{{freezes}}
+
+Anything handed in later is not read. An Extension is granted to one named Student, in Moodle, and you are told so by name — there is no extra time anybody gets silently.
 
 ## Your Feedback Letter
 
