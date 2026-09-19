@@ -3,7 +3,9 @@
 //
 // Nothing installs it: a course copies it. So what is worth checking is that
 // the copy a course takes from the installed publisher is a grid `check`
-// accepts, placeholders and all, and that it holds what every EPF grid holds.
+// accepts, placeholders and all, and that it holds the Competency blocks every
+// EPF grid holds. What every grid shares besides is the Grid Frame's, and is
+// checked in `grid-frame.test.ts`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -74,15 +76,15 @@ test("the template's front matter declares Competencies and Deliverables, and no
   assert.doesNotMatch(frontMatter, /^probes:/m);
 });
 
-test("the template holds the Band legend, the two gaps, the Oral, the Feedback Letter and the Resit section", () => {
+// The rest of what a Student reads is the Grid Frame's, which the publisher
+// prints around these blocks (ADR-0014): a copy of it here would be printed twice.
+test("the template's prose is Competency blocks headed by their ids alone, and none of the Grid Frame's text", () => {
   const { body } = parts(shippedTemplate());
 
-  assertInOrder(body, BAND_ROWS);
-  assert.match(body, /_justification_/);
-  assert.match(body, /_knowing the limits_/);
-  assert.match(body, /provisional Band/);
-  assert.match(body, /^## Your Feedback Letter$/m);
-  assert.match(body, /^## Resit$/m);
+  assert.deepEqual(body.match(/^#{1,2} .*$/gm), ["## C1", "## C2"]);
+  assert.doesNotMatch(body, /_justification_/);
+  assert.doesNotMatch(body, /provisional Band/);
+  assert.doesNotMatch(body, /Feedback Letter/);
 });
 
 test("each Competency block runs fiche quote, Subject, Expected evidence, five Band rows, Oral question", () => {

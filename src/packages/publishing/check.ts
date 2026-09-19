@@ -50,6 +50,7 @@ export function checkRepository(repoRoot: string): CheckReport {
     // No site: it is carried for applying, which a check never does.
     baseUrl: "",
     deliverables,
+    gridSource: { source: catalog.grid, competencies },
     documents: documentsToPublish(catalog),
     manifest: { entries: {} },
     snapshot: { courseId: "", sections: [], items: [] },

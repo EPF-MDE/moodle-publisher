@@ -10,10 +10,13 @@ import {
   embedImages,
 } from "./lib/markdown.ts";
 import { crossReferencesIn, linkKey, linksAsText } from "./lib/links.ts";
+import { assembleGrid } from "./lib/grid.ts";
 
 import type { CrossReference, LinkTarget } from "./lib/links.ts";
 import type { FrontMatter } from "./lib/front-matter.ts";
+import type { GridCompetency } from "./lib/grid.ts";
 
+export type { GridCompetency } from "./lib/grid.ts";
 export type { CrossReference, LinkTarget } from "./lib/links.ts";
 
 export { contentHash } from "./lib/content-hash.ts";
@@ -90,12 +93,56 @@ export function renderDocument(
   targetOf: (link: CrossReference) => LinkTarget | undefined
 ): RenderedDocument {
   const markdown = readSource(repoRoot, source);
-  const links = crossReferencesIn(source, markdown);
+  return renderMarkdown(repoRoot, source, markdown, markdown, targetOf);
+}
+
+/**
+ * Reads the Grid Source at `source` under `repoRoot` and renders the
+ * Assessment Grid assembled from it (ADR-0014): the Grid Frame this package
+ * ships, with the source's block for each of `competencies` written into it,
+ * in `C1…Cn` order, each headed by its id and its title. The source's front
+ * matter is never printed, and nothing else of the Frame is the course's to
+ * write.
+ *
+ * The assembled markdown is then published exactly as {@link renderDocument}
+ * publishes a document: a cross-reference or a picture in a Competency block
+ * is rewritten, embedded or refused as it would be anywhere else, relative to
+ * `source`. What the hash is taken over is unchanged: the Grid Source's body.
+ */
+export function renderAssessmentGrid(
+  repoRoot: string,
+  source: string,
+  competencies: readonly GridCompetency[],
+  targetOf: (link: CrossReference) => LinkTarget | undefined
+): RenderedDocument {
+  const markdown = readSource(repoRoot, source);
+  return renderMarkdown(
+    repoRoot,
+    source,
+    assembleGrid(markdown, competencies),
+    markdown,
+    targetOf
+  );
+}
+
+/**
+ * Renders `printed`, the markdown a reader reads as `source`, and hashes
+ * `hashed`, the markdown the Manifest's hash of it is taken over: the same
+ * text for every document but the Assessment Grid.
+ */
+function renderMarkdown(
+  repoRoot: string,
+  source: string,
+  printed: string,
+  hashed: string,
+  targetOf: (link: CrossReference) => LinkTarget | undefined
+): RenderedDocument {
+  const links = crossReferencesIn(source, printed);
   // Rewriting is what refuses a document showing a picture this repository
   // does not hold, and it happens here — in the reading half of a run, before
   // the plan is even reported — so that the refusal comes before anything is
   // written to the course.
-  const withImages = embedImages(repoRoot, source, render(markdown));
+  const withImages = embedImages(repoRoot, source, render(printed));
   // Keyed by `linkKey` on both sides, which is the spelling the document and
   // the rendered attribute can both be reduced to.
   const targets = new Map(
@@ -108,7 +155,13 @@ export function renderDocument(
   if (missed !== undefined) throw new UnrewrittenCrossReference(source, missed);
   return {
     html,
-    contentHash: hashDocument(repoRoot, source, markdown, links, targetOf),
+    contentHash: hashDocument(
+      repoRoot,
+      source,
+      hashed,
+      hashed === printed ? links : crossReferencesIn(source, hashed),
+      targetOf
+    ),
     links,
   };
 }
