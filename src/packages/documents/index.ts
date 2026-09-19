@@ -109,7 +109,7 @@ export function renderDocument(
  * is rewritten, embedded or refused as it would be anywhere else, relative to
  * `source`. So is the hash: it is taken over the assembled grid, so a new Grid
  * Frame, or a value written into it such as a Competency's title, makes the
- * grid read as changed, and a publisher whose Frame is unchanged does not.
+ * grid read as changed, and a new publisher with the same Frame does not.
  */
 export function renderAssessmentGrid(
   repoRoot: string,

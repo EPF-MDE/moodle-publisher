@@ -197,8 +197,8 @@ test("a PDF printed with the old layout is replaced once, and then left alone", 
     ])
   );
   // What the manifest held before the layout was hashed: the document's own.
-  // The grid, a Grid Source, opens with its first Competency block, so it
-  // printed as it always did; and its hash is taken over its assembly, which
+  // The Assessment Grid opens with the Grid Frame's course line, so it printed
+  // as it always did; and its hash is taken over its assembly, which
   // `renderDocument` does not make, so its entry is left as it was recorded.
   const manifest = workspace.readManifest();
   for (const [source, entry] of Object.entries(manifest.documents)) {

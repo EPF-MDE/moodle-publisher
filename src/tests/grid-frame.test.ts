@@ -268,8 +268,10 @@ test("a grid hashed over another assembly is replaced in its module, and nothing
   const others = (items: typeof after) =>
     items.filter((item) => item.name !== GRID_TITLE);
   assert.deepEqual(others(after), others(before));
-  const replaced = after.find((item) => item.name === GRID_TITLE);
-  const was = before.find((item) => item.name === GRID_TITLE);
+  const gridIn = (items: typeof after) =>
+    items.find((item) => item.name === GRID_TITLE);
+  const replaced = gridIn(after);
+  const was = gridIn(before);
   assert.equal(replaced?.section, was?.section);
   assert.equal(replaced?.visible, was?.visible);
   assert.equal(
@@ -278,7 +280,7 @@ test("a grid hashed over another assembly is replaced in its module, and nothing
   );
 });
 
-test("retitling a Competency in competencies: alone replaces the grid", async () => {
+test("retitling a Competency in competencies: replaces the grid and nothing else", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
   await workspace.publisher(["publish", "--apply"]);
