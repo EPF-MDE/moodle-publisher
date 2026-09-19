@@ -14,9 +14,13 @@ import { assembleGrid } from "./lib/grid.ts";
 
 import type { CrossReference, LinkTarget } from "./lib/links.ts";
 import type { FrontMatter } from "./lib/front-matter.ts";
-import type { GridCompetency } from "./lib/grid.ts";
+import type { GridFrameFacts } from "./lib/grid.ts";
 
-export type { GridCompetency } from "./lib/grid.ts";
+export type {
+  GridCompetency,
+  GridFrameFacts,
+  GridFreeze,
+} from "./lib/grid.ts";
 export type { CrossReference, LinkTarget } from "./lib/links.ts";
 
 export { contentHash } from "./lib/content-hash.ts";
@@ -99,25 +103,27 @@ export function renderDocument(
 /**
  * Reads the Grid Source at `source` under `repoRoot` and renders the
  * Assessment Grid assembled from it (ADR-0014): the Grid Frame this package
- * ships, with the source's block for each of `competencies` written into it,
- * in `C1…Cn` order, each headed by its id and its title. The source's front
- * matter is never printed, and nothing else of the Frame is the course's to
- * write.
+ * ships, with the course's `facts` written into it — the course, the
+ * programme, the term, the Oral and each Freeze — and the source's block for
+ * each of its Competencies, in `C1…Cn` order, each headed by its id and its
+ * title. The source's front matter is never printed, and nothing else of the
+ * Frame is the course's to write.
  *
  * The assembled markdown is then published exactly as {@link renderDocument}
  * publishes a document: a cross-reference or a picture in a Competency block
  * is rewritten, embedded or refused as it would be anywhere else, relative to
  * `source`. So is the hash: it is taken over the assembled grid, so a new Grid
- * Frame, or a value written into it such as a Competency's title, makes the
- * grid read as changed, and a new publisher with the same Frame does not.
+ * Frame, or a value written into it such as a Competency's title or a
+ * Freeze, makes the grid read as changed, and a new publisher with the same
+ * Frame does not.
  */
 export function renderAssessmentGrid(
   repoRoot: string,
   source: string,
-  competencies: readonly GridCompetency[],
+  facts: GridFrameFacts,
   targetOf: (link: CrossReference) => LinkTarget | undefined
 ): RenderedDocument {
-  const assembled = assembleGrid(readSource(repoRoot, source), competencies);
+  const assembled = assembleGrid(readSource(repoRoot, source), facts);
   return renderMarkdown(repoRoot, source, assembled, targetOf);
 }
 

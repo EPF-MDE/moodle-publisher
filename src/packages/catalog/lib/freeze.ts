@@ -97,8 +97,35 @@ export function formatFreeze(freeze: Freeze): string {
   return `${formatInstant(freeze.instant)} (${freeze.written})`;
 }
 
+/**
+ * The Freeze as a Student reads it in the Assessment Grid: the time, then the
+ * day, in `Europe/Paris`, e.g. `20:00 on Thursday 10 September 2026`.
+ *
+ * Not the string the front matter states it as: an ISO timestamp is how the
+ * Freeze is written down, not how anybody reads when their work stops being
+ * read.
+ */
+export function freezeAsRead(freeze: Freeze): string {
+  const value = partsOf(freeze.instant);
+  return (
+    `${value("hour")}:${value("minute")} on ` +
+    `${value("weekday")} ${value("day")} ${value("month")} ${value("year")}`
+  );
+}
+
 /** One instant, named the way a Freeze is named. */
 function formatInstant(instant: Date): string {
+  const value = partsOf(instant);
+  return (
+    `${value("weekday")} ${value("day")} ${value("month")} ${value("year")} ` +
+    `at ${value("hour")}:${value("minute")} ${ZONE}`
+  );
+}
+
+/** Each part of `instant`'s date and time in `Europe/Paris`, by its type. */
+function partsOf(
+  instant: Date
+): (type: Intl.DateTimeFormatPartTypes) => string {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: ZONE,
     weekday: "long",
@@ -109,10 +136,5 @@ function formatInstant(instant: Date): string {
     minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(instant);
-  const value = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return (
-    `${value("weekday")} ${value("day")} ${value("month")} ${value("year")} ` +
-    `at ${value("hour")}:${value("minute")} ${ZONE}`
-  );
+  return (type) => parts.find((part) => part.type === type)?.value ?? "";
 }

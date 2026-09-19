@@ -7,7 +7,7 @@
 // a reading of the live course as well as the manifest, because one of the
 // things it decides is whether Instructor Material somebody revealed has to be
 // re-hidden — and no record on disk can answer that.
-import { formatFreeze } from "../catalog/deliverables.ts";
+import { formatFreeze, freezeAsRead } from "../catalog/deliverables.ts";
 import { DELIVERABLE_SECTION, SECTION_ORDER } from "../course/index.ts";
 import { renderAssessmentGrid, renderDocument } from "../documents/index.ts";
 import {
@@ -27,8 +27,10 @@ import type {
 import type { PublishedDocument } from "../catalog/index.ts";
 import type { Competency } from "../catalog/competencies.ts";
 import type { Deliverable } from "../catalog/deliverables.ts";
+import type { GridFacts } from "../catalog/grid-facts.ts";
 import type {
   CrossReference,
+  GridFrameFacts,
   LinkTarget,
   RenderedDocument,
 } from "../documents/index.ts";
@@ -257,14 +259,38 @@ export interface PlanInput extends CrossReferenceInput {
    */
   readonly deliverables: readonly Deliverable[];
   /**
-   * The Grid Source `publisher.json` names: its path, and the Competencies it
-   * declares, already read and checked for the reason the Deliverables are.
-   * The document the table lists under this source is published assembled
-   * (ADR-0014).
+   * The Grid Source `publisher.json` names: its path, the Competencies it
+   * declares and the facts it states, already read and checked for the reason
+   * the Deliverables are, and the course's name from `publisher.json`. The
+   * document the table lists under this source is published assembled
+   * (ADR-0014), with these and each Deliverable's Freeze written into it.
    */
   readonly gridSource: {
     readonly source: string;
+    readonly course: string;
     readonly competencies: readonly Competency[];
+    readonly facts: GridFacts;
+  };
+}
+
+/**
+ * What the Grid Frame writes into itself: the course, the Grid Source's facts
+ * and Competencies, and one Freeze per Deliverable, in the order they fall.
+ */
+function gridFrameFacts(input: PlanInput): GridFrameFacts {
+  const { course, competencies, facts } = input.gridSource;
+  return {
+    course,
+    ...facts,
+    freezes: [...input.deliverables]
+      .sort(
+        (a, b) => a.freeze.instant.getTime() - b.freeze.instant.getTime()
+      )
+      .map((deliverable) => ({
+        title: deliverable.title,
+        at: freezeAsRead(deliverable.freeze),
+      })),
+    competencies,
   };
 }
 
@@ -300,7 +326,7 @@ export function buildPlan(input: PlanInput): Plan {
         ? renderAssessmentGrid(
             repoRoot,
             document.source,
-            input.gridSource.competencies,
+            gridFrameFacts(input),
             targetOf
           )
         : renderDocument(repoRoot, document.source, targetOf);

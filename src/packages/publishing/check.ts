@@ -16,6 +16,7 @@ import { documentsToPublish, loadCatalog } from "../catalog/index.ts";
 import { loadCompetencies } from "../catalog/competencies.ts";
 import { loadDeliverables } from "../catalog/deliverables.ts";
 import { loadFeedbackLetter } from "../catalog/feedback-letter.ts";
+import { loadGridFacts } from "../catalog/grid-facts.ts";
 import { assertSkillLinks } from "../skills/index.ts";
 import { assertContextPointer } from "./lib/context-map.ts";
 import { buildPlan } from "./plan.ts";
@@ -32,8 +33,8 @@ export interface CheckReport {
  * would raise about it.
  *
  * Read in the order the commands read it — the catalog, the Competencies, the
- * Deliverables, then the plan — so a repository with two mistakes is refused over
- * the one a run would name first.
+ * Deliverables, the grid's facts, then the plan — so a repository with two
+ * mistakes is refused over the one a run would name first.
  *
  * The plan is built against a course holding nothing and a manifest recording
  * nothing, which is what "short of reading the Course" means: every document is
@@ -45,12 +46,18 @@ export function checkRepository(repoRoot: string): CheckReport {
   const catalog = loadCatalog(repoRoot);
   const competencies = loadCompetencies(repoRoot, catalog);
   const deliverables = loadDeliverables(repoRoot, catalog, competencies);
+  const facts = loadGridFacts(repoRoot, catalog);
   const plan = buildPlan({
     repoRoot,
     // No site: it is carried for applying, which a check never does.
     baseUrl: "",
     deliverables,
-    gridSource: { source: catalog.grid, competencies },
+    gridSource: {
+      source: catalog.grid,
+      course: catalog.course,
+      competencies,
+      facts,
+    },
     documents: documentsToPublish(catalog),
     manifest: { entries: {} },
     snapshot: { courseId: "", sections: [], items: [] },
