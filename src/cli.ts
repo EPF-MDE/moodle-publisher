@@ -168,7 +168,7 @@ async function publish(apply: boolean): Promise<number> {
       repoRoot: config.repoRoot,
       baseUrl: config.baseUrl,
       deliverables,
-      grid: { source: catalog.grid, competencies },
+      gridSource: { source: catalog.grid, competencies },
       documents: documentsToPublish(catalog),
       manifest,
       snapshot: await driver.snapshot(),

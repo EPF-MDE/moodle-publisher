@@ -257,11 +257,12 @@ export interface PlanInput extends CrossReferenceInput {
    */
   readonly deliverables: readonly Deliverable[];
   /**
-   * The catalog's grid: its source, and the Competencies it declares, already
-   * read and checked for the reason the Deliverables are. The document the
-   * table lists under this source is published assembled (ADR-0014).
+   * The Grid Source `publisher.json` names: its path, and the Competencies it
+   * declares, already read and checked for the reason the Deliverables are.
+   * The document the table lists under this source is published assembled
+   * (ADR-0014).
    */
-  readonly grid: {
+  readonly gridSource: {
     readonly source: string;
     readonly competencies: readonly Competency[];
   };
@@ -295,11 +296,11 @@ export function buildPlan(input: PlanInput): Plan {
     // The Assessment Grid a Student reads is the Grid Frame with the course's
     // Competency blocks written into it; every other document is its markdown.
     const rendered =
-      document.source === input.grid.source
+      document.source === input.gridSource.source
         ? renderAssessmentGrid(
             repoRoot,
             document.source,
-            input.grid.competencies,
+            input.gridSource.competencies,
             targetOf
           )
         : renderDocument(repoRoot, document.source, targetOf);
