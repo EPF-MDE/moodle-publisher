@@ -10,13 +10,13 @@ import {
   embedImages,
 } from "./lib/markdown.ts";
 import { crossReferencesIn, linkKey, linksAsText } from "./lib/links.ts";
-import { assembleGrid } from "./lib/grid.ts";
+import { assembleGrid, gridBlocks } from "./lib/grid.ts";
 
 import type { CrossReference, LinkTarget } from "./lib/links.ts";
 import type { FrontMatter } from "./lib/front-matter.ts";
-import type { GridCompetency } from "./lib/grid.ts";
+import type { GridBlock, GridCompetency } from "./lib/grid.ts";
 
-export type { GridCompetency } from "./lib/grid.ts";
+export type { GridBlock, GridCompetency } from "./lib/grid.ts";
 export type { CrossReference, LinkTarget } from "./lib/links.ts";
 
 export { contentHash } from "./lib/content-hash.ts";
@@ -164,4 +164,19 @@ export function frontMatter(
   source: string
 ): FrontMatter | undefined {
   return readFrontMatter(repoRoot, source);
+}
+
+/**
+ * The `##` parts of the Grid Source at `source`, in the order it writes them,
+ * each with its heading and the first column of each of its tables.
+ *
+ * The reading only, as for {@link frontMatter}: which headings a Grid Source
+ * may write, which table is a block's Band table and what it has to say, are
+ * the catalog's to decide.
+ */
+export function readGridBlocks(
+  repoRoot: string,
+  source: string
+): readonly GridBlock[] {
+  return gridBlocks(readSource(repoRoot, source));
 }
