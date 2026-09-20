@@ -197,9 +197,8 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     "MOODLE_COURSE_ID",
     "Set it to the id of the course to publish into. There is no default course."
   );
-  const repoRoot = repositoryRoot(rawEnv);
-  const driver: DriverName =
-    env["PUBLISHER_DRIVER"] === "fake" ? "fake" : "browser";
+  const printing = readRenderConfig(rawEnv);
+  const { repoRoot, driver } = printing;
 
   const fakeCoursePath = env["PUBLISHER_FAKE_COURSE"];
   if (driver === "fake" && fakeCoursePath === undefined) {
@@ -210,10 +209,9 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   }
 
   return {
+    ...printing,
     baseUrl,
     courseId,
-    repoRoot,
-    driver,
     manifestPath: resolve(
       env["PUBLISHER_MANIFEST"] ?? join(repoRoot, "moodle-manifest.json")
     ),
@@ -223,8 +221,36 @@ export function readConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       env["MOODLE_SESSION_STATE"] ??
         join(homedir(), ".config", "epf-moodle-publisher", "session.json")
     ),
-    runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
     fakeCoursePath,
+  };
+}
+
+/**
+ * What `render` reads of the configuration, and the whole of it: which driver
+ * prints, where the run captures go, and the day a PDF's footer states.
+ *
+ * No site, no course id and no session: a preview is made on any machine, and
+ * a render that asked for a course id would be asking for one it never uses.
+ */
+export interface RenderConfig {
+  readonly repoRoot: string;
+  readonly runsRoot: string;
+  readonly driver: DriverName;
+  /** As {@link Config.now}: honoured for the fake driver only. */
+  readonly now: Date | undefined;
+}
+
+export function readRenderConfig(
+  rawEnv: NodeJS.ProcessEnv = process.env
+): RenderConfig {
+  const env = resolveEnv(rawEnv);
+  const repoRoot = repositoryRoot(rawEnv);
+  const driver: DriverName =
+    env["PUBLISHER_DRIVER"] === "fake" ? "fake" : "browser";
+  return {
+    repoRoot,
+    runsRoot: resolve(env["MOODLE_RUN_DIR"] ?? join(repoRoot, "runs")),
+    driver,
     now: driver === "fake" ? readNow(env["PUBLISHER_NOW"]) : undefined,
   };
 }

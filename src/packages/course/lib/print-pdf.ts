@@ -1,5 +1,5 @@
-// Implementation: private to the course package, and to the browser driver
-// within it.
+// Implementation: private to the course package. The browser driver prints
+// with it, and `print.ts` exposes it to `render`.
 //
 // Printing a Published Document to the PDF a file resource holds. The one
 // place a PDF is made, so that nothing above the driver touches Chromium.
