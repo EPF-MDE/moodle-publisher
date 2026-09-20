@@ -111,6 +111,23 @@ test("the Oral's timetable is printed as the table it is, one row per line the f
   assert.equal(rows.length, 3, bands);
 });
 
+test("a timetable row saying something with a | in it reads as the course wrote it, in one row", async () => {
+  const workspace = makeWorkspace();
+  gridStating(
+    workspace,
+    `${GRID_FACTS}\n  timetable:\n    - at: 0:00–2:00\n      what: "C1: read | write | delete"`
+  );
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  const bands = bandsSectionOf(printedGrid(workspace));
+  const rows = bands.split("<tr>").filter((row) => row.includes("<td>"));
+  // One row, with the bars as text: a `|` in prose is not a column break.
+  assert.equal(rows.length, 1, bands);
+  assert.ok(rows[0]?.includes("C1: read | write | delete"), bands);
+});
+
 test("a course declaring none is told nothing about a Rehearsal, a Reading Day or a timetable", async () => {
   const workspace = makeWorkspace();
 
@@ -127,6 +144,32 @@ test("a course declaring none is told nothing about a Rehearsal, a Reading Day o
   assert.doesNotMatch(grid, /\{\{|<!--/);
   // And the rest of the section is what it always was.
   assertInOrder(bands, ["Freeze", "Extension", "provisional Band", "20 minutes"]);
+});
+
+/**
+ * *How the Bands are given*, word for word, for a course that declares none of
+ * the three — the section the regions sit in, and so the only one this release
+ * can change by accident.
+ *
+ * Written out rather than asserted by landmarks, because a landmark in order
+ * is exactly what a paragraph moved within the section still satisfies.
+ */
+const BANDS_WITHOUT_ANY = `
+<p>Each Deliverable must be handed in to its Devoir by its Freeze, in Paris time:</p>
+<ul>
+<li><strong>Freeze</strong> for Your repository — C1 and C2: 20:00 on Thursday 10 September 2026.</li>
+<li><strong>Freeze</strong> for Your C3 branch — recovering from failure: 09:30 on Friday 11 September 2026.</li>
+</ul>
+<p>Anything handed in later is not read. An Extension is granted to one named Student, in Moodle, and you are told so by name — there is no extra time anybody gets silently.</p>
+<p>Your work is read before your Oral, and the Instructor arrives with a provisional Band per Competency. The Oral — individual, 20 minutes, 14 and 15 September 2026 — does not discover your work: it <strong>verifies</strong> that the work is yours and that you understand it. A strong piece of work you cannot defend moves down. A modest one defended with real understanding moves up.</p>
+`;
+
+test("a course declaring none reads the Bands section word for word as the Frame writes it", async () => {
+  const workspace = makeWorkspace();
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(bandsSectionOf(printedGrid(workspace)), BANDS_WITHOUT_ANY);
 });
 
 test("a course declaring none reads every other section exactly as it did", async () => {

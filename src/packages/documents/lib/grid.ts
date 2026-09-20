@@ -36,8 +36,8 @@ export interface GridReadingDay {
   readonly when: string;
 }
 
-/** One line of the Oral's timetable: when in the Oral, and what happens then. */
-export interface GridOralSlot {
+/** One row of the Oral's timetable: when in the Oral, and what happens then. */
+export interface GridTimetableRow {
   /** Where in the Oral it falls, e.g. `0:00–2:00`. */
   readonly at: string;
   /** What happens then, e.g. `C1 question`. */
@@ -73,7 +73,7 @@ export interface GridFrameFacts {
      * `undefined` for a course that states no timetable — in which case the
      * Frame says nothing about one.
      */
-    readonly timetable?: readonly GridOralSlot[];
+    readonly timetable?: readonly GridTimetableRow[];
   };
   /** The Rehearsal, or `undefined` for a course that holds none. */
   readonly rehearsal?: GridRehearsal;
@@ -98,9 +98,9 @@ const SLOT = /\{\{([a-z ]+)\}\}/g;
  * The prose stays in the Frame, where it can be read and improved, rather than
  * being built here; what the course decides is only whether it is printed.
  */
-const OPTIONAL = /<!-- if ([a-z ]+) -->\n([\s\S]*?)\n<!-- end if -->\n\n/g;
+const REGION = /<!-- if ([a-z ]+) -->\n([\s\S]*?)\n<!-- end if -->\n\n/g;
 
-/** An `<!-- if … -->` the region rule did not recognise, in the assembled grid. */
+/** An `<!-- if … -->` the region rule did not recognise, in the Frame. */
 const UNRESOLVED = /<!-- (?:if|end if)/;
 
 /**
@@ -243,18 +243,30 @@ export function assembleGrid(body: string, facts: GridFrameFacts): string {
     declared.add("oral timetable");
     slots.set(
       "oral timetable",
-      oral.timetable.map(({ at, what }) => `| ${at} | ${what} |`).join("\n")
+      oral.timetable
+        .map(({ at, what }) => `| ${cell(at)} | ${cell(what)} |`)
+        .join("\n")
     );
   }
   // The regions first: a slot inside a region the course left out is one
   // nothing fills, and removing the region is what makes that right rather
   // than a refusal.
   const frame = gridFrame().replace(
-    OPTIONAL,
+    REGION,
     (_region, name: string, prose: string) =>
       declared.has(name) ? `${prose}\n\n` : ""
   );
-  const assembled = frame.replace(SLOT, (slot, name: string) => {
+  // As for a slot: an `<!-- if … -->` left standing is the Frame's own
+  // mistake — a region written without the blank line below it, say — and it
+  // would print as nothing at all, silently dropping what it holds. Asked of
+  // the Frame alone, before the course's own text is written in, so that the
+  // blame the message lays stays where it belongs.
+  if (UNRESOLVED.test(frame)) {
+    throw new Error(
+      `The Grid Frame has an "<!-- if … -->" region this program could not read.`
+    );
+  }
+  return frame.replace(SLOT, (slot, name: string) => {
     const value = slots.get(name);
     // A slot the Frame names and nothing fills is the package's own mistake,
     // and printing it would show a Student `{{…}}` in their grid.
@@ -263,13 +275,14 @@ export function assembleGrid(body: string, facts: GridFrameFacts): string {
     }
     return value;
   });
-  // As for a slot: an `<!-- if … -->` left standing is the Frame's own
-  // mistake — a region written without the blank line below it, say — and it
-  // would print as nothing at all, silently dropping what it holds.
-  if (UNRESOLVED.test(assembled)) {
-    throw new Error(
-      `The Grid Frame has an "<!-- if … -->" region this program could not read.`
-    );
-  }
-  return assembled;
+}
+
+/**
+ * One cell of the timetable, as a row of a markdown table can carry it: a `|`
+ * the course wrote in its prose is escaped rather than splitting the row into
+ * columns nobody asked for, and a line break becomes a space, because a row is
+ * one line. What a Student reads is what the course wrote.
+ */
+function cell(written: string): string {
+  return written.replace(/\|/g, "\\|").replace(/\s*\n\s*/g, " ");
 }

@@ -40,8 +40,8 @@ export interface GridReadingDay {
   readonly when: string;
 }
 
-/** One line of the Oral's timetable: where in the Oral, and what happens. */
-export interface GridOralSlot {
+/** One row of the Oral's timetable: where in the Oral, and what happens. */
+export interface GridTimetableRow {
   /** Where in the Oral it falls, e.g. `0:00–2:00`. */
   readonly at: string;
   /**
@@ -65,7 +65,7 @@ export interface GridFacts {
     /** When the Orals happen, e.g. `14 and 15 September 2026`. */
     readonly when: string;
     /** The Oral minute by minute, as written, or `undefined` for a course that states none. */
-    readonly timetable?: readonly GridOralSlot[];
+    readonly timetable?: readonly GridTimetableRow[];
   };
   /** The Rehearsal, or `undefined` for a course that holds none. */
   readonly rehearsal?: GridRehearsal;
@@ -73,23 +73,29 @@ export interface GridFacts {
   readonly readingDay?: GridReadingDay;
 }
 
+/** A field of one of the three blocks a course may leave out altogether. */
+const OF_AN_OPTIONAL_BLOCK = /^(?:rehearsal|readingDay|oral\.timetable)\b/;
+
 /**
  * A fact the Grid Frame states is missing from the Grid Source's front matter,
  * or written as something other than text.
  *
  * `field` is named as the front matter spells it, a nested one by its path:
  * `oral.length`, `rehearsal.when`, or `oral.timetable` row 2's `what` as
- * `oral.timetable[2].what`.
+ * `oral.timetable[2].what`. What the refusal goes on to explain is what the
+ * missing field belongs to: a course that forgot `term:` is not told about
+ * blocks it never wrote.
  */
 export class MissingGridField extends Error {
   constructor(grid: string, field: string) {
     super(
-      `Refusing to start: "${grid}" has no "${field}" written as text in its front matter. The Grid Frame ` +
-        `states the programme, the term and the Oral from the Grid Source, written as ` +
-        `"programme:", "term:" and an "oral:" block with "length:" and "when:", each as ` +
-        `the text a Student reads. None of them is defaulted. The "rehearsal:", ` +
-        `"readingDay:" and "oral.timetable:" blocks are the course's to leave out ` +
-        `altogether, but every field of one that is written is required too.`
+      `Refusing to start: "${grid}" has no "${field}" written as text in its front matter. ` +
+        (OF_AN_OPTIONAL_BLOCK.test(field)
+          ? `The "rehearsal:", "readingDay:" and "oral.timetable:" blocks are the course's to ` +
+            `leave out altogether, but every field of one that is written is required.`
+          : `The Grid Frame states the programme, the term and the Oral from the Grid Source, ` +
+            `written as "programme:", "term:" and an "oral:" block with "length:" and "when:", ` +
+            `each as the text a Student reads. None of them is defaulted.`)
     );
     this.name = "MissingGridField";
   }
@@ -98,82 +104,84 @@ export class MissingGridField extends Error {
 /** The facts the Grid Source at `grid` states, each one checked. */
 export function readGridFacts(repoRoot: string, grid: string): GridFacts {
   const declared: FrontMatter = frontMatter(repoRoot, grid) ?? {};
-  const programme = text(grid, declared["programme"], "programme");
-  const term = text(grid, declared["term"], "term");
-  const oral = block(grid, declared["oral"], "oral");
-  if (oral === undefined) throw new MissingGridField(grid, "oral");
+  const fields = fieldsOf(grid);
+  const programme = fields.text(declared["programme"], "programme");
+  const term = fields.text(declared["term"], "term");
+  const oral = fields.block(declared["oral"], "oral");
+  if (oral === undefined) throw fields.missing("oral");
   return {
     programme,
     term,
     oral: {
-      length: text(grid, oral["length"], "oral.length"),
-      when: text(grid, oral["when"], "oral.when"),
-      ...optional("timetable", readTimetable(grid, oral["timetable"])),
+      length: fields.text(oral["length"], "oral.length"),
+      when: fields.text(oral["when"], "oral.when"),
+      timetable: readTimetable(fields, oral["timetable"]),
     },
-    ...optional("rehearsal", readRehearsal(grid, declared["rehearsal"])),
-    ...optional("readingDay", readReadingDay(grid, declared["readingDay"])),
+    rehearsal: readRehearsal(fields, declared["rehearsal"]),
+    readingDay: readReadingDay(fields, declared["readingDay"]),
   };
 }
 
-/**
- * `{ key: value }` when the course stated one, and no key at all when it did
- * not, so that "has no Rehearsal" is an absent field rather than a written
- * `undefined` for everything downstream to tell apart.
- */
-function optional<Key extends string, Value>(
-  key: Key,
-  value: Value | undefined
-): { [K in Key]?: Value } {
-  return value === undefined ? {} : ({ [key]: value } as { [K in Key]: Value });
-}
-
-/** A field written as text, or the refusal naming it. */
-function text(
-  grid: string,
-  value: FrontMatterValue | undefined,
-  field: string
-): string {
-  const written = nonEmptyString(value);
-  if (written === undefined) throw new MissingGridField(grid, field);
-  return written;
+/** Reads the fields of one Grid Source: every refusal names that source. */
+interface Fields {
+  /** A field written as text, or the refusal naming it. */
+  text(value: FrontMatterValue | undefined, field: string): string;
+  /**
+   * A block of fields, `undefined` when it is not written at all, and the
+   * refusal when it is written as something that is not a block — `oral: 20
+   * minutes` is a mistake, not an absent Oral.
+   */
+  block(
+    value: FrontMatterValue | undefined,
+    field: string
+  ): FrontMatter | undefined;
+  /** The refusal naming `field`, for a reading that is not a field's own. */
+  missing(field: string): MissingGridField;
 }
 
 /**
- * A block of fields, `undefined` when it is not written at all, and the
- * refusal when it is written as something that is not a block — `oral: 20
- * minutes` is a mistake, not an absent Oral.
+ * The reader for the Grid Source at `grid`, so that the source is named once
+ * here rather than carried to every field that might be missing.
  */
-function block(
-  grid: string,
-  value: FrontMatterValue | undefined,
-  field: string
-): FrontMatter | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new MissingGridField(grid, field);
-  }
-  return value as FrontMatter;
+function fieldsOf(grid: string): Fields {
+  return {
+    text(value, field) {
+      const written = nonEmptyString(value);
+      if (written === undefined) throw new MissingGridField(grid, field);
+      return written;
+    },
+    block(value, field) {
+      if (value === undefined) return undefined;
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new MissingGridField(grid, field);
+      }
+      return value as FrontMatter;
+    },
+    missing(field) {
+      return new MissingGridField(grid, field);
+    },
+  };
 }
 
 function readRehearsal(
-  grid: string,
+  fields: Fields,
   value: FrontMatterValue | undefined
 ): GridRehearsal | undefined {
-  const fields = block(grid, value, "rehearsal");
-  if (fields === undefined) return undefined;
+  const written = fields.block(value, "rehearsal");
+  if (written === undefined) return undefined;
   return {
-    when: text(grid, fields["when"], "rehearsal.when"),
-    length: text(grid, fields["length"], "rehearsal.length"),
+    when: fields.text(written["when"], "rehearsal.when"),
+    length: fields.text(written["length"], "rehearsal.length"),
   };
 }
 
 function readReadingDay(
-  grid: string,
+  fields: Fields,
   value: FrontMatterValue | undefined
 ): GridReadingDay | undefined {
-  const fields = block(grid, value, "readingDay");
-  if (fields === undefined) return undefined;
-  return { when: text(grid, fields["when"], "readingDay.when") };
+  const written = fields.block(value, "readingDay");
+  if (written === undefined) return undefined;
+  return { when: fields.text(written["when"], "readingDay.when") };
 }
 
 /**
@@ -186,21 +194,21 @@ function readReadingDay(
  * sentence is a grid with a hole in it.
  */
 function readTimetable(
-  grid: string,
+  fields: Fields,
   value: FrontMatterValue | undefined
-): readonly GridOralSlot[] | undefined {
+): readonly GridTimetableRow[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length === 0) {
-    throw new MissingGridField(grid, "oral.timetable");
+    throw fields.missing("oral.timetable");
   }
-  return value.map((row, index): GridOralSlot => {
+  return value.map((row, index): GridTimetableRow => {
     // Rows are counted from 1, as they are read down the page.
     const path = `oral.timetable[${index + 1}]`;
-    const fields = block(grid, row, path);
-    if (fields === undefined) throw new MissingGridField(grid, path);
+    const written = fields.block(row, path);
+    if (written === undefined) throw fields.missing(path);
     return {
-      at: text(grid, fields["at"], `${path}.at`),
-      what: text(grid, fields["what"], `${path}.what`),
+      at: fields.text(written["at"], `${path}.at`),
+      what: fields.text(written["what"], `${path}.what`),
     };
   });
 }

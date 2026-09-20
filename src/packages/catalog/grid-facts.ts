@@ -13,9 +13,9 @@ import type { GridFacts } from "./lib/grid-facts.ts";
 export { MissingGridField } from "./lib/grid-facts.ts";
 export type {
   GridFacts,
-  GridOralSlot,
   GridReadingDay,
   GridRehearsal,
+  GridTimetableRow,
 } from "./lib/grid-facts.ts";
 
 /**
