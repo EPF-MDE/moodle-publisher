@@ -195,12 +195,12 @@ function readTimetable(
   }
   return value.map((row, index): GridOralSlot => {
     // Rows are counted from 1, as they are read down the page.
-    const at = `oral.timetable[${index + 1}]`;
-    const fields = block(grid, row, at);
-    if (fields === undefined) throw new MissingGridField(grid, at);
+    const path = `oral.timetable[${index + 1}]`;
+    const fields = block(grid, row, path);
+    if (fields === undefined) throw new MissingGridField(grid, path);
     return {
-      at: text(grid, fields["at"], `${at}.at`),
-      what: text(grid, fields["what"], `${at}.what`),
+      at: text(grid, fields["at"], `${path}.at`),
+      what: text(grid, fields["what"], `${path}.what`),
     };
   });
 }

@@ -92,7 +92,8 @@ test("the note for the Rehearsal, the Reading Day and the timetable says they ar
   for (const said of [
     /## v4\.1\.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable/,
     /Each of the three is optional/,
-    /goes on publishing the same grid/,
+    /No course is made to declare one/,
+    /replaces the Assessment Grid, whether or not you declare anything/,
     /^rehearsal:$/m,
     /^readingDay:$/m,
     /^ {2}timetable:$/m,

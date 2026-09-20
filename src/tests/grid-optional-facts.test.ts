@@ -1,7 +1,7 @@
-// The Grid Frame states how a course is run (ADR-0014): the Rehearsal before
-// the Freeze, the Reading Day, and how the Oral's minutes are spent. The
-// wording is the Frame's; the facts are the course's, declared in the Grid
-// Source's front matter.
+// The Grid Frame states three things a course may or may not have (ADR-0014):
+// the Rehearsal before the Freeze, the Reading Day, and how the Oral's minutes
+// are spent. The wording is the Frame's; the facts are the course's, declared
+// in the Grid Source's front matter.
 //
 // Each of the three is optional, because courses really do differ: one has no
 // Rehearsal and no single Reading Day. So what is checked is that a course
@@ -129,6 +129,28 @@ test("a course declaring none is told nothing about a Rehearsal, a Reading Day o
   assertInOrder(bands, ["Freeze", "Extension", "provisional Band", "20 minutes"]);
 });
 
+test("a course declaring none reads every other section exactly as it did", async () => {
+  const workspace = makeWorkspace();
+
+  await workspace.publisher(["publish", "--apply"]);
+
+  const grid = printedGrid(workspace);
+  // Every section the Frame prints, in order, each with what it opens with.
+  assertInOrder(grid, [
+    "<h2>How this course is assessed</h2>",
+    "no numeric scale and no average",
+    "<em>justification</em>",
+    "<em>knowing the limits</em>",
+    "<h2>How the Bands are given</h2>",
+    "<h2>Your Feedback Letter</h2>",
+    "secret GitHub gist",
+    "<h2>C1 — Framing and decomposing work</h2>",
+    "<h2>C2 — Extending and constraining an agent</h2>",
+    "<h2>C3 — Recovering from failure</h2>",
+    "<h2>Resit</h2>",
+  ]);
+});
+
 test("declaring a Rehearsal in a published course replaces the grid and nothing else", async () => {
   const workspace = makeWorkspace();
   writeDayOneSet(workspace);
@@ -174,14 +196,18 @@ for (const [field, shape] of Object.entries(SHAPE_WITHOUT)) {
     assert.ok(result.stderr.includes(GRID_SOURCE), result.stderr);
   });
 
-  test(`a block with no ${field} makes publish refuse before writing anything`, async () => {
+  test(`a block with no ${field} makes publish refuse before writing anything, in the words check used`, async () => {
     const workspace = makeWorkspace();
+    pointContextAtPublisher(workspace);
     gridStating(workspace, shape);
 
+    const checked = await workspace.publisher(["check"]);
     const result = await workspace.publisher(["publish", "--apply"]);
 
     assert.notEqual(result.code, 0);
     assert.ok(result.stderr.includes(`"${field}"`), result.stderr);
+    // The same refusal from both: fixing a commit is fixing a run.
+    assert.equal(result.stderr, checked.stderr);
     assert.deepEqual(workspace.readCourse().items, []);
     assert.equal(existsSync(workspace.manifestPath), false);
   });

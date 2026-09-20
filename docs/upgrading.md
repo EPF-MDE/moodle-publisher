@@ -6,7 +6,7 @@ What a course repository does, once, when it moves its pinned tag past a release
 
 Three things an Instructor says in every course are now the Grid Frame's to say: the **Rehearsal**, the supervised lab before the Freeze that does not count towards a Band; the **Reading Day**, after which nothing pushed is read; and the **Oral's timetable**, what happens minute by minute. The wording is shared, so improving it reaches every course by moving the pinned tag. The facts are the course's, declared in the Grid Source's front matter.
 
-Each of the three is optional. **A course that moves its pin and changes nothing goes on publishing the same grid**: the Frame prints nothing about a Rehearsal it was not told of — no heading and no placeholder — so a course that holds none is not made to declare one. There is nothing to do here unless the course has one of the three to state.
+Each of the three is optional. **No course is made to declare one**: the Frame prints nothing about a Rehearsal it was not told of — no heading and no placeholder — so there is nothing to do here unless the course has one of the three to state. This release asks for no edit, and refuses no grid it accepted before.
 
 To state them, add to the front matter of the file `publisher.json` names as `grid`:
 
@@ -30,7 +30,7 @@ Every field of a block that is written is required, and `check` refuses a half-w
 
 **If your old grid stated any of the three in its own prose, declare them rather than delete them.** A course still migrating from before v4.0.0 should read the note below with this one open: what it says to delete from _How the Bands are given_ includes the Rehearsal, the Reading Day and the Oral's timetable, and those three come back here as front matter.
 
-The first publish afterwards plans `replace` on the Assessment Grid, keeping its module id and its place, and `skip` on every other Published Document.
+**The first publish after the pin moves replaces the Assessment Grid, whether or not you declare anything.** This tag's Grid Frame also states the Oral below the Freezes rather than above them, which every course's assembled grid reflects; as with any new Frame, `publish` plans `replace` on the Assessment Grid, keeping its module id, Section place and visibility, and `skip` on every other Published Document. Read the plan before `--apply`.
 
 ## v4.0.0 — the Assessment Grid is assembled
 
