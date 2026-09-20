@@ -2,6 +2,36 @@
 
 What a course repository does, once, when it moves its pinned tag past a release that asks for it. Each note is written for the agent doing the upgrade in the course repository, which reads it here, in the installed publisher: `node_modules/@epf-mde/moodle-publisher/docs/upgrading.md`. The newest note is first.
 
+## v4.1.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable
+
+Three things an Instructor says in every course are now the Grid Frame's to say ([ADR-0015](./adr/0015-what-a-course-may-not-have-is-a-region-of-the-grid-frame.md)): the **Rehearsal**, the supervised lab before the Freeze that does not count towards a Band; the **Reading Day**, after which nothing pushed is read; and the **Oral's timetable**, what happens minute by minute. The wording is shared, so improving it reaches every course by moving the pinned tag. The facts are the course's, declared in the Grid Source's front matter.
+
+Each of the three is optional. **No course is made to declare one**: the Frame prints nothing about a Rehearsal it was not told of — no heading and no placeholder — so there is nothing to do here unless the course has one of the three to state. This release asks for no edit, and refuses no grid it accepted before.
+
+To state them, add to the front matter of the file `publisher.json` names as `grid`:
+
+```yaml
+rehearsal:
+  when: 11 December 2026
+  length: 3 hours
+readingDay:
+  when: 4 January 2027 at 09:00
+oral:
+  length: 9 minutes
+  when: 8 January 2027
+  timetable:
+    - at: 0:00–2:00
+      what: C1 question
+    - at: 6:00–8:00
+      what: "A twist: one constraint of your system changes, and you say what your design does about it"
+```
+
+Every field of a block that is written is required, and `check` refuses a half-written one, naming the field — `rehearsal.length`, `oral.timetable[2].what`. None is read as a date: each is printed as the course writes it, like the Oral's `when`. Only a Deliverable's `due` is a real instant, because only a Devoir enforces one. A timetable row's `what` is prose and may say anything, with one check on it: a `Cn` written in it has to be a Competency `competencies:` declares, or the row is refused naming the row and the id. An id is its place in `competencies:`, so reordering that block can renumber a row out from under a timetable.
+
+**If your old grid stated any of the three in its own prose, declare them rather than delete them.** A course still migrating from before v4.0.0 should read the note below with this one open: what it says to delete from _How the Bands are given_ includes the Rehearsal, the Reading Day and the Oral's timetable, and those three come back here as front matter.
+
+**The first publish after the pin moves replaces the Assessment Grid, whether or not you declare anything.** This tag's Grid Frame also states the Oral below the Freezes rather than above them, which every course's assembled grid reflects; as with any new Frame, `publish` plans `replace` on the Assessment Grid, keeping its module id, Section place and visibility, and `skip` on every other Published Document. Read the plan before `--apply`.
+
 ## v4.0.0 — the Assessment Grid is assembled
 
 The Assessment Grid a Student reads is no longer written whole by the course. The publisher assembles it at publish time from the course's **Grid Source** and the **Grid Frame** it ships ([ADR-0014](./adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md); the terms are in the publisher's `CONTEXT.md`). The Grid Frame, [`grid-frame.md`](./grid-frame.md), holds everything a Student reads except the bodies of the Competency blocks: the opening line, the Band legend and the two gaps, how the Bands are given, each Freeze, the Feedback Letter, each Competency's heading and the Resit section. It writes each Freeze from its Deliverable's `due`, each heading from `competencies:`, and the programme, the term and the Oral from new front-matter fields.
@@ -20,7 +50,7 @@ Three things are the Instructor's to decide, so ask rather than pick:
 
 - A Freeze the old prose states differently from its Deliverable's `due`. The `due` is what the Devoir enforces, and from now on it is also what Students read.
 - A Competency title the old heading writes differently from `competencies:`. The `competencies:` title is the one printed.
-- Anything in the deleted sections that is the course's own rather than the shared text: a remark about this course's Oral, say. The Grid Frame cannot be reworded, so it belongs in a Competency block, in another Published Document, or nowhere.
+- Anything in the deleted sections that is the course's own rather than the shared text: a remark about this course's Oral, say. The Grid Frame cannot be reworded, so it belongs in a Competency block, in another Published Document, or nowhere. Three of them are the Frame's from v4.1.0 on, and are declared in the front matter rather than deleted: a Rehearsal, a Reading Day and the Oral's timetable — see the note above.
 
 **The first publish afterwards replaces the Assessment Grid, and nothing else.** `npx moodle-publisher publish` plans `replace` on the Assessment Grid, keeping its module id, Section place and visibility, so Student bookmarks and Moodle's logs survive, and `skip` on every other Published Document. Read the plan before `--apply`. Every later publish replaces the Assessment Grid only when its assembly changes: an edit to a block, a retitled Competency, a moved `due`, or a new Grid Frame brought by a later tag.
 

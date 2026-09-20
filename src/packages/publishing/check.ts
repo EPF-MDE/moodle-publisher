@@ -71,7 +71,7 @@ export function readCheckedRepository(repoRoot: string): CheckedRepository {
   const catalog = loadCatalog(repoRoot);
   const competencies = loadCompetencies(repoRoot, catalog);
   const deliverables = loadDeliverables(repoRoot, catalog, competencies);
-  const facts = loadGridFacts(repoRoot, catalog);
+  const facts = loadGridFacts(repoRoot, catalog, competencies);
   const plan = buildPlan({
     repoRoot,
     // No site: it is carried for applying, which a check never does.

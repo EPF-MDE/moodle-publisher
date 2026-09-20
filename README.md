@@ -45,7 +45,7 @@ npm run wipe -- --course <id>           # reports what emptying would delete
 npm run wipe -- --course <id> --apply   # empties the course
 ```
 
-`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a Grid Source that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a Grid Source that still has the retired `probes:` block, a Grid Source missing its programme, term or Oral or whose Competency blocks are wrong ([below](#the-assessment-grid)) — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
+`check` refuses everything a plan would refuse short of reading the course — a `publisher.json` or a Grid Source that does not read, a Section the course page does not have, a picture that is not there, a Student-facing document linking to Instructor Material, a Grid Source that still has the retired `probes:` block, a Grid Source missing its programme, term or Oral, one whose Rehearsal, Reading Day or Oral timetable is half-written, or one whose Competency blocks are wrong ([below](#the-assessment-grid)) — with the message the run would print, and exits non-zero. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, never opens a browser and writes nothing: no manifest, no run capture. It is what a course repository's pre-commit hook runs. (In this repository `npm run check` is the publisher's own typecheck and test suite, so the command is spelled out.)
 
 `render <source>` prints one Published Document as the PDF a publish would upload, so it can be read before it is published: the Assessment Grid assembled from the Grid Frame and the Grid Source ([below](#the-assessment-grid)), or any other document. `<source>` is a path the `published` table lists, as the table writes it; any other path is refused, naming it. The repository is read exactly as `check` reads it, with the same refusals, so a repository `check` refuses renders nothing. The PDF is written beside the run captures, as `runs/<run>/<name>.pdf`, or to the path given with `--out <path>`, and the command prints where it went. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, prints in a headless Chromium ([installed once](#the-browser)) that opens no Moodle page, and writes nothing to the manifest or the course. Its footer is dated today.
 
@@ -250,12 +250,12 @@ The table is checked against the repository it sits in, so a source path that is
 
 ## The assessment grid
 
-The Assessment Grid a Student reads is never written whole: the publisher assembles it at publish time from two parts ([ADR-0014](./docs/adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md)).
+The Assessment Grid a Student reads is never written whole: the publisher assembles it at publish time from two parts ([ADR-0014](./docs/adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md)), and says nothing about what this course does not have ([ADR-0015](./docs/adr/0015-what-a-course-may-not-have-is-a-region-of-the-grid-frame.md)).
 
-- The **Grid Source** is the course's part: the file `publisher.json` names as `grid`. Its front matter declares the [Competencies](#competencies), the [Deliverables](#deliverables), the programme, the term and the Oral. Its prose holds one block per Competency, headed by the Competency's id alone (`## C1`), and nothing else.
-- The **Grid Frame** is the publisher's part, the same in every EPF course: the opening line naming the course, programme and term, the legend of the five Bands and the two gaps (_justification_ and _knowing the limits_), how the Oral verifies a provisional Band, each Freeze and the Extension sentence, how the Feedback Letter is made, each Competency's heading, and the Resit section. It is [docs/grid-frame.md](./docs/grid-frame.md), shipped in the package, so an Instructor reads what their Students read around their blocks at `node_modules/@epf-mde/moodle-publisher/docs/grid-frame.md`.
+- The **Grid Source** is the course's part: the file `publisher.json` names as `grid`. Its front matter declares the [Competencies](#competencies), the [Deliverables](#deliverables), the programme, the term and the Oral, and — where the course has them — the Rehearsal, the Reading Day and the Oral's timetable. Its prose holds one block per Competency, headed by the Competency's id alone (`## C1`), and nothing else.
+- The **Grid Frame** is the publisher's part, the same in every EPF course: the opening line naming the course, programme and term, the legend of the five Bands and the two gaps (_justification_ and _knowing the limits_), each Freeze and the Extension sentence, how the Oral verifies a provisional Band, how the Feedback Letter is made, each Competency's heading, and the Resit section. Three of its parts are printed only where the course declares the facts they state — the Rehearsal, the Reading Day and the Oral's timetable — and a course that declares none reads nothing about them. It is [docs/grid-frame.md](./docs/grid-frame.md), shipped in the package, so an Instructor reads what their Students read around their blocks at `node_modules/@epf-mde/moodle-publisher/docs/grid-frame.md`.
 
-The publisher prints the Grid Frame with the course's facts and blocks written into it. The opening line is `<course> · EPF <programme> · <term>`, from `publisher.json`'s `course` and the front matter's `programme` and `term`. The Oral is stated as "individual, `<length>`, `<when>`", from `oral:`'s `length` and `when`. Each Freeze is written from its Deliverable's `due` (see [Deliverables](#deliverables)). The blocks come in `C1…Cn` order, whatever order the Grid Source writes them in, each headed `C1 — <title>` with its title from `competencies:`. Each field is printed as written, and none is defaulted:
+The publisher prints the Grid Frame with the course's facts and blocks written into it. The opening line is `<course> · EPF <programme> · <term>`, from `publisher.json`'s `course` and the front matter's `programme` and `term`. The Oral is stated as "individual, `<length>`, `<when>`", from `oral:`'s `length` and `when`, and its timetable, the Rehearsal and the Reading Day are printed where `oral.timetable:`, `rehearsal:` and `readingDay:` are written and left unsaid where they are not. Each Freeze is written from its Deliverable's `due` (see [Deliverables](#deliverables)). The blocks come in `C1…Cn` order, whatever order the Grid Source writes them in, each headed `C1 — <title>` with its title from `competencies:`. Each field is printed as written, and none is defaulted:
 
 ```yaml
 ---
@@ -264,6 +264,15 @@ term: Autumn 2026
 oral:
   length: 20 minutes
   when: 14 and 15 September 2026
+  # Optional, like the two blocks below: left out, the grid says nothing of it.
+  timetable:
+    - at: 0:00–2:00
+      what: C1 question
+rehearsal:
+  when: 11 December 2026
+  length: 3 hours
+readingDay:
+  when: 4 January 2027 at 09:00
 competencies:
   - Framing and decomposing work
 deliverables:
@@ -281,6 +290,8 @@ The front matter is never printed. To read the grid as Students will, before pub
 **A Grid Source in the wrong shape is refused**, by every command that reads the catalog, `check` included, before any browser opens and with the same message from `check` as from `publish`:
 
 - a `programme`, a `term`, an `oral:` block, or its `length` or `when`, missing or not text, naming the field;
+- a `rehearsal:`, a `readingDay:` or an `oral.timetable:` that is written and incomplete, naming the field — `rehearsal.length`, `oral.timetable[2].what`. Leaving one of the three out is not a mistake: the Grid Frame then says nothing about it;
+- a timetable row naming a Competency `competencies:` does not declare, naming the row and the id. A row's `what` is prose and may say anything, but a `Cn` in it is a Competency a Student is graded on, and pointing a minute of the Oral at one that does not exist is a minute spent on nothing;
 - a declared Competency with no block, naming it;
 - a block headed by a Competency `competencies:` does not declare (a renumbering mistake, most often), naming it;
 - two blocks for one Competency;
