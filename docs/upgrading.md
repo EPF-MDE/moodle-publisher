@@ -4,7 +4,7 @@ What a course repository does, once, when it moves its pinned tag past a release
 
 ## v4.1.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable
 
-Three things an Instructor says in every course are now the Grid Frame's to say: the **Rehearsal**, the supervised lab before the Freeze that does not count towards a Band; the **Reading Day**, after which nothing pushed is read; and the **Oral's timetable**, what happens minute by minute. The wording is shared, so improving it reaches every course by moving the pinned tag. The facts are the course's, declared in the Grid Source's front matter.
+Three things an Instructor says in every course are now the Grid Frame's to say ([ADR-0015](./adr/0015-what-a-course-may-not-have-is-a-region-of-the-grid-frame.md)): the **Rehearsal**, the supervised lab before the Freeze that does not count towards a Band; the **Reading Day**, after which nothing pushed is read; and the **Oral's timetable**, what happens minute by minute. The wording is shared, so improving it reaches every course by moving the pinned tag. The facts are the course's, declared in the Grid Source's front matter.
 
 Each of the three is optional. **No course is made to declare one**: the Frame prints nothing about a Rehearsal it was not told of — no heading and no placeholder — so there is nothing to do here unless the course has one of the three to state. This release asks for no edit, and refuses no grid it accepted before.
 

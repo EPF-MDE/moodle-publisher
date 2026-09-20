@@ -9,9 +9,9 @@
   Oral from the Grid Source's front matter, and one Freeze line per Deliverable,
   in `due` order, its time and date in Europe/Paris.
 
-  Three things a course may or may not have are written in a region between
-  `<!-- if … -->` and `<!-- end if -->`, with a blank line below it: the
-  Rehearsal, the Reading Day and the Oral's timetable. A course that declares
+  Three things a course may or may not have are written in a region (ADR-0015)
+  between `<!-- if … -->` and `<!-- end if -->`, with a blank line below it:
+  the Rehearsal, the Reading Day and the Oral's timetable. A course that declares
   one in its front matter is printed that whole region, with its facts written
   in; a course that declares none is printed nothing in its place — no heading
   and no placeholder.
