@@ -85,3 +85,24 @@ test("the Grid Source the note ends on passes check", async () => {
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stdout, /2 Competencies\./);
 });
+
+test("the note for the Rehearsal, the Reading Day and the timetable says they are optional and how to declare them", () => {
+  const notes = shippedNotes();
+
+  for (const said of [
+    /## v4\.1\.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable/,
+    /Each of the three is optional/,
+    /goes on publishing the same grid/,
+    /^rehearsal:$/m,
+    /^readingDay:$/m,
+    /^ {2}timetable:$/m,
+    /declare them rather than delete them/,
+  ]) {
+    assert.match(notes, said);
+  }
+  // The newest note is first: a course reads the one for the tag it is moving to.
+  assert.ok(
+    notes.indexOf("## v4.1.0") < notes.indexOf("## v4.0.0"),
+    "the newest note is not first"
+  );
+});

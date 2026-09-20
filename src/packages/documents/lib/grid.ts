@@ -7,7 +7,9 @@
 // and the heading a Student reads is the id with its title from
 // `competencies:`. Where the Frame states the course's facts — the course, the
 // programme, the term, the Oral and each Freeze — it writes them from what it is
-// handed, never from the course's prose.
+// handed, never from the course's prose. Three of them are the course's to have
+// at all: the Rehearsal, the Reading Day and the Oral's timetable are printed
+// where the course declares them, and nothing is printed where it does not.
 import { readFileSync } from "node:fs";
 
 import { marked } from "./gfm.ts";
@@ -18,6 +20,28 @@ import type { Token, Tokens } from "marked";
 export interface GridCompetency {
   readonly id: string;
   readonly title: string;
+}
+
+/** The Rehearsal, as the Frame states it, for a course that holds one. */
+export interface GridRehearsal {
+  /** When it is held, as a Student reads it, e.g. `11 December`. */
+  readonly when: string;
+  /** How long it lasts, e.g. `3 hours`. */
+  readonly length: string;
+}
+
+/** The Reading Day, as the Frame states it, for a course that has one. */
+export interface GridReadingDay {
+  /** When the work is read, as a Student reads it, e.g. `4 January at 09:00`. */
+  readonly when: string;
+}
+
+/** One line of the Oral's timetable: when in the Oral, and what happens then. */
+export interface GridOralSlot {
+  /** Where in the Oral it falls, e.g. `0:00–2:00`. */
+  readonly at: string;
+  /** What happens then, e.g. `C1 question`. */
+  readonly what: string;
 }
 
 /** One Freeze as the Frame states it. */
@@ -41,7 +65,20 @@ export interface GridFrameFacts {
   readonly course: string;
   readonly programme: string;
   readonly term: string;
-  readonly oral: { readonly length: string; readonly when: string };
+  readonly oral: {
+    readonly length: string;
+    readonly when: string;
+    /**
+     * The Oral minute by minute, in the order the course writes it, or
+     * `undefined` for a course that states no timetable — in which case the
+     * Frame says nothing about one.
+     */
+    readonly timetable?: readonly GridOralSlot[];
+  };
+  /** The Rehearsal, or `undefined` for a course that holds none. */
+  readonly rehearsal?: GridRehearsal;
+  /** The Reading Day, or `undefined` for a course that has none. */
+  readonly readingDay?: GridReadingDay;
   /** One per Deliverable, in the order they fall. */
   readonly freezes: readonly GridFreeze[];
   readonly competencies: readonly GridCompetency[];
@@ -54,10 +91,26 @@ export interface GridFrameFacts {
 const SLOT = /\{\{([a-z ]+)\}\}/g;
 
 /**
+ * A region of the Frame the course may or may not have: what it writes about
+ * the Rehearsal, the Reading Day or the Oral's timetable, between
+ * `<!-- if name -->` and `<!-- end if -->`, and the blank line below it.
+ *
+ * The prose stays in the Frame, where it can be read and improved, rather than
+ * being built here; what the course decides is only whether it is printed.
+ */
+const OPTIONAL = /<!-- if ([a-z ]+) -->\n([\s\S]*?)\n<!-- end if -->\n\n/g;
+
+/** An `<!-- if … -->` the region rule did not recognise, in the assembled grid. */
+const UNRESOLVED = /<!-- (?:if|end if)/;
+
+/**
  * The note the Frame opens with, for whoever reads it in the package. A
  * Student reads the Frame's prose, not its maintainers' notes.
+ *
+ * It ends at the first `-->` written on a line of its own, so that the note
+ * can quote the markers of an optional region without closing itself.
  */
-const LEADING_COMMENT = /^\s*<!--[\s\S]*?-->\s*/;
+const LEADING_COMMENT = /^\s*<!--[\s\S]*?\n-->\s*/;
 
 /**
  * The Grid Frame's text, as the package ships it: a markdown file people can
@@ -147,6 +200,10 @@ function blocksOf(body: string): ReadonlyMap<string, string> {
  *
  * Only the blocks are the course's: what `body` holds outside a block headed
  * by a declared Competency is not printed. A Grid Source holds nothing else.
+ *
+ * A region of the Frame about something this course does not have — no
+ * Rehearsal, no Reading Day, no timetable — is left out whole, so the grid
+ * reads as if the Frame never named it.
  */
 export function assembleGrid(body: string, facts: GridFrameFacts): string {
   const blocks = blocksOf(body);
@@ -170,7 +227,34 @@ export function assembleGrid(body: string, facts: GridFrameFacts): string {
     ],
     ["competency blocks", written.trimEnd()],
   ]);
-  return gridFrame().replace(SLOT, (slot, name: string) => {
+  // What this course has of the three the Frame states only where they exist.
+  const declared = new Set<string>();
+  const { rehearsal, readingDay, oral } = facts;
+  if (rehearsal !== undefined) {
+    declared.add("rehearsal");
+    slots.set("rehearsal when", rehearsal.when);
+    slots.set("rehearsal length", rehearsal.length);
+  }
+  if (readingDay !== undefined) {
+    declared.add("reading day");
+    slots.set("reading day when", readingDay.when);
+  }
+  if (oral.timetable !== undefined) {
+    declared.add("oral timetable");
+    slots.set(
+      "oral timetable",
+      oral.timetable.map(({ at, what }) => `| ${at} | ${what} |`).join("\n")
+    );
+  }
+  // The regions first: a slot inside a region the course left out is one
+  // nothing fills, and removing the region is what makes that right rather
+  // than a refusal.
+  const frame = gridFrame().replace(
+    OPTIONAL,
+    (_region, name: string, prose: string) =>
+      declared.has(name) ? `${prose}\n\n` : ""
+  );
+  const assembled = frame.replace(SLOT, (slot, name: string) => {
     const value = slots.get(name);
     // A slot the Frame names and nothing fills is the package's own mistake,
     // and printing it would show a Student `{{…}}` in their grid.
@@ -179,4 +263,13 @@ export function assembleGrid(body: string, facts: GridFrameFacts): string {
     }
     return value;
   });
+  // As for a slot: an `<!-- if … -->` left standing is the Frame's own
+  // mistake — a region written without the blank line below it, say — and it
+  // would print as nothing at all, silently dropping what it holds.
+  if (UNRESOLVED.test(assembled)) {
+    throw new Error(
+      `The Grid Frame has an "<!-- if … -->" region this program could not read.`
+    );
+  }
+  return assembled;
 }

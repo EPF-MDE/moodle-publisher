@@ -18,6 +18,27 @@ term: <term, e.g. Autumn 2026>
 oral:
   length: <length, e.g. 20 minutes>
   when: <when, e.g. 14 and 15 December 2026>
+  # The Oral minute by minute, printed as the table it is, in this order.
+  # Optional, like the two blocks below: leave it out and the grid says nothing
+  # about how the Oral goes. Each row states both `at` and `what`, as written.
+  # timetable:
+  #   - at: 0:00–2:00
+  #     what: C1 question
+  #   - at: 6:00–8:00
+  #     what: "A twist: one constraint of your system changes, and you say what your design does about it"
+
+# The Rehearsal: the supervised lab, before the Freeze, where a Student puts
+# every Competency into practice on their own work, and which does not count
+# towards a Band. Optional — a course that holds none leaves this out, and the
+# grid says nothing about one. Both fields are printed as written.
+# rehearsal:
+#   when: <when, e.g. 11 December 2026>
+#   length: <how long, e.g. 3 hours>
+
+# The Reading Day: the day the Instructor reads every Student's work as it
+# stands, after which nothing pushed is read. Optional, and printed as written.
+# readingDay:
+#   when: <when, e.g. 4 January 2027 at 09:00>
 
 # The Competencies this course is assessed on, one title per line. Each one's
 # id is its place in this block — C1, C2, … — so a Competency is only ever

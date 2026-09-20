@@ -9,6 +9,13 @@
   Oral from the Grid Source's front matter, and one Freeze line per Deliverable,
   in `due` order, its time and date in Europe/Paris.
 
+  Three things a course may or may not have are written in a region between
+  `<!-- if … -->` and `<!-- end if -->`, with a blank line below it: the
+  Rehearsal, the Reading Day and the Oral's timetable. A course that declares
+  one in its front matter is printed that whole region, with its facts written
+  in; a course that declares none is printed nothing in its place — no heading
+  and no placeholder.
+
   A course can neither drop nor reword it: it changes when the pinned publisher
   does. It prints no title of its own: the PDF opens with the title the
   `published` table gives the grid (ADR-0013).
@@ -34,13 +41,29 @@ The gap between **Basic** and **Solid** is _justification_. The gap between **So
 
 ## How the Bands are given
 
-Your work is read before your Oral, and the Instructor arrives with a provisional Band per Competency. The Oral — individual, {{oral length}}, {{oral when}} — does not discover your work: it **verifies** that the work is yours and that you understand it. A strong piece of work you cannot defend moves down. A modest one defended with real understanding moves up.
+<!-- if rehearsal -->
+**The Rehearsal.** A supervised lab, {{rehearsal length}} long, on {{rehearsal when}}: you put every Competency into practice on your own work, with the Instructor there to ask. Nothing in it counts towards a Band. It is where you find out what you cannot yet do, while there is still time to do something about it.
+<!-- end if -->
+
+<!-- if reading day -->
+**The Reading Day.** Your work is read on {{reading day when}}, as it stands that day. Anything pushed after that is not read: what you are asked about at your Oral is what stood on the Reading Day.
+<!-- end if -->
 
 Each Deliverable must be handed in to its Devoir by its Freeze, in Paris time:
 
 {{freezes}}
 
 Anything handed in later is not read. An Extension is granted to one named Student, in Moodle, and you are told so by name — there is no extra time anybody gets silently.
+
+Your work is read before your Oral, and the Instructor arrives with a provisional Band per Competency. The Oral — individual, {{oral length}}, {{oral when}} — does not discover your work: it **verifies** that the work is yours and that you understand it. A strong piece of work you cannot defend moves down. A modest one defended with real understanding moves up.
+
+<!-- if oral timetable -->
+Your {{oral length}} are spent like this:
+
+| When | What happens |
+| --- | --- |
+{{oral timetable}}
+<!-- end if -->
 
 ## Your Feedback Letter
 

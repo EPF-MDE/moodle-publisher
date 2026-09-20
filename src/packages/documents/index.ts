@@ -21,6 +21,9 @@ export type {
   GridCompetency,
   GridFrameFacts,
   GridFreeze,
+  GridOralSlot,
+  GridReadingDay,
+  GridRehearsal,
 } from "./lib/grid.ts";
 export type { CrossReference, LinkTarget } from "./lib/links.ts";
 
