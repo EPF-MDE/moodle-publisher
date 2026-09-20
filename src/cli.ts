@@ -158,7 +158,7 @@ async function publish(apply: boolean): Promise<number> {
   // with a browser sitting in the course.
   const competencies = loadCompetencies(config.repoRoot, catalog);
   const deliverables = loadDeliverables(config.repoRoot, catalog, competencies);
-  const facts = loadGridFacts(config.repoRoot, catalog);
+  const facts = loadGridFacts(config.repoRoot, catalog, competencies);
   const manifest = readManifest(config.manifestPath);
   // Pages an earlier publisher recorded are cleaned up by hand, and that is
   // worth hearing before a browser is sitting in the course.

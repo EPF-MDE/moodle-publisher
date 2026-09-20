@@ -22,8 +22,10 @@
 // read, not collected, and is printed as the course writes it.
 import { frontMatter } from "../../documents/index.ts";
 
+import { idsOf, isDeclared } from "./competency.ts";
 import { nonEmptyString } from "./scalar.ts";
 
+import type { Competency } from "./competency.ts";
 import type { FrontMatter, FrontMatterValue } from "../../documents/index.ts";
 
 /** The Rehearsal a course holds before the Freeze, as it states it. */
@@ -45,10 +47,11 @@ export interface GridTimetableRow {
   /** Where in the Oral it falls, e.g. `0:00–2:00`. */
   readonly at: string;
   /**
-   * What happens then, as the course writes it. Printed as written: a row may
-   * name a Competency, or anything else the Oral does, and this program does
-   * not read it for ids — the timetable is prose in a table, not another place
-   * the Competencies are declared.
+   * What happens then, as the course writes it. Printed as written, and read
+   * for one thing only: a `Cn` it names has to be a Competency the grid
+   * declares. The timetable is prose in a table, not another place the
+   * Competencies are declared — but it may not point at one that does not
+   * exist.
    */
   readonly what: string;
 }
@@ -101,8 +104,47 @@ export class MissingGridField extends Error {
   }
 }
 
-/** The facts the Grid Source at `grid` states, each one checked. */
-export function readGridFacts(repoRoot: string, grid: string): GridFacts {
+/**
+ * A Competency id written in a timetable row, `C1`, `C2`, …: the ids this
+ * program gives, so `C1` is a reference and `c1` is prose.
+ */
+const COMPETENCY_ID = /\bC\d+\b/g;
+
+/**
+ * A timetable row naming a Competency the grid does not declare.
+ *
+ * The row is prose, and it may say anything — but a Competency it names is one
+ * a Student is graded on, and a minute of the Oral pointed at a Competency
+ * nobody is graded on is a minute spent on nothing. Most often it is a
+ * renumbering: an id is its place in `competencies:`, so removing or
+ * reordering one moves every id after it.
+ */
+export class UndeclaredTimetableCompetency extends Error {
+  constructor(
+    grid: string,
+    field: string,
+    named: string,
+    competencies: readonly Competency[]
+  ) {
+    super(
+      `Refusing to start: "${grid}" writes "${field}" naming competency "${named}", which ` +
+        `"${grid}" does not declare. The competencies are ${idsOf(competencies)}. A ` +
+        `Competency's id is its place in "competencies:", so removing or reordering one ` +
+        `renumbers those after it. Name a declared Competency, or write the row without an id.`
+    );
+    this.name = "UndeclaredTimetableCompetency";
+  }
+}
+
+/**
+ * The facts the Grid Source at `grid` states, each one checked against the
+ * `competencies` the same grid declares.
+ */
+export function readGridFacts(
+  repoRoot: string,
+  grid: string,
+  competencies: readonly Competency[]
+): GridFacts {
   const declared: FrontMatter = frontMatter(repoRoot, grid) ?? {};
   const fields = fieldsOf(grid);
   const programme = fields.text(declared["programme"], "programme");
@@ -115,7 +157,7 @@ export function readGridFacts(repoRoot: string, grid: string): GridFacts {
     oral: {
       length: fields.text(oral["length"], "oral.length"),
       when: fields.text(oral["when"], "oral.when"),
-      timetable: readTimetable(fields, oral["timetable"]),
+      timetable: readTimetable(fields, oral["timetable"], competencies),
     },
     rehearsal: readRehearsal(fields, declared["rehearsal"]),
     readingDay: readReadingDay(fields, declared["readingDay"]),
@@ -124,6 +166,8 @@ export function readGridFacts(repoRoot: string, grid: string): GridFacts {
 
 /** Reads the fields of one Grid Source: every refusal names that source. */
 interface Fields {
+  /** The Grid Source being read, for a refusal this reader does not raise. */
+  readonly source: string;
   /** A field written as text, or the refusal naming it. */
   text(value: FrontMatterValue | undefined, field: string): string;
   /**
@@ -145,6 +189,7 @@ interface Fields {
  */
 function fieldsOf(grid: string): Fields {
   return {
+    source: grid,
     text(value, field) {
       const written = nonEmptyString(value);
       if (written === undefined) throw new MissingGridField(grid, field);
@@ -195,7 +240,8 @@ function readReadingDay(
  */
 function readTimetable(
   fields: Fields,
-  value: FrontMatterValue | undefined
+  value: FrontMatterValue | undefined,
+  competencies: readonly Competency[]
 ): readonly GridTimetableRow[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length === 0) {
@@ -208,7 +254,35 @@ function readTimetable(
     if (written === undefined) throw fields.missing(path);
     return {
       at: fields.text(written["at"], `${path}.at`),
-      what: fields.text(written["what"], `${path}.what`),
+      what: named(fields, written["what"], `${path}.what`, competencies),
     };
   });
+}
+
+/**
+ * A timetable row's `what`, as written, once every Competency it names is one
+ * the grid declares.
+ *
+ * The prose is not read for anything else: the timetable is a table of prose,
+ * not a second place the Competencies are declared. What it may not do is
+ * point a Student at a `Cn` that does not exist.
+ */
+function named(
+  fields: Fields,
+  value: FrontMatterValue | undefined,
+  field: string,
+  competencies: readonly Competency[]
+): string {
+  const written = fields.text(value, field);
+  for (const id of written.match(COMPETENCY_ID) ?? []) {
+    if (!isDeclared(competencies, id)) {
+      throw new UndeclaredTimetableCompetency(
+        fields.source,
+        field,
+        id,
+        competencies
+      );
+    }
+  }
+  return written;
 }

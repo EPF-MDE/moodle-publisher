@@ -26,7 +26,7 @@ oral:
       what: "A twist: one constraint of your system changes, and you say what your design does about it"
 ```
 
-Every field of a block that is written is required, and `check` refuses a half-written one, naming the field — `rehearsal.length`, `oral.timetable[2].what`. None is read as a date: each is printed as the course writes it, like the Oral's `when`. Only a Deliverable's `due` is a real instant, because only a Devoir enforces one. A timetable row's `what` is prose: it may name a Competency, and nothing checks it against `competencies:`.
+Every field of a block that is written is required, and `check` refuses a half-written one, naming the field — `rehearsal.length`, `oral.timetable[2].what`. None is read as a date: each is printed as the course writes it, like the Oral's `when`. Only a Deliverable's `due` is a real instant, because only a Devoir enforces one. A timetable row's `what` is prose and may say anything, with one check on it: a `Cn` written in it has to be a Competency `competencies:` declares, or the row is refused naming the row and the id. An id is its place in `competencies:`, so reordering that block can renumber a row out from under a timetable.
 
 **If your old grid stated any of the three in its own prose, declare them rather than delete them.** A course still migrating from before v4.0.0 should read the note below with this one open: what it says to delete from _How the Bands are given_ includes the Rehearsal, the Reading Day and the Oral's timetable, and those three come back here as front matter.
 

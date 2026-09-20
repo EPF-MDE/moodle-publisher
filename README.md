@@ -287,6 +287,7 @@ The front matter is never printed. The Grid Frame prints no title of its own: th
 
 - a `programme`, a `term`, an `oral:` block, or its `length` or `when`, missing or not text, naming the field;
 - a `rehearsal:`, a `readingDay:` or an `oral.timetable:` that is written and incomplete, naming the field — `rehearsal.length`, `oral.timetable[2].what`. Leaving one of the three out is not a mistake: the Grid Frame then says nothing about it;
+- a timetable row naming a Competency `competencies:` does not declare, naming the row and the id. A row's `what` is prose and may say anything, but a `Cn` in it is a Competency a Student is graded on, and pointing a minute of the Oral at one that does not exist is a minute spent on nothing;
 - a declared Competency with no block, naming it;
 - a block headed by a Competency `competencies:` does not declare (a renumbering mistake, most often), naming it;
 - two blocks for one Competency;

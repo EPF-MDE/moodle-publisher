@@ -8,9 +8,13 @@
 import { readGridFacts } from "./lib/grid-facts.ts";
 
 import type { Catalog } from "./index.ts";
+import type { Competency } from "./lib/competency.ts";
 import type { GridFacts } from "./lib/grid-facts.ts";
 
-export { MissingGridField } from "./lib/grid-facts.ts";
+export {
+  MissingGridField,
+  UndeclaredTimetableCompetency,
+} from "./lib/grid-facts.ts";
 export type {
   GridFacts,
   GridReadingDay,
@@ -29,7 +33,14 @@ export type {
  * `readingDay:` or `oral.timetable:` that is written is missing a field of its
  * own. Leaving one of those three out is not a refusal: the Grid Frame then
  * says nothing about it.
+ *
+ * Throws too when a timetable row names a Competency the grid does not
+ * declare. `competencies` is what `loadCompetencies` read from the same grid.
  */
-export function loadGridFacts(repoRoot: string, catalog: Catalog): GridFacts {
-  return readGridFacts(repoRoot, catalog.grid);
+export function loadGridFacts(
+  repoRoot: string,
+  catalog: Catalog,
+  competencies: readonly Competency[]
+): GridFacts {
+  return readGridFacts(repoRoot, catalog.grid, competencies);
 }

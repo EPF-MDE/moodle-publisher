@@ -256,6 +256,39 @@ for (const [field, shape] of Object.entries(SHAPE_WITHOUT)) {
   });
 }
 
+test("a timetable row naming a Competency the grid does not declare fails check, naming the row and the id", async () => {
+  const workspace = makeWorkspace();
+  pointContextAtPublisher(workspace);
+  gridStating(
+    workspace,
+    `${GRID_FACTS}\n  timetable:\n    - at: 0:00–2:00\n      what: C4 question`
+  );
+
+  const result = await workspace.publisher(["check"]);
+
+  assert.notEqual(result.code, 0);
+  assert.ok(result.stderr.includes(`"oral.timetable[1].what"`), result.stderr);
+  assert.ok(result.stderr.includes(`"C4"`), result.stderr);
+  // And it says which ids there are, because this is usually a renumbering.
+  assert.ok(result.stderr.includes("C1, C2, C3"), result.stderr);
+});
+
+test("a timetable row naming declared Competencies, and prose that is not an id, passes", async () => {
+  const workspace = makeWorkspace();
+  gridStating(
+    workspace,
+    `${GRID_FACTS}\n  timetable:\n    - at: 0:00–2:00\n      what: "C1 and C3, then a twist about c4 in the ACME C-suite"`
+  );
+
+  const result = await workspace.publisher(["publish", "--apply"]);
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(
+    bandsSectionOf(printedGrid(workspace)),
+    /C1 and C3, then a twist about c4 in the ACME C-suite/
+  );
+});
+
 test("a rehearsal written as a plain value rather than a block fails check, naming it", async () => {
   const workspace = makeWorkspace();
   pointContextAtPublisher(workspace);
