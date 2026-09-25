@@ -4,7 +4,7 @@ import { extname, resolve, sep } from "node:path";
 
 import { contentHash } from "./content-hash.ts";
 import { parseFrontMatter, splitFrontMatter } from "./front-matter.ts";
-import { marked } from "./gfm.ts";
+import { makesGitHubReferences, marked } from "./gfm.ts";
 import { imagesShownBy, resolveReference } from "./images.ts";
 
 import type { HashedPart } from "./content-hash.ts";
@@ -16,6 +16,12 @@ import type { CrossReference, LinkTarget } from "./links.ts";
  * its target. Changing that changes every page that links, so it is hashed.
  */
 const LINK_RENDERING_VERSION = "named-text";
+
+/**
+ * How a GitHub reference, `EPF-MDE/OceENS#97`, is published: as a link to the
+ * issue. Documents published before that showed it as text, so it is hashed.
+ */
+const GITHUB_REFERENCE_RENDERING = "issue-link";
 
 /**
  * The absolute path of `source`, or a refusal. Every read in this file goes
@@ -241,6 +247,11 @@ export function hashDocument(
   // for the same markdown. Folded in only when there are links, so a document
   // making none is not republished for a change that does not touch it.
   if (links.length > 0) parts.push(`\0links:${LINK_RENDERING_VERSION}\0`);
+  // Same reason, for the references GitHub links and markdown does not: a
+  // document making one published them as text before, and as links now.
+  if (makesGitHubReferences(markdown)) {
+    parts.push(`\0github-references:${GITHUB_REFERENCE_RENDERING}\0`);
+  }
   // Sorted, so the hash does not turn on the order the links happen to be
   // written in: reordering two paragraphs already changes the markdown itself.
   for (const link of [...links]
