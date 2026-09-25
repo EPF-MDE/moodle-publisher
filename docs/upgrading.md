@@ -2,6 +2,10 @@
 
 What a course repository does, once, when it moves its pinned tag past a release that asks for it. Each note is written for the agent doing the upgrade in the course repository, which reads it here, in the installed publisher: `node_modules/@epf-mde/moodle-publisher/docs/upgrading.md`. The newest note is first.
 
+## Next release — GitHub references are published as links
+
+A reference like `EPF-MDE/OceENS#97` in a published document now publishes as a link to that issue, instead of the plain text it printed as before ([Cross-references](../README.md#cross-references)). This release asks for no edit and refuses nothing it accepted before. The first `npm run apply` after the upgrade republishes each document that makes one; the plan says which. `#97` without its repository still prints as text, so write the repository in when a student should be able to click it.
+
 ## v4.1.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable
 
 Three things an Instructor says in every course are now the Grid Frame's to say ([ADR-0015](./adr/0015-what-a-course-may-not-have-is-a-region-of-the-grid-frame.md)): the **Rehearsal**, the supervised lab before the Freeze that does not count towards a Band; the **Reading Day**, after which nothing pushed is read; and the **Oral's timetable**, what happens minute by minute. The wording is shared, so improving it reaches every course by moving the pinned tag. The facts are the course's, declared in the Grid Source's front matter.
