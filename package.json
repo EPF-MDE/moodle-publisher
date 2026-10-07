@@ -16,7 +16,7 @@
     "!src/tests/",
     "docs/",
     "skills/",
-    "CONTEXT.md",
+    "GLOSSARY.md",
     ".env.example"
   ],
   "scripts": {

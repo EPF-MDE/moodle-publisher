@@ -1,6 +1,6 @@
 # Every entry publishes on every run
 
-**Out of scope: Phase is a retired concept and is not to be implemented again.** It is named in the history below only as the mechanism this decision removed. Nothing in the publisher implements it, `publish` aborts on `--phase` by name rather than ignoring it, and `CONTEXT.md` lists it among the terms not to reintroduce.
+**Out of scope: Phase is a retired concept and is not to be implemented again.** It is named in the history below only as the mechanism this decision removed. Nothing in the publisher implements it, `publish` aborts on `--phase` by name rather than ignoring it, and `GLOSSARY.md` lists it among the terms not to reintroduce.
 
 There is one table, and every document it names is published on every run.
 

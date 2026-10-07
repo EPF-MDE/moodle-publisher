@@ -62,11 +62,11 @@ export function installPublisher(workspace: Workspace): void {
   symlinkSync(installedPublisher(), target, "dir");
 }
 
-/** The `CONTEXT-MAP.md` the README shows: the course's context beside the publisher's. */
-export const CONTEXT_MAP_MARKDOWN = `# Context map
+/** The `GLOSSARY-MAP.md` the README shows: the course's context beside the publisher's. */
+export const CONTEXT_MAP_MARKDOWN = `# Glossary map
 
-- [Course](./CONTEXT.md) and its [ADRs](./docs/adr/): this course.
-- [Publisher](./${INSTALLED_PUBLISHER}/CONTEXT.md) and its
+- [Course](./GLOSSARY.md) and its [ADRs](./docs/adr/): this course.
+- [Publisher](./${INSTALLED_PUBLISHER}/GLOSSARY.md) and its
   [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/): publishing and grading.
 `;
 
@@ -98,7 +98,7 @@ export function linkSkills(workspace: Workspace): void {
  */
 export function pointContextAtPublisher(workspace: Workspace): void {
   installPublisher(workspace);
-  workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  workspace.write("GLOSSARY-MAP.md", CONTEXT_MAP_MARKDOWN);
   linkSkills(workspace);
 }
 

@@ -1,6 +1,6 @@
 // Implementation: private to the publishing package.
 //
-// A course repository's context pointer: the `CONTEXT-MAP.md` at its root,
+// A course repository's context pointer: the `GLOSSARY-MAP.md` at its root,
 // naming its own glossary and ADRs beside the installed publisher's. The
 // publisher's glossary and ADRs ship in its package and are never copied, so
 // upgrading the pinned tag is the sync, and the pointer is the one thing left
@@ -8,7 +8,7 @@
 // was never installed. Each leaves an agent following a path to nothing.
 //
 // The pointer is required, as `publisher.json` is: a repository with no
-// `CONTEXT-MAP.md`, or with one that never links to the publisher's glossary
+// `GLOSSARY-MAP.md`, or with one that never links to the publisher's glossary
 // and its ADRs, leaves an agent with no way to find them at all. Any other
 // link — the course's own glossary, its own ADRs — is the course's business.
 import { existsSync, readFileSync } from "node:fs";
@@ -17,14 +17,14 @@ import { join, posix } from "node:path";
 import { installedPublisher } from "../../skills/installed.ts";
 
 /** Where a course repository keeps its context pointer. */
-const CONTEXT_MAP = "CONTEXT-MAP.md";
+const CONTEXT_MAP = "GLOSSARY-MAP.md";
 
 /** The context pointer names a path into the installed publisher that is not there. */
 export class UnresolvedContextPointer extends Error {
   constructor(target: string, installed: string) {
     super(
       `Refusing to pass: ${CONTEXT_MAP} points to "${target}", which is not there. ` +
-        `The installed publisher ships its glossary at ${installed}/CONTEXT.md and its ` +
+        `The installed publisher ships its glossary at ${installed}/GLOSSARY.md and its ` +
         `ADRs in ${installed}/docs/adr/. Point there, or run npm install if the ` +
         `publisher is not installed.`
     );
@@ -71,7 +71,7 @@ function linkTargets(markdown: string): string[] {
 
 /**
  * Throws {@link MissingContextPointer} when the course repository has no
- * `CONTEXT-MAP.md`, {@link UnresolvedContextPointer} for the first link in it
+ * `GLOSSARY-MAP.md`, {@link UnresolvedContextPointer} for the first link in it
  * that goes into the installed publisher and names nothing there, and
  * {@link MissingContextPointer} again when it links to neither or only one of
  * the publisher's glossary and its ADRs. Writes nothing.
@@ -79,7 +79,7 @@ function linkTargets(markdown: string): string[] {
 export function assertContextPointer(repoRoot: string): void {
   const installed = installedPublisher();
   const required: readonly RequiredLink[] = [
-    { label: "Publisher", target: `${installed}/CONTEXT.md` },
+    { label: "Publisher", target: `${installed}/GLOSSARY.md` },
     { label: "ADRs", target: `${installed}/docs/adr/` },
   ];
 
