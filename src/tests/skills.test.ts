@@ -272,8 +272,8 @@ test("check passes once install-skills has run", async () => {
 /** The context map alone, for a repository whose skills are the test's business. */
 function pointContextAtPublisherWithoutSkills(workspace: Workspace): void {
   workspace.write(
-    "CONTEXT-MAP.md",
-    `- [Publisher](./${INSTALLED_PUBLISHER}/CONTEXT.md), [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)\n`
+    "GLOSSARY-MAP.md",
+    `- [Publisher](./${INSTALLED_PUBLISHER}/GLOSSARY.md), [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)\n`
   );
 }
 

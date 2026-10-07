@@ -49,17 +49,17 @@ npm run wipe -- --course <id> --apply   # empties the course
 
 `render <source>` prints one Published Document as the PDF a publish would upload, so it can be read before it is published: the Assessment Grid assembled from the Grid Frame and the Grid Source ([below](#the-assessment-grid)), or any other document. `<source>` is a path the `published` table lists, as the table writes it; any other path is refused, naming it. The repository is read exactly as `check` reads it, with the same refusals, so a repository `check` refuses renders nothing. The PDF is written beside the run captures, as `runs/<run>/<name>.pdf`, or to the path given with `--out <path>`, and the command prints where it went. It needs neither `MOODLE_BASE_URL` nor `MOODLE_COURSE_ID` nor a session, prints in a headless Chromium ([installed once](#the-browser)) that opens no Moodle page, and writes nothing to the manifest or the course. Its footer is dated today.
 
-`check` also requires the course repository's **context pointer**. The publisher's glossary ([CONTEXT.md](./CONTEXT.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `CONTEXT-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
+`check` also requires the course repository's **context pointer**. The publisher's glossary ([GLOSSARY.md](./GLOSSARY.md)) and its ADRs ([docs/adr/](./docs/adr/)) ship in the package and are never copied, so upgrading the pinned tag is the sync. A course repository reaches them from the `GLOSSARY-MAP.md` at its root, which names its own glossary and ADRs beside the installed publisher's:
 
 ```markdown
-# Context map
+# Glossary map
 
-- [Course](./CONTEXT.md) and its [ADRs](./docs/adr/): this course.
-- [Publisher](./node_modules/@epf-mde/moodle-publisher/CONTEXT.md) and its
+- [Course](./GLOSSARY.md) and its [ADRs](./docs/adr/): this course.
+- [Publisher](./node_modules/@epf-mde/moodle-publisher/GLOSSARY.md) and its
   [ADRs](./node_modules/@epf-mde/moodle-publisher/docs/adr/): publishing and grading.
 ```
 
-The map is required, as `publisher.json` is. `check` fails when the course repository has no `CONTEXT-MAP.md`, and when the map does not link to the installed publisher's `CONTEXT.md` or to its `docs/adr/`, giving the links to add. A link counts however it is written: inline or reference-style, with or without `./`, with or without the trailing `/`, with an anchor. Every link in the map that goes into `node_modules/@epf-mde/moodle-publisher/` also has to name something there, and `check` fails, naming the path, when one does not — a typo, or a publisher that is not installed. The course's own links are its business: a course with no glossary or ADRs of its own need not name any. Only `check` reads the map; no other command needs it.
+The map is required, as `publisher.json` is. `check` fails when the course repository has no `GLOSSARY-MAP.md` (a `CONTEXT-MAP.md` left from before v5.0.0 counts for nothing; see [upgrading](./docs/upgrading.md)), and when the map does not link to the installed publisher's `GLOSSARY.md` or to its `docs/adr/`, giving the links to add. A link counts however it is written: inline or reference-style, with or without `./`, with or without the trailing `/`, with an anchor. Every link in the map that goes into `node_modules/@epf-mde/moodle-publisher/` also has to name something there, and `check` fails, naming the path, when one does not — a typo, or a publisher that is not installed. The course's own links are its business: a course with no glossary or ADRs of its own need not name any. Only `check` reads the map; no other command needs it.
 
 `check` also requires the publisher's **agent skills** to be linked, and fails, naming the link and saying to run `npx moodle-publisher install-skills`, when either is missing or leads anywhere but the installed skill. See [Agent skills](#agent-skills).
 

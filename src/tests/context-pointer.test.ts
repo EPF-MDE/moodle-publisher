@@ -3,7 +3,7 @@
 // publisher.
 //
 // Nothing is copied into the course repository, so upgrading the pinned tag is
-// the sync. What can go wrong is the pointer: a `CONTEXT-MAP.md` nobody wrote,
+// the sync. What can go wrong is the pointer: a `GLOSSARY-MAP.md` nobody wrote,
 // one that never links to the publisher's glossary or its ADRs, or a path into
 // `node_modules` that a rename, a typo or a missing install leaves naming
 // nothing. `check` requires the map and says so, before an agent goes looking
@@ -45,11 +45,11 @@ const TERMS = [
 /** The decisions the publisher keeps, under the numbers they were taken under. */
 const ADRS = ["0002", "0003", "0004", "0005", "0007", "0011", "0012"];
 
-/** A `CONTEXT-MAP.md` naming the course's own context and the publisher's. */
+/** A `GLOSSARY-MAP.md` naming the course's own context and the publisher's. */
 function contextMap(glossary: string, adrs: string): string {
-  return `# Context map
+  return `# Glossary map
 
-- [Course](./CONTEXT.md): this course, its Students and its Orals.
+- [Course](./GLOSSARY.md): this course, its Students and its Orals.
 - [Publisher](./${glossary}): publishing and grading, as the installed publisher defines them.
   Its decisions are in [${adrs}](./${adrs}).
 `;
@@ -67,8 +67,9 @@ function check(workspace: Workspace): Promise<CommandResult> {
   });
 }
 
-test("the packed publisher holds its glossary, defining every publishing and grading term", () => {
-  const glossary = readFileSync(join(installedPublisher(), "CONTEXT.md"), "utf8");
+test("the packed publisher holds its glossary as GLOSSARY.md, defining every publishing and grading term", () => {
+  assert.ok(!existsSync(join(installedPublisher(), "CONTEXT.md")), "the old CONTEXT.md no longer ships");
+  const glossary = readFileSync(join(installedPublisher(), "GLOSSARY.md"), "utf8");
 
   for (const term of TERMS) {
     assert.match(glossary, new RegExp(`^\\*\\*${term}\\*\\*:`, "m"), `${term} is defined`);
@@ -88,7 +89,7 @@ test("the packed publisher holds its ADRs, under their existing numbers", () => 
 });
 
 test("the glossary says Competencies are declared per course and the Band scale is fixed", () => {
-  const glossary = readFileSync(join(installedPublisher(), "CONTEXT.md"), "utf8");
+  const glossary = readFileSync(join(installedPublisher(), "GLOSSARY.md"), "utf8");
 
   const entry = (term: string): string =>
     glossary.match(new RegExp(`^\\*\\*${term}\\*\\*:.*$`, "m"))?.[0] ?? "";
@@ -100,7 +101,7 @@ test("the glossary says Competencies are declared per course and the Band scale 
 test("check passes on the context map the README shows", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
-  workspace.write("CONTEXT-MAP.md", CONTEXT_MAP_MARKDOWN);
+  workspace.write("GLOSSARY-MAP.md", CONTEXT_MAP_MARKDOWN);
   linkSkills(workspace);
   const readme = readFileSync(join(installedPublisher(), "README.md"), "utf8");
   assert.ok(readme.includes(CONTEXT_MAP_MARKDOWN), "the README shows this map");
@@ -115,55 +116,72 @@ test("check fails, naming the path, when the pointer names an ADR folder the pub
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write(
-    "CONTEXT-MAP.md",
-    contextMap(`${INSTALLED_PUBLISHER}/CONTEXT.md`, `${INSTALLED_PUBLISHER}/docs/adrs/`)
+    "GLOSSARY-MAP.md",
+    contextMap(`${INSTALLED_PUBLISHER}/GLOSSARY.md`, `${INSTALLED_PUBLISHER}/docs/adrs/`)
   );
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /CONTEXT-MAP\.md/);
+  assert.match(result.stderr, /GLOSSARY-MAP\.md/);
   assert.match(result.stderr, /node_modules\/@epf-mde\/moodle-publisher\/docs\/adrs\//);
 });
 
 test("check fails, naming the glossary, when the publisher is not installed where the pointer says", async () => {
   const workspace = makeWorkspace();
   workspace.write(
-    "CONTEXT-MAP.md",
-    contextMap(`${INSTALLED_PUBLISHER}/CONTEXT.md`, `${INSTALLED_PUBLISHER}/docs/adr/`)
+    "GLOSSARY-MAP.md",
+    contextMap(`${INSTALLED_PUBLISHER}/GLOSSARY.md`, `${INSTALLED_PUBLISHER}/docs/adr/`)
   );
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /node_modules\/@epf-mde\/moodle-publisher\/CONTEXT\.md/);
+  assert.match(result.stderr, /node_modules\/@epf-mde\/moodle-publisher\/GLOSSARY\.md/);
 });
 
-test("check fails on a course repository with no CONTEXT-MAP.md, giving both links to add", async () => {
+test("check fails on a course repository with no GLOSSARY-MAP.md, giving both links to add", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /CONTEXT-MAP\.md/);
+  assert.match(result.stderr, /GLOSSARY-MAP\.md/);
   assert.match(result.stderr, /required/);
-  assert.ok(result.stderr.includes(`(./${INSTALLED_PUBLISHER}/CONTEXT.md)`), result.stderr);
+  assert.ok(result.stderr.includes(`(./${INSTALLED_PUBLISHER}/GLOSSARY.md)`), result.stderr);
   assert.ok(result.stderr.includes(`(./${INSTALLED_PUBLISHER}/docs/adr/)`), result.stderr);
+});
+
+test("check refuses a course repository that only has the old CONTEXT-MAP.md, giving the GLOSSARY-MAP.md to create", async () => {
+  const workspace = makeWorkspace();
+  installPublisher(workspace);
+  workspace.write(
+    "CONTEXT-MAP.md",
+    `# Context map\n\n- [Publisher](./${INSTALLED_PUBLISHER}/CONTEXT.md)\n- [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)\n`
+  );
+  linkSkills(workspace);
+
+  const result = await check(workspace);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /GLOSSARY-MAP\.md is required/);
+  assert.ok(result.stderr.includes(`- [Publisher](./${INSTALLED_PUBLISHER}/GLOSSARY.md)`), result.stderr);
+  assert.ok(result.stderr.includes(`- [ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)`), result.stderr);
 });
 
 test("check fails, naming the glossary, when the map does not link to it", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write(
-    "CONTEXT-MAP.md",
-    `# Context map\n\n- [Course](./CONTEXT.md)\n- [Publisher ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)\n`
+    "GLOSSARY-MAP.md",
+    `# Glossary map\n\n- [Course](./GLOSSARY.md)\n- [Publisher ADRs](./${INSTALLED_PUBLISHER}/docs/adr/)\n`
   );
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
-  assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/CONTEXT.md`), result.stderr);
+  assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/GLOSSARY.md`), result.stderr);
   assert.ok(!result.stderr.includes(`${INSTALLED_PUBLISHER}/docs/adr/`), result.stderr);
 });
 
@@ -171,26 +189,26 @@ test("check fails, naming the ADR folder, when the map does not link to it", asy
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write(
-    "CONTEXT-MAP.md",
-    `# Context map\n\n- [Course](./CONTEXT.md)\n- [Publisher](./${INSTALLED_PUBLISHER}/CONTEXT.md)\n`
+    "GLOSSARY-MAP.md",
+    `# Glossary map\n\n- [Course](./GLOSSARY.md)\n- [Publisher](./${INSTALLED_PUBLISHER}/GLOSSARY.md)\n`
   );
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
   assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/docs/adr/`), result.stderr);
-  assert.ok(!result.stderr.includes(`${INSTALLED_PUBLISHER}/CONTEXT.md`), result.stderr);
+  assert.ok(!result.stderr.includes(`${INSTALLED_PUBLISHER}/GLOSSARY.md`), result.stderr);
 });
 
 test("check fails, naming both links, when the map never links into the publisher", async () => {
   const workspace = makeWorkspace();
   installPublisher(workspace);
-  workspace.write("CONTEXT-MAP.md", "# Context map\n\n- [Course](./CONTEXT.md)\n");
+  workspace.write("GLOSSARY-MAP.md", "# Glossary map\n\n- [Course](./GLOSSARY.md)\n");
 
   const result = await check(workspace);
 
   assert.equal(result.code, 1);
-  assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/CONTEXT.md`), result.stderr);
+  assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/GLOSSARY.md`), result.stderr);
   assert.ok(result.stderr.includes(`${INSTALLED_PUBLISHER}/docs/adr/`), result.stderr);
 });
 
@@ -198,12 +216,12 @@ test("check counts the links however they are written: reference-style, bare, wi
   const workspace = makeWorkspace();
   installPublisher(workspace);
   workspace.write(
-    "CONTEXT-MAP.md",
-    `# Context map
+    "GLOSSARY-MAP.md",
+    `# Glossary map
 
 - The [publisher's glossary][glossary], and [its decisions](${INSTALLED_PUBLISHER}/docs/adr).
 
-[glossary]: ./${INSTALLED_PUBLISHER}/CONTEXT.md#language
+[glossary]: ./${INSTALLED_PUBLISHER}/GLOSSARY.md#language
 `
   );
   linkSkills(workspace);
@@ -214,11 +232,11 @@ test("check counts the links however they are written: reference-style, bare, wi
   assert.match(result.stdout, /Check passed/);
 });
 
-test("publish plans a course repository with no CONTEXT-MAP.md exactly as before", async () => {
+test("publish plans a course repository with no GLOSSARY-MAP.md exactly as before", async () => {
   const workspace = makeWorkspace();
 
   const result = await workspace.publisher(["publish"]);
 
   assert.equal(result.code, 0, result.stderr);
-  assert.doesNotMatch(result.stderr, /CONTEXT-MAP/);
+  assert.doesNotMatch(result.stderr, /GLOSSARY-MAP/);
 });

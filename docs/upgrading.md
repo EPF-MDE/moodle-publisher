@@ -2,7 +2,31 @@
 
 What a course repository does, once, when it moves its pinned tag past a release that asks for it. Each note is written for the agent doing the upgrade in the course repository, which reads it here, in the installed publisher: `node_modules/@epf-mde/moodle-publisher/docs/upgrading.md`. The newest note is first.
 
-## Next release — GitHub references are published as links
+## v5.0.0 — the context pointer is `GLOSSARY-MAP.md`, into the publisher's `GLOSSARY.md`
+
+The domain glossary files are renamed to the names the agent skills read: the publisher now ships its glossary as `GLOSSARY.md` (no longer `CONTEXT.md`), and `check` requires the course repository's map at `GLOSSARY-MAP.md` (no longer `CONTEXT-MAP.md`). There is no transition: a course repository with only `CONTEXT-MAP.md` fails `check`, and the error names `GLOSSARY-MAP.md` and the links to create. Nothing else changes: `publish`, the Manifest and every other command behave as before, and no Published Document is republished.
+
+In the course repository, at its root:
+
+1. Rename the map, and every glossary the course has of its own, keeping their history:
+
+   ```sh
+   git mv CONTEXT-MAP.md GLOSSARY-MAP.md
+   git mv CONTEXT.md GLOSSARY.md                        # if the course has a root glossary
+   git mv src/<ctx>/CONTEXT.md src/<ctx>/GLOSSARY.md   # for each per-context glossary the map names
+   ```
+
+2. Find every remaining reference to the old names:
+
+   ```sh
+   git grep -n 'CONTEXT\(-MAP\)\?\.md'
+   ```
+
+   Repoint every live hit to `GLOSSARY.md` or `GLOSSARY-MAP.md`: in `GLOSSARY-MAP.md`, the publisher link (`node_modules/@epf-mde/moodle-publisher/CONTEXT.md` becomes `node_modules/@epf-mde/moodle-publisher/GLOSSARY.md`; the ADR link is unchanged) and the course's own links; the course's renamed `GLOSSARY.md` itself, whose text may describe its own map; and `CLAUDE.md`, `AGENTS.md`, `docs/agents/domain.md` or wherever else they appear. Leave dated records as they are: they say what was true when they were written.
+
+3. Move the pin in `package.json` to `#v5.0.0`, run `npm install`, then `npx moodle-publisher check`, which passes once the map links to both. Commit everything in one commit, `package-lock.json` included: a pre-commit hook that runs `check` refuses any step alone.
+
+## v4.2.0 — GitHub references are published as links
 
 A reference like `EPF-MDE/OceENS#97` in a published document now publishes as a link to that issue, instead of the plain text it printed as before ([Cross-references](../README.md#cross-references)). This release asks for no edit and refuses nothing it accepted before. The first `npm run apply` after the upgrade republishes each document that makes one; the plan says which. `#97` without its repository still prints as text, so write the repository in when a student should be able to click it.
 
@@ -38,7 +62,7 @@ Every field of a block that is written is required, and `check` refuses a half-w
 
 ## v4.0.0 — the Assessment Grid is assembled
 
-The Assessment Grid a Student reads is no longer written whole by the course. The publisher assembles it at publish time from the course's **Grid Source** and the **Grid Frame** it ships ([ADR-0014](./adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md); the terms are in the publisher's `CONTEXT.md`). The Grid Frame, [`grid-frame.md`](./grid-frame.md), holds everything a Student reads except the bodies of the Competency blocks: the opening line, the Band legend and the two gaps, how the Bands are given, each Freeze, the Feedback Letter, each Competency's heading and the Resit section. It writes each Freeze from its Deliverable's `due`, each heading from `competencies:`, and the programme, the term and the Oral from new front-matter fields.
+The Assessment Grid a Student reads is no longer written whole by the course. The publisher assembles it at publish time from the course's **Grid Source** and the **Grid Frame** it ships ([ADR-0014](./adr/0014-the-assessment-grid-is-assembled-from-a-grid-source-and-a-grid-frame.md); the terms are in the publisher's glossary, `GLOSSARY.md` since v5.0.0). The Grid Frame, [`grid-frame.md`](./grid-frame.md), holds everything a Student reads except the bodies of the Competency blocks: the opening line, the Band legend and the two gaps, how the Bands are given, each Freeze, the Feedback Letter, each Competency's heading and the Resit section. It writes each Freeze from its Deliverable's `due`, each heading from `competencies:`, and the programme, the term and the Oral from new front-matter fields.
 
 So the grid a course copied from an earlier publisher states all of that a second time, and `check` refuses it: it has no `programme`, `term` or `oral`, and its prose has headings that are not a Competency's id. Converting it is a single edit to the file `publisher.json` names as `grid`. The publisher neither detects nor converts the old shape.
 
