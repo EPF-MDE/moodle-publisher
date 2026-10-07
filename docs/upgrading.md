@@ -8,16 +8,23 @@ The domain glossary files are renamed to the names the agent skills read: the pu
 
 In the course repository, at its root:
 
-1. Rename the map, and the course's own glossary if it has one, keeping their history:
+1. Rename the map, and every glossary the course has of its own, keeping their history:
 
    ```sh
    git mv CONTEXT-MAP.md GLOSSARY-MAP.md
-   git mv CONTEXT.md GLOSSARY.md   # only if the course has its own CONTEXT.md
+   git mv CONTEXT.md GLOSSARY.md                        # if the course has a root glossary
+   git mv src/<ctx>/CONTEXT.md src/<ctx>/GLOSSARY.md   # for each per-context glossary the map names
    ```
 
-2. In `GLOSSARY-MAP.md`, repoint the publisher link from `node_modules/@epf-mde/moodle-publisher/CONTEXT.md` to `node_modules/@epf-mde/moodle-publisher/GLOSSARY.md`, and the course's own link from `CONTEXT.md` to `GLOSSARY.md`. The ADR link, `node_modules/@epf-mde/moodle-publisher/docs/adr/`, is unchanged. Repoint any other file that names either old file (`CLAUDE.md`, `AGENTS.md`, `docs/agents/domain.md`); leave dated records, which say what was true when they were written.
+2. Find every remaining reference to the old names:
 
-3. Move the pin in `package.json` to `#v5.0.0`, then `npm install` and `npx moodle-publisher check`, which passes once the map links to both. Commit the three steps together: a pre-commit hook that runs `check` refuses any one of them alone.
+   ```sh
+   git grep -n 'CONTEXT\(-MAP\)\?\.md'
+   ```
+
+   Repoint every live hit to `GLOSSARY.md` or `GLOSSARY-MAP.md`: in `GLOSSARY-MAP.md`, the publisher link (`node_modules/@epf-mde/moodle-publisher/CONTEXT.md` becomes `node_modules/@epf-mde/moodle-publisher/GLOSSARY.md`; the ADR link is unchanged) and the course's own links; the course's renamed `GLOSSARY.md` itself, whose text may describe its own map; and `CLAUDE.md`, `AGENTS.md`, `docs/agents/domain.md` or wherever else they appear. Leave dated records as they are: they say what was true when they were written.
+
+3. Move the pin in `package.json` to `#v5.0.0`, run `npm install`, then `npx moodle-publisher check`, which passes once the map links to both. Commit everything in one commit, `package-lock.json` included: a pre-commit hook that runs `check` refuses any step alone.
 
 ## v4.2.0 — GitHub references are published as links
 
