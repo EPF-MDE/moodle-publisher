@@ -28,7 +28,7 @@ In the course repository, at its root:
 
 ## v4.2.0 — GitHub references are published as links
 
-A reference like `EPF-MDE/OceENS#97` in a published document now publishes as a link to that issue, instead of the plain text it printed as before ([Cross-references](../README.md#cross-references)). This release asks for no edit and refuses nothing it accepted before. The first `npm run apply` after the upgrade republishes each document that makes one; the plan says which. `#97` without its repository still prints as text, so write the repository in when a student should be able to click it.
+A reference like `EPF-MDE/OceENS#97` in a published document now publishes as a link to that issue, instead of the plain text it printed as before ([Cross-references](./what-may-be-published.md#cross-references)). This release asks for no edit and refuses nothing it accepted before. The first `npm run apply` after the upgrade republishes each document that makes one; the plan says which. `#97` without its repository still prints as text, so write the repository in when a student should be able to click it.
 
 ## v4.1.0 — the Grid Frame states the Rehearsal, the Reading Day and the Oral's timetable
 
